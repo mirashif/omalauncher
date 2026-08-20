@@ -35,6 +35,7 @@ function actionsForResult(result, context, route) {
   var application = text(row.resultType || row.type) === "application"
   var resultKind = text(row.resultKind || row.kind)
   var menu = !application && (resultKind === "menu" || resultKind === "link")
+  var hiddenManager = resultKind === "manage-hidden"
   var resultTitle = text(row.title)
   var actions = []
   var activeRoute = text(route || "root")
@@ -92,19 +93,32 @@ function actionsForResult(result, context, route) {
         "Alias"
       ))
     }
+    actions.push(action(
+      "toggle-hidden",
+      state.hidden ? "Unhide from Search" : "Hide from Search",
+      resultTitle,
+      "",
+      state.hidden ? "" : "",
+      ["hide", "unhide", "visibility", "search"],
+      2,
+      "Visibility"
+    ))
     return actions
   }
 
   actions.push(action(
     "primary",
-    application ? "Open Application" : (menu ? "Open Menu" : "Run Command"),
+    hiddenManager ? "Manage Hidden Results"
+      : (application ? "Open Application" : (menu ? "Open Menu" : "Run Command")),
     resultTitle,
     "Enter",
-    application ? "" : (menu ? "" : "▶"),
+    hiddenManager ? "" : (application ? "" : (menu ? "" : "▶")),
     ["open", "run", "launch", "primary", resultTitle],
     0,
     "Primary"
   ))
+
+  if (hiddenManager) return actions
 
   if (!application) {
     actions.push(action(

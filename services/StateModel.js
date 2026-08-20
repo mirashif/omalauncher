@@ -313,7 +313,8 @@ function emptyStateRows(records, state, options) {
     var remainingRecord = records[r]
     var remainingId = validId(remainingRecord && remainingRecord.id)
     if (!remainingId || included[remainingId]) continue
-    var section = remainingRecord.type === "application" ? "Applications" : "Omarchy Commands"
+    var section = String(remainingRecord.section || "")
+      || (remainingRecord.type === "application" ? "Applications" : "Omarchy Commands")
     rows.push(copyRecord(remainingRecord, section, isFavorite(current, remainingId)))
     included[remainingId] = true
   }

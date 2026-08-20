@@ -156,6 +156,17 @@ test("empty state shows the complete index without history", () => {
   ])
 })
 
+test("empty state preserves explicit sections for launcher-owned records", () => {
+  const rows = StateModel.emptyStateRows([{
+    id: "omalauncher:manage-hidden",
+    type: "launcher-command",
+    title: "Manage Hidden Results",
+    section: "Launcher"
+  }], StateModel.emptyState())
+
+  assert.equal(rows[0].section, "Launcher")
+})
+
 test("reset ranking can clear one result or all usage", () => {
   const state = {
     version: 1,

@@ -311,6 +311,54 @@ Item {
     root.rebuildResults()
   }
 
+  function hiddenRecords() {
+    var output = []
+    for (var i = 0; i < root.allRecords.length; i++) {
+      var record = root.allRecords[i]
+      if (!stateStore.isHidden(record.id)) continue
+      var copy = ({})
+      for (var key in record) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
+      }
+      copy.section = record.type === "application" ? "Hidden Applications" : "Hidden Omarchy Commands"
+      output.push(copy)
+    }
+    return output
+  }
+
+  function managementRecords() {
+    if (root.hiddenRecords().length === 0) return []
+    return [{
+      id: "omalauncher:manage-hidden",
+      type: "launcher-command",
+      kind: "manage-hidden",
+      title: "Manage Hidden Results",
+      breadcrumb: "Omalauncher",
+      description: "Review and restore results hidden from search",
+      icon: "",
+      iconFont: "",
+      appIcon: "",
+      appId: "",
+      aliases: [],
+      keywords: ["hidden", "unhide", "visibility", "manage"],
+      route: "hidden",
+      parentRoute: "root",
+      searchText: "manage hidden results unhide visibility omalauncher",
+      providerPriority: -1,
+      order: -1,
+      section: "Launcher"
+    }]
+  }
+
+  function visibleRecords(records) {
+    var output = []
+    var source = records || []
+    for (var i = 0; i < source.length; i++) {
+      if (!stateStore.isHidden(source[i].id)) output.push(source[i])
+    }
+    return output
+  }
+
   function personalizedRecords(records) {
     var output = []
     var source = records || []
@@ -337,16 +385,19 @@ Item {
   function rebuildResults() {
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
-    if (root.activeRoute !== "root" && root.activeRoute !== "apps" && !root.menuItems[root.activeRoute]) {
+    if (root.activeRoute !== "root" && root.activeRoute !== "apps"
+        && root.activeRoute !== "hidden" && !root.menuItems[root.activeRoute]) {
       root.activeRoute = "root"
       root.navigationStack = []
     }
 
-    var scopedRecords = root.allRecords
+    var scopedRecords = root.visibleRecords(root.allRecords).concat(root.managementRecords())
     if (root.activeRoute === "apps") {
-      scopedRecords = root.appRecords
+      scopedRecords = root.visibleRecords(root.appRecords)
+    } else if (root.activeRoute === "hidden") {
+      scopedRecords = root.hiddenRecords()
     } else if (root.activeRoute !== "root") {
-      scopedRecords = MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query)
+      scopedRecords = root.visibleRecords(MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query))
     }
 
     scopedRecords = root.personalizedRecords(scopedRecords)
@@ -420,13 +471,14 @@ Item {
   function menuTitle(route) {
     if (route === "root") return "Omalauncher"
     if (route === "apps") return "Apps"
+    if (route === "hidden") return "Hidden Results"
     var entry = root.menuItems[route]
     return entry ? String(entry.title || entry.label || route) : String(route || "Omalauncher")
   }
 
   function setActiveRoute(route, pushHistory) {
     var nextRoute = String(route || "root")
-    if (nextRoute !== "root") {
+    if (nextRoute !== "root" && nextRoute !== "hidden") {
       var nextEntry = root.menuItems[nextRoute]
       if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
       if (nextEntry.kind === "link" && nextEntry.target) {
@@ -515,7 +567,8 @@ Item {
     var actions = ActionModel.actionsForResult(root.actionTarget, {
       favorite: stateStore.isFavorite(root.actionTarget.resultId),
       usage: stateStore.usage,
-      alias: stateStore.aliasFor(root.actionTarget.resultId)
+      alias: stateStore.aliasFor(root.actionTarget.resultId),
+      hidden: stateStore.isHidden(root.actionTarget.resultId)
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -679,6 +732,12 @@ Item {
       root.rebuildActions()
       return
     }
+    if (selectedActionId === "toggle-hidden") {
+      var hiddenNow = stateStore.setHidden(target.resultId, !stateStore.isHidden(target.resultId))
+      root.closeActionPanel()
+      if (!hiddenNow && root.activeRoute === "hidden" && root.hiddenRecords().length === 0) root.goBack()
+      return
+    }
     if (selectedActionId === "stock-menu") {
       root.openInStockMenu(target)
       return
@@ -698,6 +757,10 @@ Item {
 
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
+    if (row.resultKind === "manage-hidden") {
+      root.setActiveRoute("hidden", true)
+      return
+    }
     stateStore.recordSelection(row.resultId)
     if (row.resultType === "application") {
       root.launchApplication(row.appId, row.title)

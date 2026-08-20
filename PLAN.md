@@ -29,7 +29,7 @@ Implementation rules:
   navigation, and open the panel from a result row's right-click action.
 - [x] 3. Add editable user aliases with conflict handling, search integration,
   persistent result badges, and remove-alias support.
-- [ ] 4. Add hide/unhide actions plus a searchable Manage Hidden Results view so
+- [x] 4. Add hide/unhide actions plus a searchable Manage Hidden Results view so
   every hidden item remains recoverable.
 - [ ] 5. Add favorite reordering through Action Panel actions and direct
   keyboard shortcuts.

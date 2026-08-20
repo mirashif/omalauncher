@@ -83,13 +83,27 @@ test("configure submenu exposes alias editing and removal", () => {
     resultType: "application",
     title: "Brave"
   }
-  const empty = ActionModel.actionsForResult(result, { alias: "" }, "configure")
-  const configured = ActionModel.actionsForResult(result, { alias: "bb" }, "configure")
+  const empty = ActionModel.actionsForResult(result, { alias: "", hidden: false }, "configure")
+  const configured = ActionModel.actionsForResult(result, { alias: "bb", hidden: true }, "configure")
 
-  assert.deepEqual(empty.map(action => action.id), ["set-alias"])
+  assert.deepEqual(empty.map(action => action.id), ["set-alias", "toggle-hidden"])
   assert.equal(empty[0].kind, "editor")
-  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias"])
+  assert.equal(empty[1].title, "Hide from Search")
+  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias", "toggle-hidden"])
   assert.equal(configured[0].description, "bb")
+  assert.equal(configured[2].title, "Unhide from Search")
+})
+
+test("hidden-result manager exposes only its primary navigation action", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "omalauncher:manage-hidden",
+    resultType: "launcher-command",
+    resultKind: "manage-hidden",
+    title: "Manage Hidden Results"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary"])
+  assert.equal(actions[0].title, "Manage Hidden Results")
 })
 
 test("action titles and keywords are searchable", () => {
