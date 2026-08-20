@@ -243,6 +243,29 @@ function actionsForResult(result, context, route) {
     ))
   }
 
+  if (application && state.applicationRunning === true) {
+    actions.push(action(
+      "quit-application",
+      "Quit Application",
+      resultTitle,
+      "",
+      "󰗼",
+      ["application", "quit", "close", "exit"],
+      actions.length,
+      "Application"
+    ))
+    actions.push(action(
+      "restart-application",
+      "Restart Application",
+      resultTitle,
+      "",
+      "󰜉",
+      ["application", "restart", "relaunch", "quit", "open"],
+      actions.length,
+      "Application"
+    ))
+  }
+
   if (cliDirect) {
     actions.push(action(
       "command-help",

@@ -730,6 +730,7 @@ Item {
         iconFont: String(result.iconFont || ""),
         appIcon: String(result.appIcon || ""),
         appId: String(result.appId || ""),
+        startupClass: String(result.startupClass || ""),
         route: String(result.route || ""),
         parentRoute: result.parentRoute === undefined ? "root" : String(result.parentRoute || ""),
         targetRoute: String(result.targetRoute || ""),
@@ -867,6 +868,7 @@ Item {
       breadcrumb: String(row.breadcrumb || ""),
       description: String(row.description || ""),
       appId: String(row.appId || ""),
+      startupClass: String(row.startupClass || ""),
       route: String(row.route || ""),
       parentRoute: String(row.parentRoute || ""),
       targetRoute: String(row.targetRoute || ""),
@@ -1030,6 +1032,9 @@ Item {
     actionSearchInput.text = ""
     root.actionPanelOpen = true
     root.rebuildActions()
+    if (target.resultType === "application") {
+      appRuntimeProvider.inspect(target.appId, target.startupClass, target.title)
+    }
     Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
   }
 
@@ -1060,7 +1065,11 @@ Item {
       canConfigureHotkeys: root.actionTarget.resultType === "application"
         && appHotkeyProvider.ready && !appHotkeyProvider.error,
       hotkey: root.actionTarget.resultType === "application"
-        ? appHotkeyProvider.hotkeyFor(root.actionTarget.appId) : ""
+        ? appHotkeyProvider.hotkeyFor(root.actionTarget.appId) : "",
+      applicationRunning: root.actionTarget.resultType === "application"
+        && appRuntimeProvider.matchesTarget(
+          root.actionTarget.appId, root.actionTarget.startupClass)
+        && appRuntimeProvider.snapshot.running === true
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -1384,6 +1393,18 @@ Item {
       if (!appHotkeyProvider.requestRemove(target.appId)) {
         root.showOsd("", "Could not remove this application hotkey")
       }
+      return
+    }
+    if (selectedActionId === "quit-application" || selectedActionId === "restart-application") {
+      var runtimeAction = selectedActionId === "restart-application" ? "restart" : "quit"
+      if (!appRuntimeProvider.requestAction(
+          runtimeAction, target.appId, target.startupClass, target.title)) {
+        root.showOsd("", "Another application action is still running")
+        return
+      }
+      root.showOsd(runtimeAction === "restart" ? "󰜉" : "󰗼",
+        (runtimeAction === "restart" ? "Restarting " : "Quitting ") + target.title)
+      root.dismiss()
       return
     }
     if (selectedActionId === "reveal-application"
@@ -1906,6 +1927,23 @@ Item {
     onDesktopEntryResolutionFailed: function(operation, appId) {
       root.showOsd("", "Could not find the desktop entry")
       if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+    }
+  }
+
+  AppRuntimeProvider {
+    id: appRuntimeProvider
+    onSnapshotChanged: {
+      if (root.actionPanelOpen && root.actionTarget.resultType === "application") root.rebuildActions()
+    }
+    onQuitCompleted: function(appId, title) {
+      root.showOsd("󰗼", "Quit " + title)
+    }
+    onRestartReady: function(appId, title) {
+      if (appProvider.launch(appId, title)) root.showOsd("󰜉", "Restarted " + title)
+      else root.showOsd("", "Could not relaunch " + title)
+    }
+    onActionFailed: function(operation, appId, message) {
+      root.showOsd("", message)
     }
   }
 

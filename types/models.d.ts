@@ -52,6 +52,7 @@ export interface SearchableRecord {
   iconFont?: string;
   appIcon?: string;
   appId?: string;
+  startupClass?: string;
   aliases?: string[];
   keywords?: string[];
   route?: string;
@@ -119,6 +120,7 @@ export interface DesktopEntryInput {
   icon?: unknown;
   keywords?: unknown;
   categories?: unknown;
+  startupClass?: unknown;
 }
 
 export interface ApplicationBuildOptions {
@@ -129,7 +131,25 @@ export interface ApplicationRecord extends SearchableRecord {
   type: "application";
   kind: "application";
   appId: string;
+  startupClass: string;
   title: string;
+}
+
+export interface AppRuntimeWindow {
+  address: string;
+  pid: number;
+  className: string;
+  title: string;
+}
+
+export interface AppRuntimeSnapshot {
+  supported: boolean;
+  appId: string;
+  startupClass: string;
+  identity: string;
+  running: boolean;
+  windows: AppRuntimeWindow[];
+  error: string;
 }
 
 export interface DesktopEntryResolutionRequest {
@@ -350,6 +370,7 @@ export interface ActionInput {
   calculatorResult?: string;
   filePath?: string;
   appId?: string;
+  startupClass?: string;
 }
 
 export interface ActionContext {
@@ -363,6 +384,7 @@ export interface ActionContext {
   canResolveDesktopEntry?: boolean;
   canConfigureHotkeys?: boolean;
   hotkey?: string;
+  applicationRunning?: boolean;
 }
 
 export interface ActionRecord extends SearchableRecord {

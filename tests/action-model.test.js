@@ -52,6 +52,23 @@ test("applications expose desktop-entry utilities only when resolution is availa
   assert.equal(actions[3].description, "org.mozilla.firefox")
 })
 
+test("application quit and restart appear only for a confirmed running identity", () => {
+  const result = {
+    resultId: "application:org.mozilla.firefox",
+    resultType: "application",
+    appId: "org.mozilla.firefox",
+    title: "Firefox"
+  }
+  const stopped = ActionModel.actionsForResult(result, { applicationRunning: false })
+  const running = ActionModel.actionsForResult(result, { applicationRunning: true })
+
+  assert.equal(stopped.some(action => action.id === "quit-application"), false)
+  assert.deepEqual(
+    running.filter(action => action.id.endsWith("-application")).map(action => action.id),
+    ["quit-application", "restart-application"]
+  )
+})
+
 test("commands expose structured root and Omarchy submenu actions", () => {
   const id = "omarchy:update.config.hyprland"
   const actions = ActionModel.actionsForResult({

@@ -107,6 +107,7 @@ function buildApplicationRecords(entries, options) {
       iconFont: "",
       appIcon: String(entry.icon || ""),
       appId: appId,
+      startupClass: String(entry.startupClass || "").trim(),
       aliases: [],
       keywords: keywords.concat(categories),
       route: "",

@@ -11,6 +11,7 @@ const entries = [
     genericName: "Web Browser",
     comment: "Browse the World Wide Web",
     icon: "firefox",
+    startupClass: "firefox",
     keywords: ["Internet", "WWW", "Browser", "Web"],
     categories: ["Network", "WebBrowser"]
   },
@@ -39,14 +40,16 @@ test("application records normalize ids, metadata, and icons", () => {
       type: firefox.type,
       title: firefox.title,
       description: firefox.description,
-      appIcon: firefox.appIcon
+      appIcon: firefox.appIcon,
+      startupClass: firefox.startupClass
     },
     {
       id: "application:org.mozilla.firefox",
       type: "application",
       title: "Firefox",
       description: "Web Browser",
-      appIcon: "firefox"
+      appIcon: "firefox",
+      startupClass: "firefox"
     }
   )
 })
