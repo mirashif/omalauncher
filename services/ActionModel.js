@@ -66,6 +66,35 @@ function actionsForResult(result, context, route) {
     return actions
   }
 
+  if (activeRoute === "configure") {
+    var currentAlias = text(state.alias)
+    actions.push(action(
+      "set-alias",
+      currentAlias ? "Change Alias" : "Set Alias",
+      currentAlias || resultTitle,
+      "",
+      "󰌌",
+      ["alias", "keyword", "rename", "configure"],
+      0,
+      "Alias",
+      "editor",
+      "alias"
+    ))
+    if (currentAlias) {
+      actions.push(action(
+        "remove-alias",
+        "Remove Alias",
+        currentAlias,
+        "",
+        "",
+        ["alias", "remove", "delete", "clear"],
+        1,
+        "Alias"
+      ))
+    }
+    return actions
+  }
+
   actions.push(action(
     "primary",
     application ? "Open Application" : (menu ? "Open Menu" : "Run Command"),
@@ -92,6 +121,20 @@ function actionsForResult(result, context, route) {
     ))
   }
 
+
+  actions.push(action(
+    "configure-actions",
+    "Configure Result",
+    state.alias ? "Alias: " + text(state.alias) : "Set a search alias",
+    "",
+    "",
+    ["configure", "alias", "keyword", "settings"],
+    2,
+    "Configure",
+    "submenu",
+    "configure"
+  ))
+
   actions.push(action(
     "favorite",
     favorite ? "Remove from Favorites" : "Add to Favorites",
@@ -99,7 +142,7 @@ function actionsForResult(result, context, route) {
     "Ctrl+F",
     "",
     ["favorite", "favourite", "star", "pin", favorite ? "remove" : "add"],
-    2,
+    3,
     "Favorites"
   ))
 
@@ -111,7 +154,7 @@ function actionsForResult(result, context, route) {
       "",
       "",
       ["reset", "ranking", "usage", "history", "forget", "frecency"],
-      3,
+      4,
       "Manage"
     ))
   }

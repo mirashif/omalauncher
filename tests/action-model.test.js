@@ -12,9 +12,9 @@ test("application actions expose open and favorites without an Omarchy parent", 
     parentRoute: "root"
   }, { favorite: false, usage: {} })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "favorite"])
+  assert.deepEqual(actions.map(action => action.id), ["primary", "configure-actions", "favorite"])
   assert.equal(actions[0].title, "Open Application")
-  assert.equal(actions[1].title, "Add to Favorites")
+  assert.equal(actions[2].title, "Add to Favorites")
 })
 
 test("commands expose structured root and Omarchy submenu actions", () => {
@@ -31,12 +31,12 @@ test("commands expose structured root and Omarchy submenu actions", () => {
     usage: { [id]: { count: 3, lastUsed: 1000 } }
   })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "omarchy-actions", "favorite", "reset-ranking"])
+  assert.deepEqual(actions.map(action => action.id), ["primary", "omarchy-actions", "configure-actions", "favorite", "reset-ranking"])
   assert.equal(actions[0].title, "Run Command")
   assert.equal(actions[1].kind, "submenu")
   assert.equal(actions[1].target, "omarchy")
-  assert.equal(actions[2].title, "Remove from Favorites")
-  assert.deepEqual(actions.map(action => action.section), ["Primary", "Navigation", "Favorites", "Manage"])
+  assert.equal(actions[3].title, "Remove from Favorites")
+  assert.deepEqual(actions.map(action => action.section), ["Primary", "Navigation", "Configure", "Favorites", "Manage"])
 
   const omarchyActions = ActionModel.actionsForResult({
     resultId: id,
@@ -75,6 +75,21 @@ test("menu links use navigation actions", () => {
 
   assert.equal(actions[0].title, "Open Menu")
   assert.equal(actions[1].description, "Settings")
+})
+
+test("configure submenu exposes alias editing and removal", () => {
+  const result = {
+    resultId: "application:brave-browser",
+    resultType: "application",
+    title: "Brave"
+  }
+  const empty = ActionModel.actionsForResult(result, { alias: "" }, "configure")
+  const configured = ActionModel.actionsForResult(result, { alias: "bb" }, "configure")
+
+  assert.deepEqual(empty.map(action => action.id), ["set-alias"])
+  assert.equal(empty[0].kind, "editor")
+  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias"])
+  assert.equal(configured[0].description, "bb")
 })
 
 test("action titles and keywords are searchable", () => {

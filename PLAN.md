@@ -27,7 +27,7 @@ Implementation rules:
   compact-mode preference, including migration from the v1 state schema.
 - [x] 2. Introduce structured Action Panel sections and shallow submenu
   navigation, and open the panel from a result row's right-click action.
-- [ ] 3. Add editable user aliases with conflict handling, search integration,
+- [x] 3. Add editable user aliases with conflict handling, search integration,
   persistent result badges, and remove-alias support.
 - [ ] 4. Add hide/unhide actions plus a searchable Manage Hidden Results view so
   every hidden item remains recoverable.

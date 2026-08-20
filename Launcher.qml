@@ -43,6 +43,8 @@ Item {
   property string actionRouteTitle: "Actions"
   property var actionNavigationStack: []
   property int actionSectionCount: 0
+  property bool aliasEditorOpen: false
+  property string aliasEditorError: ""
   property bool guardsPending: false
   property bool guardsReady: false
   property bool guardEvaluationSettled: false
@@ -309,6 +311,29 @@ Item {
     root.rebuildResults()
   }
 
+  function personalizedRecords(records) {
+    var output = []
+    var source = records || []
+    for (var i = 0; i < source.length; i++) {
+      var record = source[i]
+      var copy = ({})
+      for (var key in record) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
+      }
+      var userAlias = stateStore.aliasFor(record.id)
+      var aliases = userAlias ? [userAlias] : []
+      var sourceAliases = Array.isArray(record.aliases) ? record.aliases : []
+      for (var a = 0; a < sourceAliases.length; a++) {
+        if (String(sourceAliases[a]).toLowerCase() !== userAlias.toLowerCase()) aliases.push(sourceAliases[a])
+      }
+      copy.aliases = aliases
+      copy.userAlias = userAlias
+      copy.searchText = [record.searchText || "", userAlias].join(" ")
+      output.push(copy)
+    }
+    return output
+  }
+
   function rebuildResults() {
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
@@ -324,6 +349,7 @@ Item {
       scopedRecords = MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query)
     }
 
+    scopedRecords = root.personalizedRecords(scopedRecords)
     var results
     if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
     else if (root.activeRoute === "root") results = stateStore.emptyRows(root.allRecords)
@@ -351,7 +377,8 @@ Item {
         isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
-        favorite: stateStore.isFavorite(result.id)
+        favorite: stateStore.isFavorite(result.id),
+        userAlias: String(result.userAlias || "")
       })
     }
     root.resultSectionCount = Object.keys(sections).length
@@ -385,7 +412,8 @@ Item {
       route: String(row.route || ""),
       parentRoute: String(row.parentRoute || ""),
       targetRoute: String(row.targetRoute || ""),
-      provider: String(row.provider || "")
+      provider: String(row.provider || ""),
+      userAlias: String(row.userAlias || "")
     }
   }
 
@@ -451,6 +479,8 @@ Item {
     root.actionRouteTitle = "Actions"
     root.actionNavigationStack = []
     root.actionSectionCount = 0
+    root.aliasEditorOpen = false
+    root.aliasEditorError = ""
     actionResultsModel.clear()
     actionSearchInput.text = ""
   }
@@ -484,7 +514,8 @@ Item {
 
     var actions = ActionModel.actionsForResult(root.actionTarget, {
       favorite: stateStore.isFavorite(root.actionTarget.resultId),
-      usage: stateStore.usage
+      usage: stateStore.usage,
+      alias: stateStore.aliasFor(root.actionTarget.resultId)
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -549,6 +580,65 @@ Item {
     return true
   }
 
+  function aliasConflictId(value, targetId) {
+    var alias = SearchEngine.normalize(value)
+    if (!alias) return ""
+    for (var i = 0; i < root.allRecords.length; i++) {
+      var record = root.allRecords[i]
+      if (String(record.id || "") === String(targetId || "")) continue
+      var userAlias = stateStore.aliasFor(record.id)
+      if (userAlias && SearchEngine.normalize(userAlias) === alias) return String(record.id || "")
+      var aliases = Array.isArray(record.aliases) ? record.aliases : []
+      for (var a = 0; a < aliases.length; a++) {
+        if (SearchEngine.normalize(aliases[a]) === alias) return String(record.id || "")
+      }
+    }
+    return ""
+  }
+
+  function resultTitleById(resultId) {
+    for (var i = 0; i < root.allRecords.length; i++) {
+      if (String(root.allRecords[i].id || "") === String(resultId || "")) return String(root.allRecords[i].title || resultId)
+    }
+    return String(resultId || "")
+  }
+
+  function openAliasEditor() {
+    root.aliasEditorError = ""
+    root.aliasEditorOpen = true
+    aliasEditInput.text = stateStore.aliasFor(root.actionTarget.resultId)
+    Qt.callLater(function() {
+      aliasEditInput.forceActiveFocus()
+      aliasEditInput.selectAll()
+    })
+  }
+
+  function closeAliasEditor() {
+    root.aliasEditorOpen = false
+    root.aliasEditorError = ""
+    Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+  }
+
+  function saveAliasEditor() {
+    var alias = String(aliasEditInput.text || "").trim().toLowerCase()
+    if (!alias) {
+      root.aliasEditorError = "Enter an alias"
+      return
+    }
+    if (!/^[a-z0-9._-]+$/.test(alias)) {
+      root.aliasEditorError = "Use letters, numbers, dots, dashes, or underscores"
+      return
+    }
+    var conflictId = root.aliasConflictId(alias, root.actionTarget.resultId)
+    if (conflictId) {
+      root.aliasEditorError = "Already used by " + root.resultTitleById(conflictId)
+      return
+    }
+    stateStore.setAlias(root.actionTarget.resultId, alias)
+    root.closeAliasEditor()
+    root.rebuildActions()
+  }
+
   function performAction(actionId) {
     var selectedActionId = String(actionId || "")
     if (!selectedActionId) {
@@ -570,6 +660,11 @@ Item {
       root.openActionRoute(selectedAction.targetRoute, selectedAction.title)
       return
     }
+    if (String(selectedAction.actionKind || "") === "editor"
+        && String(selectedAction.targetRoute || "") === "alias") {
+      root.openAliasEditor()
+      return
+    }
 
     if (selectedActionId === "favorite") {
       stateStore.toggleFavorite(target.resultId)
@@ -577,6 +672,11 @@ Item {
     }
     if (selectedActionId === "reset-ranking") {
       stateStore.resetRanking(target.resultId)
+      return
+    }
+    if (selectedActionId === "remove-alias") {
+      stateStore.setAlias(target.resultId, "")
+      root.rebuildActions()
       return
     }
     if (selectedActionId === "stock-menu") {
@@ -999,6 +1099,7 @@ Item {
           required property string resultKind
           required property bool favorite
           required property bool isChecked
+          required property string userAlias
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
@@ -1076,8 +1177,12 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
-            visible: resultRow.selected
-            text: (resultRow.favorite ? "★  ·  " : "") + "Ctrl+K  ·  ↵"
+            visible: resultRow.selected || resultRow.userAlias.length > 0
+            text: resultRow.selected
+              ? (resultRow.favorite ? "★  ·  " : "")
+                + (resultRow.userAlias ? resultRow.userAlias + "  ·  " : "")
+                + "Ctrl+K  ·  ↵"
+              : resultRow.userAlias
             color: root.selectedText
             opacity: 0.68
             font.family: Style.font.menuFamily
@@ -1396,12 +1501,108 @@ Item {
 
         Text {
           anchors.centerIn: actionList
-          visible: actionResultsModel.count === 0
+          visible: actionResultsModel.count === 0 && !root.aliasEditorOpen
           text: "No matching actions"
           color: root.foreground
           opacity: 0.55
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.body
+        }
+
+        Rectangle {
+          id: aliasEditor
+          anchors.fill: parent
+          visible: root.aliasEditorOpen
+          z: 30
+          radius: actionPanel.radius
+          color: root.background
+          border.width: Math.max(1, Style.space(1))
+          border.color: root.borderColor
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: aliasEditInput.forceActiveFocus()
+          }
+
+          Column {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Style.space(18)
+            spacing: Style.space(12)
+
+            Text {
+              width: parent.width
+              text: "Set Alias"
+              color: root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.title
+              font.weight: Font.DemiBold
+            }
+
+            Text {
+              width: parent.width
+              text: String(root.actionTarget.title || "")
+              color: root.foreground
+              opacity: 0.55
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+            }
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(48)
+              radius: Math.max(0, Style.cornerRadius - Style.space(4))
+              color: root.selectedBackground
+
+              TextInput {
+                id: aliasEditInput
+                anchors.fill: parent
+                anchors.leftMargin: Style.space(14)
+                anchors.rightMargin: Style.space(14)
+                verticalAlignment: TextInput.AlignVCenter
+                color: root.selectedText
+                selectionColor: root.selectedText
+                selectedTextColor: root.selectedBackground
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.body
+                maximumLength: 64
+                clip: true
+                onTextChanged: root.aliasEditorError = ""
+
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) {
+                  if (event.key === Qt.Key_Escape) {
+                    root.closeAliasEditor()
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    root.saveAliasEditor()
+                    event.accepted = true
+                  }
+                }
+              }
+            }
+
+            Text {
+              width: parent.width
+              text: root.aliasEditorError || "A short keyword without spaces"
+              color: root.aliasEditorError ? Color.urgent : root.foreground
+              opacity: root.aliasEditorError ? 0.9 : 0.5
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.Wrap
+            }
+
+            Text {
+              width: parent.width
+              text: "Enter  Save  ·  Esc  Cancel"
+              color: root.foreground
+              opacity: 0.48
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
         }
       }
     }
