@@ -79,6 +79,9 @@ Item {
   readonly property color scrim: Color.menu.scrim
   readonly property color selectedBackground: Color.menu.selectedBackground
   readonly property color selectedText: Color.menu.selectedText
+  readonly property int cardPadding: Style.space(12)
+  readonly property int dividerHeight: Math.max(1, Style.space(1))
+  readonly property int resultsTopOffset: cardPadding + dividerHeight
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
   readonly property int sectionHeight: Style.space(28)
   readonly property int maximumVisibleRows: 8
@@ -728,7 +731,12 @@ Item {
     Rectangle {
       id: card
       readonly property int desiredHeight: Math.max(
-        searchBox.height + Style.space(1) + root.listHeight + Style.space(24),
+        LayoutModel.resultCardHeight(
+          searchBox.height,
+          root.listHeight,
+          root.cardPadding,
+          root.resultsTopOffset,
+          root.cardPadding),
         root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0)
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
         panel.width,
@@ -759,7 +767,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Style.space(12)
+        anchors.margins: root.cardPadding
         height: Math.max(Style.space(52), Style.font.heading + Style.space(24))
         radius: Math.max(0, Style.cornerRadius - Style.space(2))
         color: root.selectedBackground
@@ -873,8 +881,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: searchBox.bottom
-        anchors.topMargin: Style.space(12)
-        height: Math.max(1, Style.space(1))
+        anchors.topMargin: root.cardPadding
+        height: root.dividerHeight
         color: root.borderColor
         opacity: 0.5
       }
@@ -884,9 +892,9 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: searchBox.bottom
-        anchors.topMargin: Style.space(13)
+        anchors.topMargin: root.resultsTopOffset
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Style.space(12)
+        anchors.bottomMargin: root.cardPadding
         model: resultsModel
         enabled: !root.actionPanelOpen
         clip: true

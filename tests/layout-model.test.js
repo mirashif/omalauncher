@@ -9,6 +9,10 @@ test("focused monitor names select the matching Quickshell screen", () => {
   assert.equal(LayoutModel.screenForMonitor(screens, "HDMI-A-1"), null)
 })
 
+test("result card height preserves the complete result viewport and bottom margin", () => {
+  assert.equal(LayoutModel.resultCardHeight(52, 58, 12, 13, 12), 147)
+})
+
 test("card geometry preserves the preferred size and vertical anchor", () => {
   assert.deepEqual(LayoutModel.cardGeometry(2048, 1152, 680, 296, 12, 0.18), {
     width: 680,

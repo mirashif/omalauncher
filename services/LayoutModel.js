@@ -14,6 +14,14 @@ function screenForMonitor(screens, monitorName) {
   return null
 }
 
+function resultCardHeight(searchHeight, listHeight, topMargin, resultsOffset, bottomMargin) {
+  return Math.max(0, finiteNumber(searchHeight, 0))
+    + Math.max(0, finiteNumber(listHeight, 0))
+    + Math.max(0, finiteNumber(topMargin, 0))
+    + Math.max(0, finiteNumber(resultsOffset, 0))
+    + Math.max(0, finiteNumber(bottomMargin, 0))
+}
+
 function cardGeometry(panelWidth, panelHeight, desiredWidth, desiredHeight, gap, anchorRatio) {
   var panelW = Math.max(1, finiteNumber(panelWidth, 1))
   var panelH = Math.max(1, finiteNumber(panelHeight, 1))
@@ -32,6 +40,7 @@ function cardGeometry(panelWidth, panelHeight, desiredWidth, desiredHeight, gap,
 if (typeof module !== "undefined") {
   module.exports = {
     screenForMonitor: screenForMonitor,
+    resultCardHeight: resultCardHeight,
     cardGeometry: cardGeometry
   }
 }
