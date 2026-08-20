@@ -2,15 +2,18 @@
 
 const fs = require("node:fs")
 const path = require("node:path")
+const { execFileSync } = require("node:child_process")
 const { performance } = require("node:perf_hooks")
 
 const MenuIndex = require("../providers/MenuIndex.js")
-const SearchEngine = require("../SearchEngine.js")
+const CommandCatalogModel = require("../providers/CommandCatalogModel.js")
+const SourceMergeModel = require("../providers/SourceMergeModel.js")
+const SearchEngine = require("../services/SearchEngine.js")
 const StateModel = require("../services/StateModel.js")
 
 const OPEN_BUDGET_MS = 100
 const SEARCH_BUDGET_MS = 16
-const omarchyPath = process.env.OMARCHY_PATH || "/usr/share/omarchy"
+const omarchyPath = process.env["OMARCHY_PATH"] || "/usr/share/omarchy"
 const defaultPath = path.join(omarchyPath, "default/omarchy/omarchy-menu.jsonc")
 
 function readMenuRecords() {
@@ -20,7 +23,19 @@ function readMenuRecords() {
   return MenuIndex.buildCommandRecords(merged, {}, {})
 }
 
+function readCliRecords() {
+  const raw = execFileSync("omarchy", ["commands", "--json"], { encoding: "utf8" })
+  const parsed = CommandCatalogModel.parseCatalog(raw)
+  if (parsed.error) throw new Error(parsed.error)
+  return CommandCatalogModel.buildRecords(parsed.commands)
+}
+
+/**
+ * @param {number} count
+ * @returns {import("../types/models").SearchableRecord[]}
+ */
 function applicationRecords(count) {
+  /** @type {import("../types/models").SearchableRecord[]} */
   const records = []
   for (let index = 0; index < count; index += 1) {
     records.push({
@@ -40,6 +55,11 @@ function applicationRecords(count) {
   return records
 }
 
+/**
+ * @param {number} iterations
+ * @param {(index: number) => void} operation
+ * @returns {{averageMs: number, worstMs: number}}
+ */
 function measure(iterations, operation) {
   let worst = 0
   let total = 0
@@ -53,7 +73,14 @@ function measure(iterations, operation) {
   return { averageMs: total / iterations, worstMs: worst }
 }
 
-const records = applicationRecords(250).concat(readMenuRecords())
+const menuRecords = readMenuRecords()
+const records = SourceMergeModel.mergeSources({
+  applications: applicationRecords(250),
+  menuRecords,
+  pluginRecords: [],
+  cliRecords: readCliRecords(),
+  menuItems: menuRecords
+})
 const preparedRecords = records.map(record => SearchEngine.prepareRecord({
   ...record,
   aliases: Array.isArray(record.aliases) ? record.aliases.slice() : [],
@@ -65,17 +92,19 @@ const queries = [
   "install development docker",
   "remove browser firefox",
   "update configuration",
+  "audio input mute",
+  "doctor troubleshoot",
   "zzzzzzzz"
 ]
 
 for (let warmup = 0; warmup < 20; warmup += 1) {
-  SearchEngine.search(preparedRecords, queries[warmup % queries.length], { limit: 50 })
+  SearchEngine.search(preparedRecords, String(queries[warmup % queries.length] || ""), { limit: 50 })
   StateModel.emptyStateRows(records, state)
 }
 
 const warmOpen = measure(100, () => StateModel.emptyStateRows(records, state))
 const search = measure(200, index => {
-  SearchEngine.search(preparedRecords, queries[index % queries.length], { limit: 50 })
+  SearchEngine.search(preparedRecords, String(queries[index % queries.length] || ""), { limit: 50 })
 })
 
 const result = {

@@ -1,5 +1,15 @@
 // Deterministic semantic ranking shared by QML and Node tests.
 
+/** @typedef {import("../types/models").SearchableRecord} SearchableRecord */
+/** @typedef {import("../types/models").RankedRecord} RankedRecord */
+/** @typedef {import("../types/models").SearchOptions} SearchOptions */
+/** @typedef {import("../types/models").SemanticScore} SemanticScore */
+/** @typedef {import("../types/models").UsageMap} UsageMap */
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalize(value) {
   var text = String(value || "")
   try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "") } catch (error) { }
@@ -11,31 +21,57 @@ function normalize(value) {
     .replace(/\s+/g, " ")
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
 function tokens(value) {
   var normalized = normalize(value)
   return normalized ? normalized.split(" ") : []
 }
 
+/**
+ * @param {string} term
+ * @param {readonly string[]} words
+ * @returns {number}
+ */
 function prefixTokenIndex(term, words) {
   for (var i = 0; i < words.length; i++) {
-    if (words[i].indexOf(term) === 0) return i
+    var word = words[i]
+    if (word !== undefined && word.indexOf(term) === 0) return i
   }
   return -1
 }
 
+/**
+ * @param {string} term
+ * @param {readonly string[]} words
+ * @returns {number}
+ */
 function containsTokenIndex(term, words) {
   for (var i = 0; i < words.length; i++) {
-    if (words[i].indexOf(term) >= 0) return i
+    var word = words[i]
+    if (word !== undefined && word.indexOf(term) >= 0) return i
   }
   return -1
 }
 
+/**
+ * @param {unknown} needle
+ * @param {unknown} haystack
+ * @returns {number}
+ */
 function subsequenceCost(needle, haystack) {
   var n = normalize(needle).replace(/\s+/g, "")
   var h = normalize(haystack).replace(/\s+/g, "")
   return subsequenceCostNormalized(n, h)
 }
 
+/**
+ * @param {string} n
+ * @param {string} h
+ * @returns {number}
+ */
 function subsequenceCostNormalized(n, h) {
   if (!n || !h) return -1
   var at = 0
@@ -51,22 +87,38 @@ function subsequenceCostNormalized(n, h) {
   return (last - first + 1 - n.length) + first
 }
 
+/**
+ * @param {readonly string[]} queryTerms
+ * @param {readonly string[]} words
+ * @param {(term: string, words: readonly string[]) => number} matcher
+ * @returns {number}
+ */
 function everyTermMatches(queryTerms, words, matcher) {
   var quality = 0
   for (var i = 0; i < queryTerms.length; i++) {
-    var index = matcher(queryTerms[i], words)
+    var term = queryTerms[i]
+    if (term === undefined) return -1
+    var index = matcher(term, words)
     if (index < 0) return -1
     quality += index
   }
   return quality
 }
 
+/**
+ * @param {readonly string[]} queryTerms
+ * @param {readonly string[]} words
+ * @returns {number}
+ */
 function everyTermFuzzyMatches(queryTerms, words) {
   var quality = 0
   for (var i = 0; i < queryTerms.length; i++) {
     var best = -1
     for (var j = 0; j < words.length; j++) {
-      var cost = subsequenceCostNormalized(queryTerms[i], words[j])
+      var queryTerm = queryTerms[i]
+      var word = words[j]
+      if (queryTerm === undefined || word === undefined) continue
+      var cost = subsequenceCostNormalized(queryTerm, word)
       if (cost >= 0 && (best < 0 || cost < best)) best = cost
     }
     if (best < 0) return -1
@@ -75,8 +127,11 @@ function everyTermFuzzyMatches(queryTerms, words) {
   return quality
 }
 
+/**
+ * @param {SearchableRecord} record
+ * @returns {SearchableRecord}
+ */
 function prepareRecord(record) {
-  if (!record || typeof record !== "object") return record
   var aliases = Array.isArray(record.aliases) ? record.aliases : []
   record._searchTitle = normalize(record.title)
   record._searchAliases = aliases.map(function(alias) { return normalize(alias) })
@@ -92,6 +147,12 @@ function prepareRecord(record) {
   return record
 }
 
+/**
+ * @param {SearchableRecord} record
+ * @param {string} needle
+ * @param {readonly string[]} queryTerms
+ * @returns {SemanticScore | null}
+ */
 function semanticScorePrepared(record, needle, queryTerms) {
   if (!needle) return null
 
@@ -100,7 +161,8 @@ function semanticScorePrepared(record, needle, queryTerms) {
   var normalizedAliases = Array.isArray(record._searchAliases)
     ? record._searchAliases : aliases.map(function(alias) { return normalize(alias) })
   for (var i = 0; i < aliases.length; i++) {
-    if (normalizedAliases[i] === needle) return { tier: 1, quality: i }
+    var normalizedAlias = normalizedAliases[i]
+    if (normalizedAlias === needle) return { tier: 1, quality: i }
   }
   if (title === needle) return { tier: 2, quality: 0 }
   if (title.indexOf(needle) === 0) return { tier: 3, quality: title.length - needle.length }
@@ -126,11 +188,22 @@ function semanticScorePrepared(record, needle, queryTerms) {
   return null
 }
 
+/**
+ * @param {SearchableRecord} record
+ * @param {unknown} query
+ * @returns {SemanticScore | null}
+ */
 function semanticScore(record, query) {
   var needle = normalize(query)
   return semanticScorePrepared(record, needle, needle ? needle.split(" ") : [])
 }
 
+/**
+ * @param {SearchableRecord} record
+ * @param {UsageMap | null | undefined} usage
+ * @param {number} now
+ * @returns {number}
+ */
 function usageScore(record, usage, now) {
   var entry = usage && usage[record.id]
   if (!entry) return 0
@@ -140,27 +213,40 @@ function usageScore(record, usage, now) {
   return Math.log(count + 1) * 10 + 10 / (1 + ageHours / 24)
 }
 
+/**
+ * @param {SearchableRecord} record
+ * @returns {SearchableRecord}
+ */
 function copyRecord(record) {
-  var copy = {}
-  for (var key in record) {
-    if (key.indexOf("_search") === 0) continue
-    if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
-  }
+  var copy = Object.assign({}, record)
+  delete copy._searchTitle
+  delete copy._searchAliases
+  delete copy._searchContextWords
+  delete copy._searchFullWords
   return copy
 }
 
+/**
+ * @param {readonly SearchableRecord[] | null | undefined} records
+ * @param {unknown} query
+ * @param {SearchOptions | null} [options]
+ * @returns {RankedRecord[]}
+ */
 function search(records, query, options) {
   var opts = options || {}
   var usage = opts.usage || {}
   var now = Number(opts.now || Date.now())
   var limit = Math.max(1, Number(opts.limit || 50))
+  /** @type {{record: SearchableRecord, tier: number, quality: number, usage: number}[]} */
   var scored = []
   var needle = normalize(query)
   if (!needle) return []
   var queryTerms = needle.split(" ")
 
-  for (var i = 0; i < (records || []).length; i++) {
-    var record = records[i]
+  var source = records || []
+  for (var i = 0; i < source.length; i++) {
+    var record = source[i]
+    if (!record) continue
     var semantic = semanticScorePrepared(record, needle, queryTerms)
     if (!semantic) continue
     scored.push({
@@ -184,11 +270,15 @@ function search(records, query, options) {
     return String(left.record.route || left.record.id).localeCompare(String(right.record.route || right.record.id))
   })
 
+  /** @type {RankedRecord[]} */
   var results = []
   for (var j = 0; j < scored.length && j < limit; j++) {
-    var result = copyRecord(scored[j].record)
-    result.semanticTier = scored[j].tier
-    result.semanticQuality = scored[j].quality
+    var scoredResult = scored[j]
+    if (!scoredResult) continue
+    var result = Object.assign(copyRecord(scoredResult.record), {
+      semanticTier: scoredResult.tier,
+      semanticQuality: scoredResult.quality
+    })
     results.push(result)
   }
   return results

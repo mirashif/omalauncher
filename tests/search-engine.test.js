@@ -1,8 +1,12 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const SearchEngine = require("../SearchEngine.js")
+const SearchEngine = require("../services/SearchEngine.js")
 
+/**
+ * @param {Partial<import("../types/models").SearchableRecord>} overrides
+ * @returns {import("../types/models").SearchableRecord}
+ */
 function record(overrides) {
   return {
     id: "omarchy:test",

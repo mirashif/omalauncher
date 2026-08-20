@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 
 const ActionModel = require("../services/ActionModel.js")
-const SearchEngine = require("../SearchEngine.js")
+const SearchEngine = require("../services/SearchEngine.js")
 
 test("application actions expose open and favorites without an Omarchy parent", () => {
   const actions = ActionModel.actionsForResult({
@@ -48,6 +48,47 @@ test("commands expose structured root and Omarchy submenu actions", () => {
   }, { favorite: true, usage: {} }, "omarchy")
   assert.deepEqual(omarchyActions.map(action => action.id), ["parent", "stock-menu"])
   assert.equal(omarchyActions[0].description, "Update › Config")
+})
+
+test("shell features open directly without an unrelated stock-menu action", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "shell-plugin:omarchy.clipboard",
+    resultType: "shell-plugin",
+    resultKind: "shell-feature",
+    executionKind: "shell-plugin",
+    title: "Clipboard"
+  }, { usage: {} })
+
+  assert.deepEqual(actions.map(action => action.id), ["primary", "configure-actions", "favorite"])
+  assert.equal(actions[0].title, "Open Shell Feature")
+})
+
+test("CLI actions distinguish reviewed execution from help-only discovery", () => {
+  const direct = ActionModel.actionsForResult({
+    resultId: "omarchy-cli:omarchy-audio-input-mute",
+    resultType: "omarchy-cli",
+    resultKind: "cli-command",
+    executionKind: "cli-direct",
+    commandRoute: "omarchy audio input mute",
+    title: "Mute Microphone"
+  }, { usage: {} })
+  const helpOnly = ActionModel.actionsForResult({
+    resultId: "omarchy-cli:omarchy-install-package",
+    resultType: "omarchy-cli",
+    resultKind: "cli-help",
+    executionKind: "cli-help",
+    commandRoute: "omarchy install package",
+    title: "Package"
+  }, { usage: {} })
+
+  assert.deepEqual(direct.map(action => action.id), [
+    "primary", "command-help", "copy-command", "configure-actions", "favorite"
+  ])
+  assert.equal(direct[0].title, "Run Command")
+  assert.deepEqual(helpOnly.map(action => action.id), [
+    "primary", "copy-command", "configure-actions", "favorite"
+  ])
+  assert.equal(helpOnly[0].title, "Show Command Help")
 })
 
 test("submenu primary actions are labelled Open Menu", () => {

@@ -8,6 +8,7 @@ import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "providers/FileSearchModel.js" as FileSearchModel
+import "providers/SourceMergeModel.js" as SourceMergeModel
 import "services/ActionModel.js" as ActionModel
 import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
@@ -16,7 +17,7 @@ import "services/NavigationModel.js" as NavigationModel
 import "services/QuickActivationModel.js" as QuickActivationModel
 import "services/SettingsModel.js" as SettingsModel
 import "services/StatusModel.js" as StatusModel
-import "SearchEngine.js" as SearchEngine
+import "services/SearchEngine.js" as SearchEngine
 
 Item {
   id: root
@@ -25,6 +26,7 @@ Item {
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   property var shell: null
   property var manifest: null
+  property var pluginRegistry: null
 
   property bool opened: false
   property bool defaultSourceLoaded: false
@@ -37,6 +39,8 @@ Item {
   property var checkedResults: ({})
   property var commandRecords: []
   property var appRecords: []
+  property var shellPluginRecords: []
+  property var cliRecords: []
   property var allRecords: []
   property var rootSearchRecords: []
   property var rootEmptyRecords: []
@@ -80,10 +84,15 @@ Item {
   property bool rebuildRequested: false
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
+  readonly property bool shellFeaturesReady: shellPluginProvider.ready
+  readonly property string shellFeaturesError: shellPluginProvider.error
+  readonly property bool cliCatalogReady: commandCatalogProvider.ready
+  readonly property string cliCatalogError: commandCatalogProvider.error
   readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
   readonly property bool commandIndexSettled: defaultSourceSettled
     && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
   readonly property bool indexSettled: stateStore.loaded && appsReady && commandIndexSettled
+    && shellFeaturesReady && cliCatalogReady
   readonly property bool indexReady: indexSettled
   readonly property bool compactMode: !!stateStore.preferences
     && stateStore.preferences.compactMode === true
@@ -98,7 +107,9 @@ Item {
     defaultSourceError,
     userSourceError,
     guardError,
-    appProviderError
+    appProviderError,
+    shellFeaturesError,
+    cliCatalogError
   ])
   readonly property var providerDiagnostics: StatusModel.providerDiagnostics([
     {
@@ -125,6 +136,16 @@ Item {
       provider: "Applications",
       error: appProviderError,
       detail: appProviderError ? "Retry rebuilds the desktop application index." : ""
+    },
+    {
+      provider: "Shell features",
+      error: shellFeaturesError,
+      detail: shellFeaturesError ? "The live Omarchy shell plugin registry is unavailable." : ""
+    },
+    {
+      provider: "CLI catalog",
+      error: cliCatalogError,
+      detail: cliCatalogError ? "Retry reloads omarchy commands --json; last valid results remain available." : ""
     }
   ])
   readonly property var emptyStatus: StatusModel.emptyStatus({
@@ -133,7 +154,15 @@ Item {
     query: searchInput.text,
     resultCount: resultsModel.count,
     totalRecords: root.allRecords.length,
-    warnings: [stateStore.error, defaultSourceError, userSourceError, guardError, appProviderError]
+    warnings: [
+      stateStore.error,
+      defaultSourceError,
+      userSourceError,
+      guardError,
+      appProviderError,
+      shellFeaturesError,
+      cliCatalogError
+    ]
   })
 
   readonly property string pluginId: manifest && manifest.id
@@ -192,6 +221,8 @@ Item {
     }
     root.evaluateGuards()
     appProvider.refreshIcons()
+    shellPluginProvider.refresh()
+    commandCatalogProvider.refreshIfStale()
     Qt.callLater(function() {
       searchInput.forceActiveFocus()
       if (root.opened && root.openMeasurementStartedAt > 0) {
@@ -225,6 +256,8 @@ Item {
     defaultMenuFile.reload()
     userMenuFile.reload()
     appProvider.refresh()
+    shellPluginProvider.refresh()
+    commandCatalogProvider.refresh()
     return "ok"
   }
 
@@ -263,6 +296,9 @@ Item {
     return JSON.stringify({
       applications: root.appRecords.length,
       commands: root.commandRecords.length,
+      shellFeatures: root.shellPluginRecords.length,
+      cliCommands: commandCatalogProvider.commands.length,
+      cliEntries: root.cliRecords.length,
       total: root.allRecords.length,
       ready: root.indexSettled,
       healthy: !root.providerWarning,
@@ -446,7 +482,13 @@ Item {
   }
 
   function rebuildUnifiedRecords() {
-    root.allRecords = root.appRecords.concat(root.commandRecords)
+    root.allRecords = SourceMergeModel.mergeSources({
+      applications: root.appRecords,
+      menuRecords: root.commandRecords,
+      pluginRecords: root.shellPluginRecords,
+      cliRecords: root.cliRecords,
+      menuItems: root.commandRecords
+    })
     root.rebuildCachedRecords()
     root.rebuildResults()
   }
@@ -566,8 +608,16 @@ Item {
       }
       copy.aliases = aliases
       copy.userAlias = userAlias
-      copy.searchText = [record.searchText || "", userAlias].join(" ")
-      output.push(copy)
+      var baseSearchText = record.searchText || [
+        record.title,
+        record.breadcrumb,
+        record.description,
+        record.route,
+        sourceAliases.join(" "),
+        (record.keywords || []).join(" ")
+      ].join(" ")
+      copy.searchText = [baseSearchText, userAlias].join(" ")
+      output.push(SearchEngine.prepareRecord(copy))
     }
     return output
   }
@@ -666,7 +716,7 @@ Item {
         appIcon: String(result.appIcon || ""),
         appId: String(result.appId || ""),
         route: String(result.route || ""),
-        parentRoute: String(result.parentRoute || "root"),
+        parentRoute: result.parentRoute === undefined ? "root" : String(result.parentRoute || ""),
         targetRoute: String(result.targetRoute || ""),
         provider: String(result.provider || ""),
         settingKey: String(result.settingKey || ""),
@@ -675,6 +725,13 @@ Item {
         calculatorResult: String(result.calculatorResult || ""),
         filePath: String(result.filePath || ""),
         fileScope: String(result.fileScope || ""),
+        executionKind: String(result.executionKind || ""),
+        commandArgvJson: String(result.commandArgvJson || ""),
+        commandBinary: String(result.commandBinary || ""),
+        commandRoute: String(result.commandRoute || ""),
+        requiresSudo: result.requiresSudo === true,
+        sourcePluginId: String(result.sourcePluginId || ""),
+        shellPayloadJson: String(result.shellPayloadJson || ""),
         isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
@@ -805,6 +862,13 @@ Item {
       calculatorResult: String(row.calculatorResult || ""),
       filePath: String(row.filePath || ""),
       fileScope: String(row.fileScope || ""),
+      executionKind: String(row.executionKind || ""),
+      commandArgvJson: String(row.commandArgvJson || ""),
+      commandBinary: String(row.commandBinary || ""),
+      commandRoute: String(row.commandRoute || ""),
+      requiresSudo: row.requiresSudo === true,
+      sourcePluginId: String(row.sourcePluginId || ""),
+      shellPayloadJson: String(row.shellPayloadJson || ""),
       userAlias: String(row.userAlias || "")
     }
   }
@@ -1159,6 +1223,14 @@ Item {
       root.revealFile(target.filePath)
       return
     }
+    if (selectedActionId === "command-help") {
+      root.runCliCommand(target, true)
+      return
+    }
+    if (selectedActionId === "copy-command") {
+      root.copyText(target.commandRoute, "Copied Omarchy command")
+      return
+    }
     if (selectedActionId === "primary" || selectedActionId === "parent") {
       root.runResult(target, selectedActionId === "parent")
     }
@@ -1171,6 +1243,77 @@ Item {
     root.close()
     if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
     Quickshell.execDetached(["omarchy", "menu", "summon", selectedRoute])
+  }
+
+  function commandArgvForRow(row) {
+    var argv
+    try { argv = JSON.parse(String(row.commandArgvJson || "")) } catch (error) { return [] }
+    if (!Array.isArray(argv) || argv.length === 0 || argv.length > 32 || argv[0] !== "omarchy") return []
+    for (var i = 0; i < argv.length; i++) {
+      if (typeof argv[i] !== "string" || !argv[i] || argv[i].length > 512 || argv[i].indexOf("\0") >= 0)
+        return []
+    }
+    if (String(row.commandRoute || "") !== argv.join(" ")) return []
+    return argv
+  }
+
+  function runCliCommand(row, forceHelp) {
+    var argv = root.commandArgvForRow(row)
+    if (argv.length === 0) {
+      root.showOsd("", "Command is no longer available")
+      return
+    }
+    var showHelp = forceHelp === true
+      || String(row.executionKind || "") !== "cli-direct"
+      || row.requiresSudo === true
+    root.close()
+    if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
+    if (showHelp) {
+      Quickshell.execDetached(
+        ["xdg-terminal-exec", "--app-id=org.omarchy.terminal"].concat(argv, ["--help"]))
+    } else {
+      Quickshell.execDetached(argv)
+    }
+  }
+
+  function runShellFeature(row) {
+    var targetPluginId = String(row.sourcePluginId || "")
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(targetPluginId)
+        || !root.shell || typeof root.shell.summon !== "function") {
+      root.showOsd("", "Shell feature is no longer available")
+      return
+    }
+    var payload = "{}"
+    try {
+      var parsedPayload = JSON.parse(String(row.shellPayloadJson || "{}"))
+      if (parsedPayload && typeof parsedPayload === "object") payload = JSON.stringify(parsedPayload)
+    } catch (error) { }
+
+    root.close()
+    if (typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
+    Qt.callLater(function() {
+      if (!root.shell.summon(targetPluginId, payload)) {
+        root.showOsd("", "Shell feature is no longer available")
+        shellPluginProvider.refresh()
+      }
+    })
+  }
+
+  function runShellIpc(row) {
+    var argv
+    try { argv = JSON.parse(String(row.commandArgvJson || "")) } catch (error) { return }
+    var notificationHistory = Array.isArray(argv)
+      && argv.length === 3
+      && argv[0] === "omarchy-shell"
+      && argv[1] === "notifications"
+      && argv[2] === "showHistory"
+    if (!notificationHistory) {
+      root.showOsd("", "Shell action is no longer available")
+      return
+    }
+    root.close()
+    if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
+    Quickshell.execDetached(argv)
   }
 
   function runResult(row, useParent) {
@@ -1285,6 +1428,12 @@ Item {
     stateStore.recordSelection(row.resultId)
     if (row.resultType === "application") {
       root.launchApplication(row.appId, row.title)
+    } else if (row.executionKind === "shell-plugin") {
+      root.runShellFeature(row)
+    } else if (row.executionKind === "shell-ipc") {
+      root.runShellIpc(row)
+    } else if (row.executionKind === "cli-direct" || row.executionKind === "cli-help") {
+      root.runCliCommand(row, false)
     } else if (useParent) {
       root.setActiveRoute(row.parentRoute || "root", true)
     } else if (row.resultKind === "menu" || row.resultKind === "link") {
@@ -1295,7 +1444,7 @@ Item {
   }
 
   function openInStockMenu(row) {
-    if (!row || row.resultType === "application") return
+    if (!row || row.resultType !== "omarchy-command") return
     var route = (row.resultKind === "menu" || row.resultKind === "link")
       ? String(row.targetRoute || row.route || "root")
       : String(row.parentRoute || "root")
@@ -1427,6 +1576,8 @@ Item {
     if (row.resultType === "file") return "Open File"
     if (row.resultType === "file-status") return row.route === "settings" ? "Open Settings" : ""
     if (row.resultType === "application") return "Open Application"
+    if (row.executionKind === "shell-plugin" || row.executionKind === "shell-ipc") return "Open Shell Feature"
+    if (row.executionKind === "cli-help") return "Show Command Help"
     if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
     return "Run Command"
   }
@@ -1529,6 +1680,26 @@ Item {
     appLibrary: root.shell ? root.shell.appLibrary : null
     onRecordsChanged: {
       root.appRecords = appProvider.records
+      root.rebuildUnifiedRecords()
+    }
+  }
+
+  ShellPluginProvider {
+    id: shellPluginProvider
+    shell: root.shell
+    pluginRegistry: root.pluginRegistry
+    launcherId: root.pluginId
+    onRecordsChanged: {
+      root.shellPluginRecords = shellPluginProvider.records
+      root.rebuildUnifiedRecords()
+    }
+  }
+
+  CommandCatalogProvider {
+    id: commandCatalogProvider
+    omarchyPath: root.omarchyPath || "/usr/share/omarchy"
+    onRecordsChanged: {
+      root.cliRecords = commandCatalogProvider.records
       root.rebuildUnifiedRecords()
     }
   }
@@ -1725,7 +1896,7 @@ Item {
           text: !stateStore.loaded
             ? "Loading launcher state…"
             : (root.indexSettled
-                ? (root.activeRoute === "root" ? "Search apps and Omarchy commands…" : "Search " + root.activeMenuTitle + "…")
+                ? (root.activeRoute === "root" ? "Search apps, shell features, and Omarchy commands…" : "Search " + root.activeMenuTitle + "…")
                 : "Building unified index…")
           color: root.selectedText
           opacity: 0.55
@@ -1750,7 +1921,7 @@ Item {
           clip: true
           Accessible.role: Accessible.EditableText
           Accessible.name: root.activeRoute === "root"
-            ? "Search applications and Omarchy commands"
+            ? "Search applications, shell features, and Omarchy commands"
             : "Search " + root.activeMenuTitle
           Accessible.description: "Type to filter results"
           Accessible.focusable: true
@@ -2699,7 +2870,7 @@ Item {
           color: root.selectedBackground
           Accessible.role: Accessible.Button
           Accessible.name: "Retry providers"
-          Accessible.description: "Reload launcher state, menus, command checks, and applications"
+          Accessible.description: "Reload launcher state, menus, shell features, CLI catalog, checks, and applications"
           Accessible.focusable: true
           Accessible.onPressAction: root.retryProviders()
 

@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 
 const AppIndex = require("../providers/AppIndex.js")
-const SearchEngine = require("../SearchEngine.js")
+const SearchEngine = require("../services/SearchEngine.js")
 
 const entries = [
   {
@@ -32,6 +32,7 @@ test("application records normalize ids, metadata, and icons", () => {
   const records = AppIndex.buildApplicationRecords(entries)
   assert.equal(records.length, 2)
   const firefox = records.find(record => record.appId === "org.mozilla.firefox")
+  assert.ok(firefox)
   assert.deepEqual(
     {
       id: firefox.id,
@@ -61,6 +62,7 @@ test("generic names, comments, keywords, categories, and desktop ids are searcha
 
 test("an exact application and command tie favors the application provider", () => {
   const app = AppIndex.buildApplicationRecords(entries).find(record => record.title === "Firefox")
+  assert.ok(app)
   const command = {
     id: "omarchy:remove.browser.firefox",
     type: "omarchy-command",

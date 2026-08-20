@@ -1,15 +1,38 @@
 // Pure menu parsing and indexing logic. Keep this file compatible with both
 // QML's JavaScript engine and Node so the exact production code is unit tested.
 
+/** @typedef {import("../types/models").UnknownRecord} UnknownRecord */
+/** @typedef {import("../types/models").BooleanMap} BooleanMap */
+/** @typedef {import("../types/models").MenuSourceItem} MenuSourceItem */
+/** @typedef {import("../types/models").MenuParseResult} MenuParseResult */
+/** @typedef {import("../types/models").MenuEntry} MenuEntry */
+/** @typedef {import("../types/models").MergedMenu} MergedMenu */
+/** @typedef {import("../types/models").MenuCommandRecord} MenuCommandRecord */
+/** @typedef {import("../types/models").GuardResults} GuardResults */
+
+/**
+ * @param {unknown} value
+ * @returns {value is UnknownRecord}
+ */
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
+/**
+ * @param {UnknownRecord | BooleanMap | Record<string, MenuEntry>} object
+ * @param {string} key
+ * @returns {boolean}
+ */
 function own(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key)
 }
 
+/**
+ * @param {unknown} value
+ * @returns {UnknownRecord}
+ */
 function cloneObject(value) {
+  /** @type {UnknownRecord} */
   var out = {}
   if (!isPlainObject(value)) return out
   for (var key in value) if (own(value, key)) out[key] = value[key]
@@ -18,6 +41,10 @@ function cloneObject(value) {
 
 // Remove line/block comments and trailing commas without touching comment-like
 // text inside JSON strings (notably https:// URLs in menu action strings).
+/**
+ * @param {unknown} raw
+ * @returns {string}
+ */
 function stripJsonc(raw) {
   var input = String(raw || "")
   var withoutComments = ""
@@ -101,10 +128,15 @@ function stripJsonc(raw) {
   return output
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {MenuParseResult}
+ */
 function parseMenuJsonc(raw) {
   var stripped = stripJsonc(raw)
   if (!stripped.trim()) return { items: [], error: "" }
 
+  /** @type {unknown} */
   var parsed
   try {
     parsed = JSON.parse(stripped)
@@ -113,7 +145,8 @@ function parseMenuJsonc(raw) {
   }
 
   if (!isPlainObject(parsed)) return { items: [], error: "Menu source must contain a JSON object" }
-  var source = isPlainObject(parsed.items) ? parsed.items : parsed
+  var source = isPlainObject(parsed["items"]) ? parsed["items"] : parsed
+  /** @type {MenuSourceItem[]} */
   var items = []
 
   for (var id in source) {
@@ -126,7 +159,12 @@ function parseMenuJsonc(raw) {
   return { items: items, error: "" }
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
 function normalizeAliases(value) {
+  /** @type {string[]} */
   var aliases = []
   if (Array.isArray(value)) {
     for (var i = 0; i < value.length; i++) {
@@ -140,6 +178,10 @@ function normalizeAliases(value) {
   return aliases
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
 function normalizeKeywords(value) {
   if (Array.isArray(value)) return normalizeAliases(value)
   var text = String(value || "")
@@ -147,46 +189,61 @@ function normalizeKeywords(value) {
   return text.split(/[;,]/).map(function(entry) { return entry.trim() }).filter(function(entry) { return entry })
 }
 
+/**
+ * @param {string} id
+ * @param {unknown} definition
+ * @param {number} [order]
+ * @returns {MenuEntry}
+ */
 function normalizeItem(id, definition, order) {
   var value = isPlainObject(definition) ? definition : {}
   var parent = own(value, "parent")
-    ? String(value.parent || "")
+    ? String(value["parent"] || "")
     : (id.indexOf(".") >= 0 ? id.split(".").slice(0, -1).join(".") : "root")
   if (id === "root") parent = ""
 
-  var action = String(value.action || "")
-  var target = String(value.target || "")
+  var action = String(value["action"] || "")
+  var target = String(value["target"] || "")
+  /** @type {MenuEntry["kind"]} */
   var kind = action ? "action" : (target ? "link" : "menu")
 
   return {
     id: id,
     parent: parent,
     kind: kind,
-    icon: String(value.icon || ""),
-    iconFont: String(value.iconFont || ""),
-    label: String(value.label || id),
-    title: String(value.title || ""),
+    icon: String(value["icon"] || ""),
+    iconFont: String(value["iconFont"] || ""),
+    label: String(value["label"] || id),
+    title: String(value["title"] || ""),
     target: target,
-    description: String(value.description || ""),
+    description: String(value["description"] || ""),
     action: action,
-    provider: String(value.provider || ""),
-    aliases: normalizeAliases(value.aliases),
-    keywords: normalizeKeywords(value.keywords),
-    when: String(value.when || ""),
-    checked: String(value.checked || ""),
-    order: order || 0
+    provider: String(value["provider"] || ""),
+    aliases: normalizeAliases(value["aliases"]),
+    keywords: normalizeKeywords(value["keywords"]),
+    when: String(value["when"] || ""),
+    checked: String(value["checked"] || ""),
+    order: Number(order || 0)
   }
 }
 
 // Definitions are merged before normalization so a user override changes only
 // the fields it supplies. This matches the documented Omarchy JSONC contract.
+/**
+ * @param {readonly MenuSourceItem[] | null | undefined} defaultItems
+ * @param {readonly MenuSourceItem[] | null | undefined} userItems
+ * @returns {MergedMenu}
+ */
 function mergeMenuSources(defaultItems, userItems) {
+  /** @type {Record<string, UnknownRecord>} */
   var definitions = {}
+  /** @type {string[]} */
   var order = []
+  /** @type {(readonly MenuSourceItem[])[]} */
   var sources = [defaultItems || [], userItems || []]
 
   for (var sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) {
-    var source = sources[sourceIndex]
+    var source = sources[sourceIndex] || []
     for (var itemIndex = 0; itemIndex < source.length; itemIndex++) {
       var parsedItem = source[itemIndex]
       if (!parsedItem || !parsedItem.id || !isPlainObject(parsedItem.definition)) continue
@@ -200,23 +257,41 @@ function mergeMenuSources(defaultItems, userItems) {
   }
 
   if (!own(definitions, "root")) {
-    definitions.root = { label: "Go" }
+    definitions["root"] = { label: "Go" }
     order.unshift("root")
   }
 
+  /** @type {Record<string, MenuEntry>} */
   var items = {}
-  for (var i = 0; i < order.length; i++) items[order[i]] = normalizeItem(order[i], definitions[order[i]], i)
+  for (var i = 0; i < order.length; i++) {
+    var orderedId = order[i]
+    if (!orderedId) continue
+    items[orderedId] = normalizeItem(orderedId, definitions[orderedId], i)
+  }
   return { items: items, itemOrder: order }
 }
 
+/**
+ * @param {Record<string, MenuEntry> | null | undefined} items
+ * @param {string} id
+ * @returns {MenuEntry | null}
+ */
 function item(items, id) {
-  return items && own(items, id) ? items[id] : null
+  return items && own(items, id) ? items[id] || null : null
 }
 
+/**
+ * @param {Record<string, MenuEntry>} items
+ * @param {string} id
+ * @param {boolean} includeSelf
+ * @returns {string[]}
+ */
 function pathLabelsFor(items, id, includeSelf) {
+  /** @type {string[]} */
   var labels = []
   var current = item(items, id)
   if (!includeSelf && current) current = item(items, current.parent)
+  /** @type {BooleanMap} */
   var seen = {}
   var guard = 0
 
@@ -230,14 +305,25 @@ function pathLabelsFor(items, id, includeSelf) {
   return labels
 }
 
+/** @param {Record<string, MenuEntry>} items @param {string} id @returns {string} */
 function pathFor(items, id) {
   return pathLabelsFor(items, id, true).join(" › ")
 }
 
+/** @param {Record<string, MenuEntry>} items @param {string} id @returns {string} */
 function parentPathFor(items, id) {
   return pathLabelsFor(items, id, false).join(" › ")
 }
 
+/**
+ * @param {Record<string, MenuEntry>} items
+ * @param {readonly string[]} itemOrder
+ * @param {BooleanMap | null | undefined} whenResults
+ * @param {MenuEntry | null | undefined} entry
+ * @param {number} [depth]
+ * @param {BooleanMap} [visiting]
+ * @returns {boolean}
+ */
 function isVisible(items, itemOrder, whenResults, entry, depth, visiting) {
   if (!entry) return false
   if (entry.when && whenResults && whenResults[entry.id] === false) return false
@@ -248,18 +334,22 @@ function isVisible(items, itemOrder, whenResults, entry, depth, visiting) {
   if (guard >= 32) return false
   var seen = visiting || {}
   if (seen[entry.id]) return false
-  var nextSeen = cloneObject(seen)
+  /** @type {BooleanMap} */
+  var nextSeen = Object.assign({}, seen)
   nextSeen[entry.id] = true
 
   var target = entry.kind === "link" ? entry.target : entry.id
-  var order = Array.isArray(itemOrder) ? itemOrder : []
+  var order = itemOrder
   for (var i = 0; i < order.length; i++) {
-    var child = item(items, order[i])
+    var childId = order[i]
+    if (!childId) continue
+    var child = item(items, childId)
     if (child && child.parent === target && isVisible(items, itemOrder, whenResults, child, guard + 1, nextSeen)) return true
   }
   return false
 }
 
+/** @param {unknown} value @returns {string} */
 function normalizeSearchText(value) {
   var text = String(value || "")
   try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "") } catch (error) { }
@@ -271,13 +361,22 @@ function normalizeSearchText(value) {
     .replace(/\s+/g, " ")
 }
 
+/**
+ * @param {MergedMenu | null | undefined} merged
+ * @param {BooleanMap | null | undefined} whenResults
+ * @param {BooleanMap | null} [checkedResults]
+ * @returns {MenuCommandRecord[]}
+ */
 function buildCommandRecords(merged, whenResults, checkedResults) {
   var items = merged && merged.items ? merged.items : {}
-  var itemOrder = merged && Array.isArray(merged.itemOrder) ? merged.itemOrder : []
+  var itemOrder = merged ? merged.itemOrder : []
+  /** @type {MenuCommandRecord[]} */
   var records = []
 
   for (var i = 0; i < itemOrder.length; i++) {
-    var entry = item(items, itemOrder[i])
+    var entryId = itemOrder[i]
+    if (!entryId) continue
+    var entry = item(items, entryId)
     if (!entry || entry.id === "root") continue
     if (!isVisible(items, itemOrder, whenResults || {}, entry)) continue
 
@@ -305,6 +404,7 @@ function buildCommandRecords(merged, whenResults, checkedResults) {
       parentRoute: entry.parent && entry.parent !== "root" ? entry.parent : "root",
       targetRoute: entry.target,
       provider: entry.provider,
+      sourceAction: entry.action,
       checked: !!(checkedResults && checkedResults[entry.id]),
       searchText: normalizeSearchText(searchParts.join(" ")),
       providerPriority: 1,
@@ -315,23 +415,35 @@ function buildCommandRecords(merged, whenResults, checkedResults) {
   return records
 }
 
+/**
+ * @param {readonly MenuCommandRecord[]} records
+ * @param {unknown} route
+ * @param {boolean} [includeDescendants]
+ * @returns {MenuCommandRecord[]}
+ */
 function recordsForRoute(records, route, includeDescendants) {
   var activeRoute = String(route || "root")
-  var source = Array.isArray(records) ? records : []
+  var source = records
+  /** @type {Record<string, MenuCommandRecord>} */
   var byRoute = {}
+  /** @type {MenuCommandRecord[]} */
   var output = []
 
   for (var i = 0; i < source.length; i++) {
-    var recordRoute = String(source[i] && source[i].route || "")
-    if (recordRoute) byRoute[recordRoute] = source[i]
+    var sourceRecord = source[i]
+    if (!sourceRecord) continue
+    var recordRoute = String(sourceRecord.route || "")
+    if (recordRoute) byRoute[recordRoute] = sourceRecord
   }
 
+  /** @param {MenuCommandRecord | undefined} record @returns {boolean} */
   function belongsToRoute(record) {
     if (!record) return false
     var parent = String(record.parentRoute || "root")
     if (parent === activeRoute) return true
     if (!includeDescendants) return false
 
+    /** @type {BooleanMap} */
     var seen = {}
     var guard = 0
     while (parent && parent !== "root" && guard < 32) {
@@ -347,13 +459,15 @@ function recordsForRoute(records, route, includeDescendants) {
   }
 
   for (var j = 0; j < source.length; j++) {
-    if (belongsToRoute(source[j])) output.push(source[j])
+    var candidate = source[j]
+    if (candidate && belongsToRoute(candidate)) output.push(candidate)
   }
   return output
 }
 
 // These helpers intentionally follow the stock menu's single-process guard
 // approach, including eager caching of repeated reader commands.
+/** @type {string[]} */
 var GUARD_READERS = [
   "omarchy-channel-current",
   "omarchy-default-agent",
@@ -363,6 +477,7 @@ var GUARD_READERS = [
   "omarchy-dns"
 ]
 
+/** @returns {string} */
 function guardHelpers() {
   return 'declare -A __omarchy_pkgs=()\n'
     + 'mapfile -t __omarchy_pkg_names < <({ pacman -Qq; LC_ALL=C pacman -Qi'
@@ -378,10 +493,12 @@ function guardHelpers() {
     + 'omarchy-cmd-missing() { local c; for c in "$@"; do command -v "$c" &>/dev/null || return 0; done; return 1; }\n'
 }
 
+/** @param {number} index @returns {string} */
 function guardReaderSlot(index) {
   return "${__omarchy_read_" + index + "}"
 }
 
+/** @param {unknown} expression @returns {string} */
 function substituteGuardReaders(expression) {
   var result = String(expression || "")
   for (var i = 0; i < GUARD_READERS.length; i++) {
@@ -390,10 +507,12 @@ function substituteGuardReaders(expression) {
   return result
 }
 
+/** @param {unknown} value @returns {string} */
 function shellSingleQuote(value) {
   return "'" + String(value || "").split("'").join("'\\''") + "'"
 }
 
+/** @param {string} guards @returns {string} */
 function guardPrelude(guards) {
   var prelude = guardHelpers()
   for (var i = 0; i < GUARD_READERS.length; i++) {
@@ -403,6 +522,7 @@ function guardPrelude(guards) {
   return prelude
 }
 
+/** @param {string} id @param {string} tag @param {string} expression @returns {string} */
 function guardLine(id, tag, expression) {
   var truthy = shellSingleQuote(id + ":" + tag + ":1")
   var falsy = shellSingleQuote(id + ":" + tag + ":0")
@@ -410,24 +530,30 @@ function guardLine(id, tag, expression) {
     + "then printf '%s\\n' " + truthy + "; else printf '%s\\n' " + falsy + "; fi\n"
 }
 
+/** @param {Record<string, MenuEntry> | null | undefined} items @returns {string} */
 function guardScript(items) {
   var guards = ""
   var ids = Object.keys(items || {})
   for (var i = 0; i < ids.length; i++) {
-    var entry = items[ids[i]]
+    var id = ids[i]
+    if (!id) continue
+    var entry = items && items[id]
     if (!entry) continue
-    if (entry.when) guards += guardLine(ids[i], "w", entry.when)
-    if (entry.checked) guards += guardLine(ids[i], "c", entry.checked)
+    if (entry.when) guards += guardLine(id, "w", entry.when)
+    if (entry.checked) guards += guardLine(id, "c", entry.checked)
   }
   return guards ? guardPrelude(guards) + guards : ""
 }
 
+/** @param {unknown} raw @returns {GuardResults} */
 function parseGuardResults(raw) {
+  /** @type {BooleanMap} */
   var when = {}
+  /** @type {BooleanMap} */
   var checked = {}
   var lines = String(raw || "").split("\n")
   for (var i = 0; i < lines.length; i++) {
-    var line = lines[i].trim()
+    var line = String(lines[i] || "").trim()
     if (!line) continue
     var valueAt = line.lastIndexOf(":")
     if (valueAt < 0) continue

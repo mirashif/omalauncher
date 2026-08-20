@@ -4,10 +4,11 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const MenuIndex = require("../providers/MenuIndex.js")
-const SearchEngine = require("../SearchEngine.js")
+const SearchEngine = require("../services/SearchEngine.js")
 
 const fixtures = path.join(__dirname, "fixtures")
 
+/** @param {string} name @returns {import("../types/models").MenuSourceItem[]} */
 function loadFixture(name) {
   const raw = fs.readFileSync(path.join(fixtures, name), "utf8")
   const parsed = MenuIndex.parseMenuJsonc(raw)
@@ -32,7 +33,7 @@ test("JSONC parsing preserves URL-like strings and accepts trailing commas", () 
     "docs": { "label": "Docs", "action": "open https://example.com/a//b", },
   }`)
   assert.equal(parsed.error, "")
-  assert.equal(parsed.items[0].definition.action, "open https://example.com/a//b")
+  assert.equal(parsed.items[0].definition["action"], "open https://example.com/a//b")
 })
 
 test("malformed JSONC reports an actionable parse error", () => {
@@ -52,6 +53,7 @@ test("user definitions override only the fields they provide", () => {
 test("command records contain route and ancestor breadcrumb metadata", () => {
   const { records } = fixtureIndex()
   const firefox = records.find(record => record.route === "remove.browser.firefox")
+  assert.ok(firefox)
   assert.deepEqual(
     { title: firefox.title, breadcrumb: firefox.breadcrumb, route: firefox.route },
     { title: "Firefox", breadcrumb: "Remove › Browser", route: "remove.browser.firefox" }
@@ -110,6 +112,7 @@ test("conditional visibility removes unavailable leaves and empty menus", () => 
 
 test("contextual acceptance queries reach the intended stock-style routes", () => {
   const { records } = fixtureIndex()
+  /** @type {[string, string][]} */
   const cases = [
     ["install docker", "install.development.docker-dbs"],
     ["remove firefox", "remove.browser.firefox"],

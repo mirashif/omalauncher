@@ -1,11 +1,29 @@
 // Contextual Action Panel records shared by QML and Node tests.
 
+/** @typedef {import("../types/models").ActionInput} ActionInput */
+/** @typedef {import("../types/models").ActionContext} ActionContext */
+/** @typedef {import("../types/models").ActionRecord} ActionRecord */
+
+/** @param {unknown} value @returns {string} */
 function text(value) {
   return String(value || "")
 }
 
+/**
+ * @param {string} id
+ * @param {string} title
+ * @param {string} description
+ * @param {string} shortcut
+ * @param {string} icon
+ * @param {readonly string[]} keywords
+ * @param {number} order
+ * @param {string} section
+ * @param {string} [kind]
+ * @param {string} [target]
+ * @returns {ActionRecord}
+ */
 function action(id, title, description, shortcut, icon, keywords, order, section, kind, target) {
-  var keywordList = Array.isArray(keywords) ? keywords : []
+  var keywordList = keywords.slice()
   return {
     id: id,
     type: "action",
@@ -24,6 +42,12 @@ function action(id, title, description, shortcut, icon, keywords, order, section
   }
 }
 
+/**
+ * @param {ActionInput | null | undefined} result
+ * @param {ActionContext | null | undefined} context
+ * @param {unknown} [route]
+ * @returns {ActionRecord[]}
+ */
 function actionsForResult(result, context, route) {
   var row = result || {}
   var resultId = text(row.resultId || row.id)
@@ -33,6 +57,12 @@ function actionsForResult(result, context, route) {
   var usage = state.usage || {}
   var favorite = !!state.favorite
   var application = text(row.resultType || row.type) === "application"
+  var stockCommand = text(row.resultType || row.type) === "omarchy-command"
+  var executionKind = text(row.executionKind)
+  var shellFeature = executionKind === "shell-plugin" || executionKind === "shell-ipc"
+  var cliDirect = executionKind === "cli-direct"
+  var cliHelp = executionKind === "cli-help"
+  var cliCommand = cliDirect || cliHelp
   var resultKind = text(row.resultKind || row.kind)
   var menu = !application && (resultKind === "menu" || resultKind === "link")
   var hiddenManager = resultKind === "manage-hidden"
@@ -43,6 +73,7 @@ function actionsForResult(result, context, route) {
   var file = text(row.resultType || row.type) === "file"
   var fileStatus = text(row.resultType || row.type) === "file-status"
   var resultTitle = text(row.title)
+  /** @type {ActionRecord[]} */
   var actions = []
   var activeRoute = text(route || "root")
 
@@ -73,7 +104,7 @@ function actionsForResult(result, context, route) {
   }
 
   if (activeRoute === "omarchy") {
-    if (application) return []
+    if (!stockCommand) return []
     if (text(row.parentRoute)) {
       actions.push(action(
         "parent",
@@ -143,7 +174,9 @@ function actionsForResult(result, context, route) {
     hiddenManager ? "Manage Hidden Results"
       : (compactToggle ? resultTitle
         : (settingsCommand ? resultTitle
-          : (application ? "Open Application" : (menu ? "Open Menu" : "Run Command")))),
+          : (application ? "Open Application"
+            : (shellFeature ? "Open Shell Feature"
+              : (cliHelp ? "Show Command Help" : (menu ? "Open Menu" : "Run Command")))))),
     resultTitle,
     "Enter",
     hiddenManager ? "" : (compactToggle ? "" : (application ? "" : (menu ? "" : "▶"))),
@@ -154,7 +187,33 @@ function actionsForResult(result, context, route) {
 
   if (hiddenManager || compactToggle || settingsCommand) return actions
 
-  if (!application) {
+  if (cliDirect) {
+    actions.push(action(
+      "command-help",
+      "Show Command Help",
+      text(row.commandRoute) || resultTitle,
+      "",
+      "󰋖",
+      ["command", "help", "usage", "manual", "terminal"],
+      actions.length,
+      "Command"
+    ))
+  }
+
+  if (cliCommand) {
+    actions.push(action(
+      "copy-command",
+      "Copy Command",
+      text(row.commandRoute) || resultTitle,
+      "",
+      "",
+      ["command", "copy", "terminal", "cli"],
+      actions.length,
+      "Command"
+    ))
+  }
+
+  if (stockCommand) {
     actions.push(action(
       "omarchy-actions",
       "Open With Omarchy",
@@ -162,7 +221,7 @@ function actionsForResult(result, context, route) {
       "",
       "󰍉",
       ["parent", "default", "stock", "fallback", "omarchy", "menu"],
-      1,
+      actions.length,
       "Navigation",
       "submenu",
       "omarchy"
@@ -177,7 +236,7 @@ function actionsForResult(result, context, route) {
     "",
     "",
     ["configure", "alias", "keyword", "settings"],
-    2,
+    actions.length,
     "Configure",
     "submenu",
     "configure"
@@ -190,7 +249,7 @@ function actionsForResult(result, context, route) {
     "Ctrl+F",
     "",
     ["favorite", "favourite", "star", "pin", favorite ? "remove" : "add"],
-    3,
+    actions.length,
     "Favorites"
   ))
 
