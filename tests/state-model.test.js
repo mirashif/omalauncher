@@ -85,6 +85,13 @@ test("version 2 state gains provider defaults without losing compact mode", () =
   assert.deepEqual(migrated.preferences.fileSearchScopes, [])
 })
 
+test("only valid older state documents require a persisted migration", () => {
+  assert.equal(StateModel.migrationRequired(JSON.stringify({ version: 2 })), true)
+  assert.equal(StateModel.migrationRequired(JSON.stringify(StateModel.emptyState())), false)
+  assert.equal(StateModel.migrationRequired("{broken"), false)
+  assert.equal(StateModel.migrationRequired(""), false)
+})
+
 test("favorites toggle immutably with newest first", () => {
   const initial = StateModel.emptyState()
   const added = StateModel.toggleFavorite(initial, "omarchy:update")

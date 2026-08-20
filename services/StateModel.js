@@ -180,6 +180,17 @@ function serializeState(state) {
   return JSON.stringify(normalizeState(state), null, 2) + "\n"
 }
 
+function migrationRequired(raw) {
+  var source = String(raw || "").trim()
+  if (!source) return false
+  try {
+    var parsed = JSON.parse(source)
+    return !parsed || typeof parsed !== "object" || Number(parsed.version || 0) !== STATE_VERSION
+  } catch (error) {
+    return false
+  }
+}
+
 function isFavorite(state, id) {
   var target = validId(id)
   if (!target) return false
@@ -453,6 +464,7 @@ if (typeof module !== "undefined") {
     parseState: parseState,
     parseStateResult: parseStateResult,
     serializeState: serializeState,
+    migrationRequired: migrationRequired,
     isFavorite: isFavorite,
     toggleFavorite: toggleFavorite,
     moveFavorite: moveFavorite,

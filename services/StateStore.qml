@@ -27,6 +27,7 @@ Item {
     root.error = parsed.error
     if (parsed.error) console.warn("Omalauncher: " + parsed.error + " at " + root.statePath)
     root.loaded = true
+    if (!parsed.error && StateModel.migrationRequired(raw)) root.scheduleSave()
   }
 
   function scheduleSave() {

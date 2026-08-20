@@ -72,6 +72,7 @@ Item {
   property double lastSearchUpdateMs: 0
   property double maxSearchUpdateMs: 0
   property int resultRebuilds: 0
+  property int searchMeasurements: 0
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
   readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
@@ -79,7 +80,8 @@ Item {
     && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
   readonly property bool indexSettled: stateStore.loaded && appsReady && commandIndexSettled
   readonly property bool indexReady: indexSettled
-  readonly property bool compactMode: stateStore.preferences.compactMode === true
+  readonly property bool compactMode: !!stateStore.preferences
+    && stateStore.preferences.compactMode === true
   readonly property bool compactCollapsed: compactMode
     && !compactExpanded
     && !searchInput.text
@@ -180,6 +182,9 @@ Item {
     root.selectedIndex = 0
     root.resetQueryHistoryNavigation()
     root.rebuildResults()
+    if (root.openMeasurementStartedAt > 0) {
+      root.lastWarmOpenMs = Math.max(0, Date.now() - root.openMeasurementStartedAt)
+    }
     root.evaluateGuards()
     appProvider.refreshIcons()
     Qt.callLater(function() {
@@ -275,11 +280,22 @@ Item {
       lastSearchUpdateMs: root.lastSearchUpdateMs,
       maxSearchUpdateMs: root.maxSearchUpdateMs,
       resultRebuilds: root.resultRebuilds,
+      searchMeasurements: root.searchMeasurements,
       budgets: {
         warmOpenMs: 100,
         searchUpdateMs: 16
       }
     })
+  }
+
+  function resetPerformanceStats() {
+    root.openMeasurementStartedAt = 0
+    root.lastWarmOpenMs = 0
+    root.lastSearchUpdateMs = 0
+    root.maxSearchUpdateMs = 0
+    root.resultRebuilds = 0
+    root.searchMeasurements = 0
+    return "ok"
   }
 
   function stateStats() {
@@ -445,6 +461,9 @@ Item {
   }
 
   function managementRecords() {
+    var preferences = stateStore.preferences || ({})
+    var fileScopes = Array.isArray(preferences.fileSearchScopes)
+      ? preferences.fileSearchScopes : []
     var records = [{
       id: "omalauncher:settings",
       type: "launcher-command",
@@ -485,8 +504,8 @@ Item {
       section: "Launcher"
     }]
     records.push(FileSearchModel.managementRecord(
-      stateStore.preferences.fileSearchEnabled === true,
-      stateStore.preferences.fileSearchScopes.length))
+      preferences.fileSearchEnabled === true,
+      fileScopes.length))
     if (root.hiddenRecords().length > 0) records.push({
       id: "omalauncher:manage-hidden",
       type: "launcher-command",
@@ -547,6 +566,11 @@ Item {
     resultsModel.clear()
     var rawQuery = String(searchInput.text || "")
     var query = rawQuery.trim()
+    var preferences = stateStore.preferences || ({})
+    var fileScopes = Array.isArray(preferences.fileSearchScopes)
+      ? preferences.fileSearchScopes : []
+    var fileIgnores = Array.isArray(preferences.fileSearchIgnores)
+      ? preferences.fileSearchIgnores : []
     if (root.activeRoute !== "root" && root.activeRoute !== "apps"
         && root.activeRoute !== "hidden" && root.activeRoute !== "files"
         && !SettingsModel.isRoute(root.activeRoute)
@@ -561,7 +585,7 @@ Item {
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
     } else if (root.activeRoute === "settings") {
-      scopedRecords = SettingsModel.settingsRecords(stateStore.preferences, {
+      scopedRecords = SettingsModel.settingsRecords(preferences, {
         calculatorSettled: calculatorProvider.backendSettled,
         calculatorAvailable: calculatorProvider.backendAvailable,
         fileSearchSettled: fileSearchProvider.backendSettled,
@@ -595,8 +619,8 @@ Item {
     var fileRequest = FileSearchModel.queryRequest(rawQuery, root.activeRoute === "files")
     fileSearchProvider.request(
       fileRequest.query,
-      stateStore.preferences.fileSearchScopes,
-      stateStore.preferences.fileSearchIgnores,
+      fileScopes,
+      fileIgnores,
       fileRequest.active)
     calculatorProvider.request(
       !fileRequest.active && root.activeRoute === "root" ? query : "", strongLauncherMatch)
@@ -643,7 +667,10 @@ Item {
     if (resultsModel.count === 0) root.selectedIndex = 0
     else root.selectedIndex = Math.max(0, Math.min(root.selectedIndex, resultsModel.count - 1))
     root.lastSearchUpdateMs = Math.max(0, Date.now() - rebuildStartedAt)
-    root.maxSearchUpdateMs = Math.max(root.maxSearchUpdateMs, root.lastSearchUpdateMs)
+    if (query && root.activeRoute === "root" && !fileRequest.active) {
+      root.maxSearchUpdateMs = Math.max(root.maxSearchUpdateMs, root.lastSearchUpdateMs)
+      root.searchMeasurements += 1
+    }
     root.resultRebuilds += 1
     Qt.callLater(root.revealSelection)
   }
@@ -1476,14 +1503,16 @@ Item {
 
   CalculatorProvider {
     id: calculatorProvider
-    providerEnabled: stateStore.preferences.calculatorEnabled === true
+    providerEnabled: !!stateStore.preferences
+      && stateStore.preferences.calculatorEnabled === true
     onRecordsChanged: root.rebuildResults()
     onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
   }
 
   FileSearchProvider {
     id: fileSearchProvider
-    providerEnabled: stateStore.preferences.fileSearchEnabled === true
+    providerEnabled: !!stateStore.preferences
+      && stateStore.preferences.fileSearchEnabled === true
     onRecordsChanged: root.rebuildResults()
     onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
     onCommonScopesChanged: if (root.activeRoute === "settings") root.rebuildResults()
