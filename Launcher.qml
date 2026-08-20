@@ -12,6 +12,7 @@ import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
 import "services/LayoutModel.js" as LayoutModel
 import "services/NavigationModel.js" as NavigationModel
+import "services/QuickActivationModel.js" as QuickActivationModel
 import "services/SettingsModel.js" as SettingsModel
 import "services/StatusModel.js" as StatusModel
 import "SearchEngine.js" as SearchEngine
@@ -683,9 +684,10 @@ Item {
     return false
   }
 
-  function selectedResultSnapshot() {
-    if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return ({})
-    var row = resultsModel.get(root.selectedIndex)
+  function resultSnapshotAt(index) {
+    var targetIndex = Number(index)
+    if (resultsModel.count === 0 || targetIndex < 0 || targetIndex >= resultsModel.count) return ({})
+    var row = resultsModel.get(targetIndex)
     return {
       resultId: String(row.resultId || ""),
       resultType: String(row.resultType || ""),
@@ -702,6 +704,48 @@ Item {
       settingValue: String(row.settingValue || ""),
       userAlias: String(row.userAlias || "")
     }
+  }
+
+  function selectedResultSnapshot() {
+    return root.resultSnapshotAt(root.selectedIndex)
+  }
+
+  function quickActivationOrdinal(key) {
+    var keys = [Qt.Key_1, Qt.Key_2, Qt.Key_3, Qt.Key_4, Qt.Key_5, Qt.Key_6, Qt.Key_7, Qt.Key_8]
+    for (var index = 0; index < keys.length; index++) {
+      if (key === keys[index]) return index + 1
+    }
+    return 0
+  }
+
+  function quickActivationEligible() {
+    return !SettingsModel.isRoute(root.activeRoute)
+      && !root.compactCollapsed
+      && !root.actionPanelOpen
+      && !root.warningPanelOpen
+  }
+
+  function quickActivationHint(index) {
+    return QuickActivationModel.hintForIndex(
+      index,
+      resultsModel.count,
+      root.maximumVisibleRows,
+      stateStore.preferences.quickActivationEnabled === true,
+      root.quickActivationEligible())
+  }
+
+  function activateQuickResult(event) {
+    if (event.modifiers !== Qt.ControlModifier) return false
+    var ordinal = root.quickActivationOrdinal(event.key)
+    var index = QuickActivationModel.resultIndex(
+      ordinal,
+      resultsModel.count,
+      root.maximumVisibleRows,
+      stateStore.preferences.quickActivationEnabled === true,
+      root.quickActivationEligible())
+    if (index < 0) return false
+    root.runResult(root.resultSnapshotAt(index), false)
+    return true
   }
 
   function menuTitle(route) {
@@ -1517,7 +1561,9 @@ Item {
 
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) {
-            if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
+            if (root.activateQuickResult(event)) {
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
               root.openActionPanel()
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0
@@ -1766,6 +1812,24 @@ Item {
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(8)
+
+            Rectangle {
+              visible: root.quickActivationHint(resultRow.index).length > 0
+              width: quickActivationText.implicitWidth + Style.space(10)
+              height: Math.max(Style.space(22), quickActivationText.implicitHeight + Style.space(6))
+              radius: height / 2
+              color: resultRow.selected ? root.selectedText : root.selectedBackground
+              opacity: 0.75
+
+              Text {
+                id: quickActivationText
+                anchors.centerIn: parent
+                text: root.quickActivationHint(resultRow.index)
+                color: resultRow.selected ? root.selectedBackground : root.selectedText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+              }
+            }
 
             Text {
               visible: resultRow.favorite

@@ -53,6 +53,7 @@ entries follow in Applications and Omarchy Commands sections.
 | `Down` while cycling | Return toward the draft query |
 | `Shift+Escape` | Return directly to Root Search |
 | `Ctrl+Shift+C` | Enable or disable Compact Mode |
+| `Ctrl+1`…`Ctrl+8` | Activate the corresponding visible result directly |
 | `Ctrl+W` | Close Omalauncher immediately |
 | `Escape` | Close the current layer, clear search, go back, or close |
 
