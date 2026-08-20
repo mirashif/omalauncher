@@ -130,6 +130,21 @@ test("settings commands expose only their launcher-owned primary action", () => 
   assert.equal(actions[0].title, "Scoped File Search")
 })
 
+test("calculator results expose copy actions without launcher personalization", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "calculator:2 + 2",
+    resultType: "calculator",
+    resultKind: "calculator",
+    title: "4",
+    calculatorExpression: "2 + 2",
+    calculatorResult: "4"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary", "copy-expression"])
+  assert.equal(actions[0].title, "Copy Result")
+  assert.equal(actions[1].description, "2 + 2")
+})
+
 test("favorite actions expose only valid reorder directions", () => {
   const result = {
     resultId: "application:brave-browser",

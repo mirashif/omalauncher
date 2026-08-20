@@ -38,9 +38,23 @@ function actionsForResult(result, context, route) {
   var hiddenManager = resultKind === "manage-hidden"
   var compactToggle = resultKind === "toggle-compact"
   var settingsCommand = resultKind === "open-settings" || resultKind.indexOf("settings-") === 0
+  var calculator = text(row.resultType || row.type) === "calculator"
   var resultTitle = text(row.title)
   var actions = []
   var activeRoute = text(route || "root")
+
+  if (calculator) {
+    if (resultKind !== "calculator") {
+      actions.push(action("primary", resultTitle, text(row.description), "Enter", "",
+        ["calculator", "status"], 0, "Calculator"))
+      return actions
+    }
+    actions.push(action("primary", "Copy Result", text(row.calculatorResult), "Enter", "",
+      ["copy", "result", "calculator"], 0, "Calculator"))
+    actions.push(action("copy-expression", "Copy Expression", text(row.calculatorExpression), "", "󰆏",
+      ["copy", "expression", "calculator"], 1, "Calculator"))
+    return actions
+  }
 
   if (activeRoute === "omarchy") {
     if (application) return []

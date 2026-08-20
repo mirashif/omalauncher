@@ -551,7 +551,10 @@ Item {
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
     } else if (root.activeRoute === "settings") {
-      scopedRecords = SettingsModel.settingsRecords(stateStore.preferences)
+      scopedRecords = SettingsModel.settingsRecords(stateStore.preferences, {
+        calculatorSettled: calculatorProvider.backendSettled,
+        calculatorAvailable: calculatorProvider.backendAvailable
+      })
     } else if (SettingsModel.isInputRoute(root.activeRoute)) {
       scopedRecords = SettingsModel.inputRecords(
         root.activeRoute, query, root.settingsInputError, root.settingsInputBusy)
@@ -568,6 +571,18 @@ Item {
     else if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
     else if (root.activeRoute === "root") results = stateStore.emptyRows(root.allRecords)
     else results = scopedRecords
+
+    var strongLauncherMatch = false
+    for (var matchIndex = 0; matchIndex < results.length; matchIndex++) {
+      if (Number(results[matchIndex].semanticTier || 99) <= 3) {
+        strongLauncherMatch = true
+        break
+      }
+    }
+    calculatorProvider.request(root.activeRoute === "root" ? query : "", strongLauncherMatch)
+    if (root.activeRoute === "root" && query && calculatorProvider.records.length > 0) {
+      results = calculatorProvider.records.concat(results).slice(0, 50)
+    }
     var sections = {}
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
@@ -590,6 +605,8 @@ Item {
         provider: String(result.provider || ""),
         settingKey: String(result.settingKey || ""),
         settingValue: String(result.settingValue || ""),
+        calculatorExpression: String(result.calculatorExpression || ""),
+        calculatorResult: String(result.calculatorResult || ""),
         isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
@@ -702,6 +719,8 @@ Item {
       provider: String(row.provider || ""),
       settingKey: String(row.settingKey || ""),
       settingValue: String(row.settingValue || ""),
+      calculatorExpression: String(row.calculatorExpression || ""),
+      calculatorResult: String(row.calculatorResult || ""),
       userAlias: String(row.userAlias || "")
     }
   }
@@ -1041,6 +1060,10 @@ Item {
       root.openInStockMenu(target)
       return
     }
+    if (selectedActionId === "copy-expression") {
+      root.copyText(target.calculatorExpression, "Copied calculator expression")
+      return
+    }
     if (selectedActionId === "primary" || selectedActionId === "parent") {
       root.runResult(target, selectedActionId === "parent")
     }
@@ -1126,6 +1149,15 @@ Item {
       root.goBack()
       return
     }
+    if (row.resultKind === "calculator") {
+      root.copyText(row.calculatorResult, "Copied calculator result")
+      return
+    }
+    if (row.resultKind === "calculator-unavailable") {
+      root.setActiveRoute("settings", true)
+      return
+    }
+    if (row.resultKind === "calculator-loading" || row.resultKind === "calculator-error") return
     if (row.resultKind === "toggle-compact") {
       root.toggleCompactMode()
       return
@@ -1207,6 +1239,14 @@ Item {
     root.goBack()
   }
 
+  function copyText(value, message) {
+    var copyValue = String(value || "")
+    if (!copyValue) return
+    Quickshell.execDetached(["wl-copy", "--", copyValue])
+    root.showOsd("", String(message || "Copied"))
+    root.dismiss()
+  }
+
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
@@ -1249,6 +1289,8 @@ Item {
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultKind === "open-settings") return "Open Settings"
     if (String(row.resultKind || "").indexOf("settings-") === 0) return "Apply"
+    if (row.resultKind === "calculator") return "Copy Result"
+    if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
     if (row.resultType === "application") return "Open Application"
     if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
     return "Run Command"
@@ -1344,6 +1386,13 @@ Item {
       root.appRecords = appProvider.records
       root.rebuildUnifiedRecords()
     }
+  }
+
+  CalculatorProvider {
+    id: calculatorProvider
+    providerEnabled: stateStore.preferences.calculatorEnabled === true
+    onRecordsChanged: root.rebuildResults()
+    onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
   }
 
   FileView {

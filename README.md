@@ -82,6 +82,13 @@ patterns without leaving the launcher. Scope paths are canonicalized and must
 name an existing directory; `/` is never accepted. Provider and personalization
 resets open a separate confirmation route before applying.
 
+Calculator results use the optional `qalc` command from `libqalculate`. Prefix
+an expression with `=` for explicit calculation, for example `= 12 * 8` or
+`= 10 km to mi`. Arithmetic-looking queries can also calculate automatically
+when they do not compete with a strong application or command match. Enter
+copies the result; the Action Panel can copy the original expression. Missing
+or invalid calculator backends never affect application or command search.
+
 Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is
 opened in the default Omarchy menu so Omalauncher does not duplicate its

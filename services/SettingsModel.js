@@ -41,15 +41,20 @@ function enabledLabel(enabled) {
   return enabled === true ? "Enabled" : "Disabled"
 }
 
-function settingsRecords(preferences) {
+function settingsRecords(preferences, context) {
   var values = preferences || {}
+  var status = context || {}
+  var calculatorDescription = enabledLabel(values.calculatorEnabled)
+  if (status.calculatorSettled === true && status.calculatorAvailable !== true) {
+    calculatorDescription += " · qalc unavailable"
+  }
   var records = [
     record("omalauncher:setting-compact", "settings-toggle", "Compact Mode",
       enabledLabel(values.compactMode), "", 0, "Behavior", "compactMode", ""),
     record("omalauncher:setting-quick-activation", "settings-toggle", "Numbered Quick Activation",
       enabledLabel(values.quickActivationEnabled), "󰎠", 1, "Behavior", "quickActivationEnabled", ""),
     record("omalauncher:setting-calculator", "settings-toggle", "Calculator Results",
-      enabledLabel(values.calculatorEnabled), "", 2, "Providers", "calculatorEnabled", ""),
+      calculatorDescription, "", 2, "Providers", "calculatorEnabled", ""),
     record("omalauncher:setting-file-search", "settings-toggle", "Scoped File Search",
       enabledLabel(values.fileSearchEnabled), "󰈞", 3, "Providers", "fileSearchEnabled", ""),
     record("omalauncher:setting-add-scope", "settings-open-scope", "Add File Search Scope",
