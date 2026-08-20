@@ -50,6 +50,11 @@ Item {
     return root.isFavorite(id)
   }
 
+  function moveFavorite(id, delta) {
+    root.snapshot = StateModel.moveFavorite(root.snapshot, id, delta)
+    root.scheduleSave()
+  }
+
   function recordSelection(id) {
     root.snapshot = StateModel.recordUsage(root.snapshot, id, Date.now())
     root.scheduleSave()

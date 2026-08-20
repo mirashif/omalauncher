@@ -31,7 +31,7 @@ Implementation rules:
   persistent result badges, and remove-alias support.
 - [x] 4. Add hide/unhide actions plus a searchable Manage Hidden Results view so
   every hidden item remains recoverable.
-- [ ] 5. Add favorite reordering through Action Panel actions and direct
+- [x] 5. Add favorite reordering through Action Panel actions and direct
   keyboard shortcuts.
 - [ ] 6. Add query-history cycling, section jumps, pop-to-root, and immediate
   close shortcuts without breaking normal text editing.

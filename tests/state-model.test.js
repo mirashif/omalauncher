@@ -67,6 +67,18 @@ test("favorites toggle immutably with newest first", () => {
   assert.deepEqual(removed.favorites, ["application:firefox"])
 })
 
+test("favorites move within ordered bounds", () => {
+  const state = StateModel.normalizeState({
+    favorites: ["one", "two", "three"]
+  })
+  const movedUp = StateModel.moveFavorite(state, "three", -1)
+  const movedDown = StateModel.moveFavorite(movedUp, "one", 2)
+
+  assert.deepEqual(movedUp.favorites, ["one", "three", "two"])
+  assert.deepEqual(movedDown.favorites, ["three", "two", "one"])
+  assert.deepEqual(StateModel.moveFavorite(movedDown, "missing", 1).favorites, movedDown.favorites)
+})
+
 test("usage records increment count and update recency", () => {
   const once = StateModel.recordUsage(StateModel.emptyState(), "application:firefox", 1000)
   const twice = StateModel.recordUsage(once, "application:firefox", 2500)

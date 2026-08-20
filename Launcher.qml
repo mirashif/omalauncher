@@ -449,6 +449,17 @@ Item {
     if (resultsModel.count > 0) resultList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
 
+  function selectResultById(resultId) {
+    var target = String(resultId || "")
+    for (var i = 0; i < resultsModel.count; i++) {
+      if (String(resultsModel.get(i).resultId || "") !== target) continue
+      root.selectedIndex = i
+      root.revealSelection()
+      return true
+    }
+    return false
+  }
+
   function selectedResultSnapshot() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return ({})
     var row = resultsModel.get(root.selectedIndex)
@@ -568,7 +579,9 @@ Item {
       favorite: stateStore.isFavorite(root.actionTarget.resultId),
       usage: stateStore.usage,
       alias: stateStore.aliasFor(root.actionTarget.resultId),
-      hidden: stateStore.isHidden(root.actionTarget.resultId)
+      hidden: stateStore.isHidden(root.actionTarget.resultId),
+      favoriteIndex: stateStore.favorites.indexOf(root.actionTarget.resultId),
+      favoriteCount: stateStore.favorites.length
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -723,6 +736,10 @@ Item {
       stateStore.toggleFavorite(target.resultId)
       return
     }
+    if (selectedActionId === "favorite-up" || selectedActionId === "favorite-down") {
+      root.moveFavoriteForId(target.resultId, selectedActionId === "favorite-up" ? -1 : 1)
+      return
+    }
     if (selectedActionId === "reset-ranking") {
       stateStore.resetRanking(target.resultId)
       return
@@ -788,6 +805,18 @@ Item {
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     stateStore.toggleFavorite(resultsModel.get(root.selectedIndex).resultId)
+  }
+
+  function moveFavoriteForId(resultId, delta) {
+    var target = String(resultId || "")
+    if (!stateStore.isFavorite(target)) return
+    stateStore.moveFavorite(target, delta)
+    Qt.callLater(function() { root.selectResultById(target) })
+  }
+
+  function moveSelectedFavorite(delta) {
+    var selected = root.selectedResultSnapshot()
+    if (selected.resultId) root.moveFavoriteForId(selected.resultId, delta)
   }
 
   function launchApplication(appId, title) {
@@ -1055,6 +1084,16 @@ Item {
           Keys.onPressed: function(event) {
             if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
               root.openActionPanel()
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                       && (event.modifiers & Qt.ShiftModifier) !== 0
+                       && event.key === Qt.Key_Up) {
+              root.moveSelectedFavorite(-1)
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                       && (event.modifiers & Qt.ShiftModifier) !== 0
+                       && event.key === Qt.Key_Down) {
+              root.moveSelectedFavorite(1)
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
               root.toggleSelectedFavorite()
@@ -1420,6 +1459,16 @@ Item {
                   || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K)) {
                 if (event.key === Qt.Key_Escape && root.goBackActionRoute()) { }
                 else root.closeActionPanel()
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                         && (event.modifiers & Qt.ShiftModifier) !== 0
+                         && event.key === Qt.Key_Up) {
+                root.moveFavoriteForId(root.actionTarget.resultId, -1)
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                         && (event.modifiers & Qt.ShiftModifier) !== 0
+                         && event.key === Qt.Key_Down) {
+                root.moveFavoriteForId(root.actionTarget.resultId, 1)
                 event.accepted = true
               } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
                 root.performAction("favorite")

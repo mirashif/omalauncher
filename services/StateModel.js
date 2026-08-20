@@ -158,6 +158,19 @@ function toggleFavorite(state, id) {
   return stateWith(current, { favorites: favorites })
 }
 
+function moveFavorite(state, id, delta) {
+  var current = normalizeState(state)
+  var target = validId(id)
+  var favorites = current.favorites.slice()
+  var from = favorites.indexOf(target)
+  if (from < 0 || favorites.length < 2) return current
+  var to = Math.max(0, Math.min(favorites.length - 1, from + Number(delta || 0)))
+  if (to === from) return current
+  favorites.splice(from, 1)
+  favorites.splice(to, 0, target)
+  return stateWith(current, { favorites: favorites })
+}
+
 function recordUsage(state, id, now) {
   var current = normalizeState(state)
   var target = validId(id)
@@ -332,6 +345,7 @@ if (typeof module !== "undefined") {
     serializeState: serializeState,
     isFavorite: isFavorite,
     toggleFavorite: toggleFavorite,
+    moveFavorite: moveFavorite,
     recordUsage: recordUsage,
     resetUsage: resetUsage,
     aliasFor: aliasFor,

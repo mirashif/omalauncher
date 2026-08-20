@@ -160,6 +160,33 @@ function actionsForResult(result, context, route) {
     "Favorites"
   ))
 
+  var favoriteIndex = Number(state.favoriteIndex === undefined ? -1 : state.favoriteIndex)
+  var favoriteCount = Math.max(0, Number(state.favoriteCount || 0))
+  if (favorite && favoriteIndex > 0) {
+    actions.push(action(
+      "favorite-up",
+      "Move Favorite Up",
+      resultTitle,
+      "Ctrl+Shift+Up",
+      "",
+      ["favorite", "move", "reorder", "up"],
+      4,
+      "Favorites"
+    ))
+  }
+  if (favorite && favoriteIndex >= 0 && favoriteIndex < favoriteCount - 1) {
+    actions.push(action(
+      "favorite-down",
+      "Move Favorite Down",
+      resultTitle,
+      "Ctrl+Shift+Down",
+      "",
+      ["favorite", "move", "reorder", "down"],
+      5,
+      "Favorites"
+    ))
+  }
+
   if (usage[resultId]) {
     actions.push(action(
       "reset-ranking",
@@ -168,7 +195,7 @@ function actionsForResult(result, context, route) {
       "",
       "",
       ["reset", "ranking", "usage", "history", "forget", "frecency"],
-      4,
+      6,
       "Manage"
     ))
   }

@@ -106,6 +106,29 @@ test("hidden-result manager exposes only its primary navigation action", () => {
   assert.equal(actions[0].title, "Manage Hidden Results")
 })
 
+test("favorite actions expose only valid reorder directions", () => {
+  const result = {
+    resultId: "application:brave-browser",
+    resultType: "application",
+    title: "Brave"
+  }
+  const first = ActionModel.actionsForResult(result, {
+    favorite: true,
+    favoriteIndex: 0,
+    favoriteCount: 3
+  })
+  const middle = ActionModel.actionsForResult(result, {
+    favorite: true,
+    favoriteIndex: 1,
+    favoriteCount: 3
+  })
+
+  assert.equal(first.some(action => action.id === "favorite-up"), false)
+  assert.equal(first.some(action => action.id === "favorite-down"), true)
+  assert.equal(middle.some(action => action.id === "favorite-up"), true)
+  assert.equal(middle.some(action => action.id === "favorite-down"), true)
+})
+
 test("action titles and keywords are searchable", () => {
   const id = "omarchy:update.config.hyprland"
   const actions = ActionModel.actionsForResult({
