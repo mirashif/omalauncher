@@ -9,6 +9,7 @@ import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "services/ActionModel.js" as ActionModel
 import "services/LayoutModel.js" as LayoutModel
+import "services/NavigationModel.js" as NavigationModel
 import "services/StatusModel.js" as StatusModel
 import "SearchEngine.js" as SearchEngine
 
@@ -36,6 +37,9 @@ Item {
   property var navigationStack: []
   property int selectedIndex: 0
   property int resultSectionCount: 0
+  property int queryHistoryIndex: -1
+  property string queryHistoryDraft: ""
+  property bool applyingQueryHistory: false
   property bool actionPanelOpen: false
   property var actionTarget: ({})
   property int actionSelectedIndex: 0
@@ -117,6 +121,7 @@ Item {
     root.opened = true
     searchInput.text = String(payload.query || "")
     root.selectedIndex = 0
+    root.resetQueryHistoryNavigation()
     root.rebuildResults()
     root.evaluateGuards()
     appProvider.refreshIcons()
@@ -130,6 +135,7 @@ Item {
     root.navigationStack = []
     searchInput.text = ""
     root.selectedIndex = 0
+    root.resetQueryHistoryNavigation()
   }
 
   function dismiss() {
@@ -443,6 +449,62 @@ Item {
     if (resultsModel.count === 0) return
     root.selectedIndex = (root.selectedIndex + delta + resultsModel.count) % resultsModel.count
     root.revealSelection()
+  }
+
+  function modelRows(model) {
+    var rows = []
+    for (var i = 0; i < model.count; i++) rows.push({ section: String(model.get(i).section || "") })
+    return rows
+  }
+
+  function moveResultSection(delta) {
+    if (resultsModel.count === 0) return
+    root.selectedIndex = NavigationModel.sectionJumpIndex(root.modelRows(resultsModel), root.selectedIndex, delta)
+    root.revealSelection()
+  }
+
+  function moveActionSection(delta) {
+    if (actionResultsModel.count === 0) return
+    root.actionSelectedIndex = NavigationModel.sectionJumpIndex(
+      root.modelRows(actionResultsModel), root.actionSelectedIndex, delta)
+    root.revealActionSelection()
+  }
+
+  function resetQueryHistoryNavigation() {
+    root.queryHistoryIndex = -1
+    root.queryHistoryDraft = ""
+  }
+
+  function cycleQueryHistory(older) {
+    var history = stateStore.queryHistory || []
+    if (history.length === 0) return false
+    if (root.queryHistoryIndex < 0) {
+      if (!older) return false
+      root.queryHistoryDraft = String(searchInput.text || "")
+      root.queryHistoryIndex = 0
+    } else if (older) {
+      root.queryHistoryIndex = Math.min(history.length - 1, root.queryHistoryIndex + 1)
+    } else {
+      root.queryHistoryIndex -= 1
+    }
+
+    root.applyingQueryHistory = true
+    searchInput.text = root.queryHistoryIndex < 0
+      ? root.queryHistoryDraft : String(history[root.queryHistoryIndex] || "")
+    root.applyingQueryHistory = false
+    searchInput.selectAll()
+    return true
+  }
+
+  function popToRoot() {
+    root.resetActionPanel()
+    root.activeRoute = "root"
+    root.navigationStack = []
+    searchInput.text = ""
+    root.selectedIndex = 0
+    root.resetQueryHistoryNavigation()
+    root.rebuildResults()
+    Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
   function revealSelection() {
@@ -778,6 +840,8 @@ Item {
       root.setActiveRoute("hidden", true)
       return
     }
+    var selectedQuery = String(searchInput.text || "").trim()
+    if (selectedQuery) stateStore.recordQuery(selectedQuery)
     stateStore.recordSelection(row.resultId)
     if (row.resultType === "application") {
       root.launchApplication(row.appId, row.title)
@@ -1076,6 +1140,7 @@ Item {
           font.pixelSize: Style.font.heading
           clip: true
           onTextChanged: {
+            if (!root.applyingQueryHistory) root.resetQueryHistoryNavigation()
             root.selectedIndex = 0
             root.rebuildResults()
           }
@@ -1084,6 +1149,12 @@ Item {
           Keys.onPressed: function(event) {
             if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
               root.openActionPanel()
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
+              root.dismiss()
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
+              root.popToRoot()
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0
                        && (event.modifiers & Qt.ShiftModifier) !== 0
@@ -1098,6 +1169,12 @@ Item {
             } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
               root.toggleSelectedFavorite()
               event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Up) {
+              root.moveResultSection(-1)
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Down) {
+              root.moveResultSection(1)
+              event.accepted = true
             } else if (event.key === Qt.Key_Escape) {
               if (searchInput.text) searchInput.text = ""
               else if (root.goBack()) { }
@@ -1108,10 +1185,11 @@ Item {
               root.goBack()
               event.accepted = true
             } else if (event.key === Qt.Key_Up) {
-              root.moveSelection(-1)
+              if (root.selectedIndex === 0) root.cycleQueryHistory(true)
+              else root.moveSelection(-1)
               event.accepted = true
             } else if (event.key === Qt.Key_Down) {
-              root.moveSelection(1)
+              if (!root.cycleQueryHistory(false)) root.moveSelection(1)
               event.accepted = true
             } else if (event.key === Qt.Key_PageUp) {
               root.moveSelection(-root.maximumVisibleRows)
@@ -1455,7 +1533,13 @@ Item {
 
             Keys.priority: Keys.BeforeItem
             Keys.onPressed: function(event) {
-              if (event.key === Qt.Key_Escape
+              if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
+                root.dismiss()
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
+                root.popToRoot()
+                event.accepted = true
+              } else if (event.key === Qt.Key_Escape
                   || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K)) {
                 if (event.key === Qt.Key_Escape && root.goBackActionRoute()) { }
                 else root.closeActionPanel()
@@ -1472,6 +1556,12 @@ Item {
                 event.accepted = true
               } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
                 root.performAction("favorite")
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Up) {
+                root.moveActionSection(-1)
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Down) {
+                root.moveActionSection(1)
                 event.accepted = true
               } else if (event.key === Qt.Key_Up) {
                 root.moveActionSelection(-1)
@@ -1685,7 +1775,13 @@ Item {
 
                 Keys.priority: Keys.BeforeItem
                 Keys.onPressed: function(event) {
-                  if (event.key === Qt.Key_Escape) {
+                  if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
+                    root.dismiss()
+                    event.accepted = true
+                  } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
+                    root.popToRoot()
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Escape) {
                     root.closeAliasEditor()
                     event.accepted = true
                   } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {

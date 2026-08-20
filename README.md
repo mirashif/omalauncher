@@ -49,6 +49,10 @@ can be searched immediately and include:
 returns from a submenu, then closes Omalauncher. `Backspace` and `Left` also
 return from an empty submenu search. `Ctrl+Enter` opens a command's parent
 inside Omalauncher; the Action Panel retains an explicit stock-menu fallback.
+`Ctrl+Up` and `Ctrl+Down` jump between result sections, `Shift+Escape` returns
+directly to Root Search, and `Ctrl+W` closes the launcher. Pressing `Up` from
+the first result cycles through previous successful queries; `Down` returns
+toward the query that was being edited.
 
 Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is

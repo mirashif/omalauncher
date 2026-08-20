@@ -33,7 +33,7 @@ Implementation rules:
   every hidden item remains recoverable.
 - [x] 5. Add favorite reordering through Action Panel actions and direct
   keyboard shortcuts.
-- [ ] 6. Add query-history cycling, section jumps, pop-to-root, and immediate
+- [x] 6. Add query-history cycling, section jumps, pop-to-root, and immediate
   close shortcuts without breaking normal text editing.
 - [ ] 7. Add a stable footer, persistent favorite/alias badges, and safe title
   match highlighting.
