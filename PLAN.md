@@ -1,6 +1,6 @@
 # Omalauncher Product Plan
 
-Status: v0.8.0 complete; v0.8.1 hardening and v0.9 provider expansion planned
+Status: v0.9.0 complete
 Last updated: 2026-08-21
 Target platform: Omarchy 4 / Quattro
 
@@ -54,7 +54,8 @@ Implementation rules:
 
 ## v0.9 Raycast-style expansion
 
-Status: Viable and planned after the v0.8.1 acceptance-hardening work.
+Status: Complete. Hardening and every Phase 5–8 feature shipped in separate
+commits before the v0.9.0 release checkpoint.
 
 Goal: add high-value launcher-native utilities without weakening deterministic
 search, warm-open latency, or Omarchy's ownership of system actions.
@@ -94,6 +95,8 @@ this item before implementation.
 
 #### Phase 5: Settings foundation and state v3
 
+Status: Complete in `037a8a2`.
+
 Goal: provide one safe home for all Omalauncher-owned preferences before adding
 provider-specific configuration.
 
@@ -120,6 +123,8 @@ Exit criteria:
 
 #### Phase 6: Quick result activation
 
+Status: Complete in `3b8e2f6`.
+
 Goal: run a visible search result directly by ordinal without moving selection.
 
 Deliverables:
@@ -142,6 +147,8 @@ Exit criteria:
   confirmation flow.
 
 #### Phase 7: Calculator provider
+
+Status: Complete in `7a91a86`.
 
 Goal: surface safe calculator results as first-class ephemeral launcher rows.
 
@@ -172,6 +179,8 @@ Exit criteria:
 - Expressions are passed without shell interpolation.
 
 #### Phase 8: Scoped file-name provider
+
+Status: Complete in `0504c07`.
 
 Goal: find and open files quickly while making search scope and cost obvious.
 
@@ -218,7 +227,7 @@ models, but it is not intended to reproduce Raycast's complete feature set.
 
 ## Current release
 
-Version 0.8.0 is complete in this checkout. The release check covers 52
+Version 0.9.0 is complete in this checkout. The release check covers 85
 automated tests, manifest validation, QML linting, and an isolated
 install/remove cycle.
 
@@ -505,13 +514,24 @@ User state lives outside the plugin checkout so updates do not overwrite it:
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
 ```
 
-Initial state schema:
+Current state schema (v1 and v2 migrate into this shape):
 
 ```json
 {
-  "version": 1,
+  "version": 3,
   "favorites": [],
-  "usage": {}
+  "usage": {},
+  "aliases": {},
+  "hidden": [],
+  "queryHistory": [],
+  "preferences": {
+    "compactMode": false,
+    "calculatorEnabled": true,
+    "fileSearchEnabled": false,
+    "quickActivationEnabled": true,
+    "fileSearchScopes": [],
+    "fileSearchIgnores": []
+  }
 }
 ```
 
@@ -531,15 +551,18 @@ Launcher.qml
     |
     +-- AppProvider + AppIndex
     +-- MenuIndex
+    +-- CalculatorProvider + CalculatorModel
+    +-- FileSearchProvider + FileSearchModel
     +-- SearchEngine
     +-- StateStore + StateModel
-    +-- ActionModel + StatusModel + LayoutModel
+    +-- ActionModel + SettingsModel + navigation/layout helpers
     |
     v
 Unified result model
     |
     +-- launch application
     +-- invoke Omarchy route
+    +-- calculate or search configured file scopes
     +-- open Action Panel
 ```
 
@@ -556,12 +579,19 @@ omalauncher/
 ├── providers/
 │   ├── AppIndex.js
 │   ├── AppProvider.qml
+│   ├── CalculatorModel.js
+│   ├── CalculatorProvider.qml
+│   ├── FileSearchModel.js
+│   ├── FileSearchProvider.qml
 │   └── MenuIndex.js
 ├── services/
 │   ├── ActionModel.js
+│   ├── GenerationModel.js
 │   ├── HighlightModel.js
 │   ├── LayoutModel.js
 │   ├── NavigationModel.js
+│   ├── QuickActivationModel.js
+│   ├── SettingsModel.js
 │   ├── StateModel.js
 │   ├── StateStore.qml
 │   └── StatusModel.js
@@ -571,18 +601,19 @@ omalauncher/
 ├── scripts/
 │   ├── index-spike.js
 │   ├── package-smoke-test.sh
+│   ├── performance-benchmark.js
 │   └── release-check.sh
 └── assets/preview.png
 ```
 
-The v0.8.0 manifest declares:
+The v0.9.0 manifest declares:
 
 ```json
 {
   "schemaVersion": 1,
   "id": "io.github.omalauncher",
   "name": "Omalauncher",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": "Omalauncher contributors",
   "description": "A keyboard-first command palette for Omarchy.",
   "kinds": ["menu"],
@@ -691,24 +722,17 @@ Deliverables:
 
 Estimated effort: four to six focused development days for a polished MVP.
 
-All five delivery phases are complete. The remaining work below concerns
-measuring or hardening acceptance properties rather than missing MVP features.
+All original MVP phases and the v0.9 expansion phases are complete. The
+acceptance criteria below describe the maintained release contract.
 
 ## Acceptance criteria
 
 ### Current acceptance status
 
-Discovery, core interaction, safety, compatibility, and packaging are covered
-by the installed build and automated release check. The following items still
-need explicit proof or hardening:
-
-- Benchmark warm-open latency against the 100 ms budget.
-- Benchmark worst-case search updates against the 16 ms budget.
-- Add a generation identifier so a completed guard subprocess cannot briefly
-  apply results from a superseded menu revision before the queued refresh runs.
-- Add a focused regression test for pointer movement and selection ownership.
-- Add instrumentation or caching if benchmarks show unnecessary result-model
-  rebuilds are material.
+Discovery, core interaction, safety, compatibility, packaging, stale-response
+handling, and performance budgets are covered by the automated release check,
+focused regression tests, and benchmark scripts. Runtime instrumentation is
+available through `performanceStats()` and `npm run benchmark:runtime`.
 
 ### Discovery
 
@@ -750,7 +774,7 @@ npm run validate
 npm run spike
 ```
 
-`npm run validate` runs the 52 Node tests, manifest validation, QML linting,
+`npm run validate` runs the 85 Node tests, manifest validation, QML linting,
 the packaging smoke test, and whitespace validation.
 
 Shell verification should also inspect:
@@ -766,7 +790,7 @@ qs log -p "$OMARCHY_PATH/shell" -t 100
 - Full file or file-content indexing
 - Clipboard history search
 - Window switching
-- Calculator or natural-language conversions
+- Currency conversion with implicit network updates
 - Quicklink editor
 - Script-command authoring UI
 - Third-party provider SDK or marketplace
@@ -788,25 +812,18 @@ and useful.
 | A plugin failure affects the shared shell process | Keep the stock launcher bindings untouched and test malformed-source behavior. |
 | User actions contain shell commands | Treat menu sources as trusted Omarchy/user configuration and delegate execution to stock routes. |
 
-## Post-MVP opportunity order
+## Post-v0.9 opportunity order
 
-1. v0.8.1 performance measurement and asynchronous stale-result hardening
-2. Omalauncher Settings and numbered quick-result activation
-3. Calculator through the optional `qalc` backend
-4. Scoped file-name search through `fd`
-5. Quicklinks and URL detection
-6. Script-command folders with explicit metadata
-7. Clipboard and window providers using existing Omarchy/Quickshell services
-8. A documented provider contract for third-party Omalauncher extensions
+1. Quicklinks and URL detection
+2. Script-command folders with explicit metadata
+3. Clipboard and window providers using existing Omarchy/Quickshell services
+4. A documented provider contract for third-party Omalauncher extensions
 
-User-managed aliases already shipped in v0.8. Global per-command hotkeys remain
-blocked on a managed Omarchy/Hyprland registration contract; the numbered
-quick-result shortcuts planned for v0.9 are local to the open launcher and do
-not have that dependency.
-
-File search should not begin until ranking, index freshness, ignore behavior,
-and performance budgets are defined; public Raycast feedback shows that file
-search quality can easily weaken trust in the entire root-search experience.
+User-managed aliases shipped in v0.8. Performance hardening, Settings, numbered
+quick-result activation, optional calculator results, and scoped file search
+shipped in v0.9. Global per-command hotkeys remain blocked on a managed
+Omarchy/Hyprland registration contract; `Ctrl+1` through `Ctrl+8` remain local
+to the open launcher and do not have that dependency.
 
 ## Research references
 

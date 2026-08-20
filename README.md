@@ -4,6 +4,8 @@ Omalauncher is a keyboard-first command palette for Omarchy 4. It searches
 installed applications and flattens the stock JSONC menu into a unified index,
 while keeping each command's ancestor path as context.
 
+The current release is v0.9.0.
+
 ![Omalauncher searching for Update Hyprland with its Action Panel open](assets/preview.png)
 
 The current implementation includes:
