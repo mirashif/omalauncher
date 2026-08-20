@@ -50,6 +50,7 @@ Item {
   property int actionSectionCount: 0
   property bool aliasEditorOpen: false
   property string aliasEditorError: ""
+  property bool warningPanelOpen: false
   property bool guardsPending: false
   property bool guardsReady: false
   property bool guardEvaluationSettled: false
@@ -70,6 +71,33 @@ Item {
     userSourceError,
     guardError,
     appProviderError
+  ])
+  readonly property var providerDiagnostics: StatusModel.providerDiagnostics([
+    {
+      provider: "Launcher state",
+      error: stateStore.error,
+      detail: stateStore.error ? "Could not persist state at " + stateStore.statePath : ""
+    },
+    {
+      provider: "Omarchy commands",
+      error: defaultSourceError,
+      detail: defaultSourceError ? "Source: " + root.defaultMenuPath : ""
+    },
+    {
+      provider: "Custom commands",
+      error: userSourceError,
+      detail: userSourceError ? "Source: " + root.userMenuPath : ""
+    },
+    {
+      provider: "Command availability",
+      error: guardError,
+      detail: guardError ? "Retry reruns the command visibility checks." : ""
+    },
+    {
+      provider: "Applications",
+      error: appProviderError,
+      detail: appProviderError ? "Retry rebuilds the desktop application index." : ""
+    }
   ])
   readonly property var emptyStatus: StatusModel.emptyStatus({
     stateReady: stateStore.loaded,
@@ -105,6 +133,9 @@ Item {
     Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight
       + actionSectionCount * sectionHeight)
   readonly property int actionPanelHeight: Style.space(48) + Style.space(46) + actionListHeight + Style.space(28)
+  readonly property int warningPanelHeight: Style.space(76)
+    + Math.max(1, providerDiagnostics.length) * Style.space(76)
+    + Style.space(58)
 
   function focusedScreen() {
     var monitor = Hyprland.focusedMonitor
@@ -118,6 +149,7 @@ Item {
     var targetScreen = root.focusedScreen()
     if (targetScreen) panel.screen = targetScreen
     root.resetActionPanel()
+    root.warningPanelOpen = false
     root.activeRoute = "root"
     root.navigationStack = []
     root.opened = true
@@ -132,6 +164,7 @@ Item {
 
   function close() {
     root.resetActionPanel()
+    root.warningPanelOpen = false
     root.opened = false
     root.activeRoute = "root"
     root.navigationStack = []
@@ -154,6 +187,35 @@ Item {
     userMenuFile.reload()
     appProvider.refresh()
     return "ok"
+  }
+
+  function showOsd(icon, message) {
+    if (!message || !root.shell || typeof root.shell.summon !== "function") return
+    root.shell.summon("omarchy.osd", JSON.stringify({
+      icon: String(icon || ""),
+      message: String(message),
+      duration: 1400
+    }))
+  }
+
+  function openWarningPanel() {
+    if (root.providerDiagnostics.length === 0) return
+    root.resetActionPanel()
+    root.warningPanelOpen = true
+    Qt.callLater(function() { warningPanel.forceActiveFocus() })
+  }
+
+  function closeWarningPanel() {
+    if (!root.warningPanelOpen) return
+    root.warningPanelOpen = false
+    if (root.opened) Qt.callLater(function() { searchInput.forceActiveFocus() })
+  }
+
+  function retryProviders() {
+    root.warningPanelOpen = false
+    root.showOsd("", "Retrying launcher providers")
+    root.refresh()
+    if (root.opened) Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
   function ping() { return "ok" }
@@ -615,6 +677,7 @@ Item {
   function openActionPanel() {
     var target = root.selectedResultSnapshot()
     if (!target.resultId) return
+    root.warningPanelOpen = false
     root.actionTarget = target
     root.actionSelectedIndex = 0
     root.actionRoute = "root"
@@ -765,6 +828,7 @@ Item {
       return
     }
     stateStore.setAlias(root.actionTarget.resultId, alias)
+    root.showOsd("󰌷", "Alias set: " + alias)
     root.closeAliasEditor()
     root.rebuildActions()
   }
@@ -797,7 +861,8 @@ Item {
     }
 
     if (selectedActionId === "favorite") {
-      stateStore.toggleFavorite(target.resultId)
+      var favoriteNow = stateStore.toggleFavorite(target.resultId)
+      root.showOsd("", favoriteNow ? "Favorited " + target.title : "Removed favorite " + target.title)
       return
     }
     if (selectedActionId === "favorite-up" || selectedActionId === "favorite-down") {
@@ -806,15 +871,18 @@ Item {
     }
     if (selectedActionId === "reset-ranking") {
       stateStore.resetRanking(target.resultId)
+      root.showOsd("󰈹", "Reset ranking for " + target.title)
       return
     }
     if (selectedActionId === "remove-alias") {
       stateStore.setAlias(target.resultId, "")
+      root.showOsd("󰌷", "Alias removed from " + target.title)
       root.rebuildActions()
       return
     }
     if (selectedActionId === "toggle-hidden") {
       var hiddenNow = stateStore.setHidden(target.resultId, !stateStore.isHidden(target.resultId))
+      root.showOsd(hiddenNow ? "" : "", hiddenNow ? "Hidden " + target.title : "Restored " + target.title)
       root.closeActionPanel()
       if (!hiddenNow && root.activeRoute === "hidden" && root.hiddenRecords().length === 0) root.goBack()
       return
@@ -831,6 +899,7 @@ Item {
   function runStockRoute(route) {
     var selectedRoute = String(route || "")
     if (!selectedRoute) return
+    root.showOsd("", "Opening in Omarchy")
     root.close()
     if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
     Quickshell.execDetached(["omarchy", "menu", "summon", selectedRoute])
@@ -870,13 +939,20 @@ Item {
 
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
-    stateStore.toggleFavorite(resultsModel.get(root.selectedIndex).resultId)
+    var row = resultsModel.get(root.selectedIndex)
+    var favoriteNow = stateStore.toggleFavorite(row.resultId)
+    root.showOsd("", favoriteNow ? "Favorited " + row.title : "Removed favorite " + row.title)
   }
 
   function moveFavoriteForId(resultId, delta) {
     var target = String(resultId || "")
     if (!stateStore.isFavorite(target)) return
+    var previousIndex = stateStore.favorites.indexOf(target)
     stateStore.moveFavorite(target, delta)
+    var nextIndex = stateStore.favorites.indexOf(target)
+    if (nextIndex !== previousIndex) {
+      root.showOsd("", "Moved " + root.resultTitleById(target) + " to favorite " + (nextIndex + 1))
+    }
     Qt.callLater(function() { root.selectResultById(target) })
   }
 
@@ -1040,13 +1116,15 @@ Item {
     Rectangle {
       id: card
       readonly property int desiredHeight: Math.max(
-        LayoutModel.resultCardHeight(
-          searchBox.height,
-          root.listHeight,
-          root.cardPadding,
-          root.resultsTopOffset,
-          root.footerHeight),
-        root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0)
+        Math.max(
+          LayoutModel.resultCardHeight(
+            searchBox.height,
+            root.listHeight,
+            root.cardPadding,
+            root.resultsTopOffset,
+            root.footerHeight),
+          root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0),
+        root.warningPanelOpen ? root.warningPanelHeight + Style.space(24) : 0)
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
         panel.width,
         panel.height,
@@ -1067,6 +1145,7 @@ Item {
         anchors.fill: parent
         onClicked: {
           if (root.actionPanelOpen) root.closeActionPanel()
+          else if (root.warningPanelOpen) root.closeWarningPanel()
           else searchInput.forceActiveFocus()
         }
       }
@@ -1120,7 +1199,7 @@ Item {
 
         TextInput {
           id: searchInput
-          enabled: !root.actionPanelOpen && stateStore.loaded
+          enabled: !root.actionPanelOpen && !root.warningPanelOpen && stateStore.loaded
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
@@ -1197,16 +1276,29 @@ Item {
           }
         }
 
-        Text {
+        Item {
+          width: Style.space(38)
+          height: parent.height
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(15)
           anchors.verticalCenter: parent.verticalCenter
           visible: !!root.providerWarning
-          text: ""
-          color: root.selectedText
-          opacity: 0.7
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.body
+
+          Text {
+            anchors.centerIn: parent
+            text: ""
+            color: root.selectedText
+            opacity: warningMouse.containsMouse ? 1 : 0.7
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.body
+          }
+
+          MouseArea {
+            id: warningMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openWarningPanel()
+          }
         }
       }
 
@@ -1862,6 +1954,135 @@ Item {
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
             }
+          }
+        }
+      }
+
+      Rectangle {
+        id: warningPanel
+        visible: root.warningPanelOpen
+        z: 40
+        width: Math.max(1, Math.min(Style.space(500), card.width - Style.space(24)))
+        height: Math.max(1, Math.min(root.warningPanelHeight, card.height - Style.space(24)))
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: Style.space(12)
+        radius: Math.max(0, Style.cornerRadius - Style.space(2))
+        color: root.background
+        border.width: Math.max(1, Style.space(1))
+        border.color: root.borderColor
+        focus: visible
+
+        onVisibleChanged: {
+          if (visible) Qt.callLater(function() { warningPanel.forceActiveFocus() })
+        }
+
+        Keys.onPressed: function(event) {
+          if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
+            root.dismiss()
+            event.accepted = true
+          } else if (event.key === Qt.Key_Escape) {
+            root.closeWarningPanel()
+            event.accepted = true
+          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                     || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_R)) {
+            root.retryProviders()
+            event.accepted = true
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: warningPanel.forceActiveFocus()
+        }
+
+        Text {
+          id: warningTitle
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: Style.space(18)
+          text: "Provider Warnings"
+          color: root.foreground
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.title
+          font.weight: Font.DemiBold
+        }
+
+        ListView {
+          id: warningList
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: warningTitle.bottom
+          anchors.bottom: retryButton.top
+          anchors.topMargin: Style.space(10)
+          anchors.bottomMargin: Style.space(8)
+          model: root.providerDiagnostics
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+
+          delegate: Item {
+            required property var modelData
+            width: ListView.view.width
+            height: Style.space(76)
+
+            Text {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.leftMargin: Style.space(18)
+              anchors.rightMargin: Style.space(18)
+              text: modelData.provider + " · " + modelData.error
+              color: root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.body
+              font.weight: Font.Medium
+              elide: Text.ElideRight
+            }
+
+            Text {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.topMargin: Style.space(27)
+              anchors.leftMargin: Style.space(18)
+              anchors.rightMargin: Style.space(18)
+              text: modelData.detail
+              color: root.foreground
+              opacity: 0.5
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.Wrap
+              maximumLineCount: 2
+              elide: Text.ElideRight
+            }
+          }
+        }
+
+        Rectangle {
+          id: retryButton
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.margins: Style.space(12)
+          height: Style.space(42)
+          radius: Math.max(0, Style.cornerRadius - Style.space(4))
+          color: root.selectedBackground
+
+          Text {
+            anchors.centerIn: parent
+            text: "  Retry Providers     Enter"
+            color: root.selectedText
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.body
+            font.weight: Font.Medium
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.retryProviders()
           }
         }
       }

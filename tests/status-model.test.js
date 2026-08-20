@@ -37,3 +37,15 @@ test("status is hidden whenever results exist and warnings are deduplicated", ()
   assert.equal(StatusModel.emptyStatus({ resultCount: 1 }).visible, false)
   assert.equal(StatusModel.warningText(["Apps unavailable", "", "Apps unavailable"]), "Apps unavailable")
 })
+
+test("provider diagnostics preserve source and recovery detail", () => {
+  assert.deepEqual(StatusModel.providerDiagnostics([
+    { provider: "Applications", error: "Index unavailable", detail: "Desktop entry scan failed" },
+    { provider: "Custom commands", error: "" },
+    { provider: "Applications", error: "Index unavailable", detail: "Desktop entry scan failed" }
+  ]), [{
+    provider: "Applications",
+    error: "Index unavailable",
+    detail: "Desktop entry scan failed"
+  }])
+})

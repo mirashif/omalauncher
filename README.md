@@ -21,6 +21,7 @@ The current implementation includes:
 - Favorites and recent items first, followed by the complete visible index
 - Native drill-down navigation for static Omarchy menus and installed apps
 - A searchable, context-aware Action Panel
+- Interactive provider warnings with diagnostics and retry
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
@@ -58,6 +59,12 @@ Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is
 opened in the default Omarchy menu so Omalauncher does not duplicate its
 execution logic.
+
+When a provider warning appears in the search field, select its warning icon
+to see the affected source and recovery detail. Press `Enter` or `Ctrl+R` in
+that panel to reload launcher state, menus, command checks, and applications.
+Local state changes and stock-menu handoffs use Omarchy's OSD for brief,
+truthful confirmation.
 
 ## Validate
 

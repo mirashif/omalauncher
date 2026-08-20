@@ -16,6 +16,24 @@ function warningText(values) {
   return cleanWarnings(values).join(" · ")
 }
 
+function providerDiagnostics(entries) {
+  var diagnostics = []
+  var seen = {}
+  var values = Array.isArray(entries) ? entries : []
+  for (var i = 0; i < values.length; i++) {
+    var entry = values[i] || {}
+    var error = String(entry.error || "").trim()
+    if (!error) continue
+    var provider = String(entry.provider || "Provider").trim() || "Provider"
+    var detail = String(entry.detail || error).trim() || error
+    var key = provider + "\n" + error + "\n" + detail
+    if (seen[key]) continue
+    seen[key] = true
+    diagnostics.push({ provider: provider, error: error, detail: detail })
+  }
+  return diagnostics
+}
+
 function emptyStatus(options) {
   var opts = options || {}
   var resultCount = Math.max(0, Number(opts.resultCount || 0))
@@ -68,6 +86,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     cleanWarnings: cleanWarnings,
     warningText: warningText,
+    providerDiagnostics: providerDiagnostics,
     emptyStatus: emptyStatus
   }
 }

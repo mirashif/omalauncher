@@ -37,7 +37,7 @@ Implementation rules:
   close shortcuts without breaking normal text editing.
 - [x] 7. Add a stable footer, persistent favorite/alias badges, and safe title
   match highlighting.
-- [ ] 8. Make provider warnings interactive with diagnostic detail and retry,
+- [x] 8. Make provider warnings interactive with diagnostic detail and retry,
   and use truthful Omarchy OSD feedback for local changes and command handoff.
 - [ ] 9. Add compact mode, explicit accessibility metadata, final documentation,
   and full release validation.
