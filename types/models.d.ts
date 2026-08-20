@@ -132,6 +132,13 @@ export interface ApplicationRecord extends SearchableRecord {
   title: string;
 }
 
+export interface DesktopEntryResolutionRequest {
+  active: boolean;
+  appId: string;
+  operation: string;
+  command: string[];
+}
+
 export interface CatalogCommandInput {
   route: string;
   binary: string;
@@ -329,6 +336,7 @@ export interface ActionInput {
   calculatorExpression?: string;
   calculatorResult?: string;
   filePath?: string;
+  appId?: string;
 }
 
 export interface ActionContext {
@@ -339,6 +347,7 @@ export interface ActionContext {
   alias?: string;
   hidden?: boolean;
   canUninstall?: boolean;
+  canResolveDesktopEntry?: boolean;
 }
 
 export interface ActionRecord extends SearchableRecord {
@@ -350,6 +359,7 @@ export interface ActionRecord extends SearchableRecord {
   kind: string;
   target: string;
   title: string;
+  destructive: boolean;
 }
 
 export interface NavigationRow {

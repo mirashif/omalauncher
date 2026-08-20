@@ -20,9 +20,10 @@ function text(value) {
  * @param {string} section
  * @param {string} [kind]
  * @param {string} [target]
+ * @param {boolean} [destructive]
  * @returns {ActionRecord}
  */
-function action(id, title, description, shortcut, icon, keywords, order, section, kind, target) {
+function action(id, title, description, shortcut, icon, keywords, order, section, kind, target, destructive) {
   var keywordList = keywords.slice()
   return {
     id: id,
@@ -38,7 +39,8 @@ function action(id, title, description, shortcut, icon, keywords, order, section
     keywords: keywordList,
     searchText: [title, description, keywordList.join(" ")].join(" "),
     providerPriority: 0,
-    order: order
+    order: order,
+    destructive: destructive === true
   }
 }
 
@@ -73,6 +75,7 @@ function actionsForResult(result, context, route) {
   var file = text(row.resultType || row.type) === "file"
   var fileStatus = text(row.resultType || row.type) === "file-status"
   var resultTitle = text(row.title)
+  var appId = application ? text(row.appId) : ""
   /** @type {ActionRecord[]} */
   var actions = []
   var activeRoute = text(route || "root")
@@ -156,16 +159,6 @@ function actionsForResult(result, context, route) {
         "Alias"
       ))
     }
-    actions.push(action(
-      "toggle-hidden",
-      state.hidden ? "Unhide from Search" : "Hide from Search",
-      resultTitle,
-      "",
-      state.hidden ? "" : "",
-      ["hide", "unhide", "visibility", "search"],
-      2,
-      "Visibility"
-    ))
     return actions
   }
 
@@ -186,6 +179,42 @@ function actionsForResult(result, context, route) {
   ))
 
   if (hiddenManager || compactToggle || settingsCommand) return actions
+
+  if (application && state.canResolveDesktopEntry === true) {
+    actions.push(action(
+      "reveal-application",
+      "Show Desktop Entry in File Manager",
+      resultTitle,
+      "",
+      "󰗃",
+      ["application", "desktop", "entry", "reveal", "folder", "file", "manager"],
+      actions.length,
+      "Application"
+    ))
+    actions.push(action(
+      "copy-desktop-entry-path",
+      "Copy Desktop Entry Path",
+      resultTitle,
+      "",
+      "󰆏",
+      ["application", "desktop", "entry", "copy", "path"],
+      actions.length,
+      "Application"
+    ))
+  }
+
+  if (appId) {
+    actions.push(action(
+      "copy-application-id",
+      "Copy Application ID",
+      appId,
+      "",
+      "",
+      ["application", "desktop", "id", "copy"],
+      actions.length,
+      "Application"
+    ))
+  }
 
   if (cliDirect) {
     actions.push(action(
@@ -231,7 +260,8 @@ function actionsForResult(result, context, route) {
 
   actions.push(action(
     "configure-actions",
-    "Configure Result",
+    application ? "Configure Application"
+      : ((stockCommand || cliCommand) ? "Configure Command" : "Configure Result"),
     state.alias ? "Alias: " + text(state.alias) : "Set a search alias",
     "",
     "",
@@ -263,7 +293,7 @@ function actionsForResult(result, context, route) {
       "Ctrl+Shift+Up",
       "",
       ["favorite", "move", "reorder", "up"],
-      4,
+      actions.length,
       "Favorites"
     ))
   }
@@ -275,10 +305,21 @@ function actionsForResult(result, context, route) {
       "Ctrl+Shift+Down",
       "",
       ["favorite", "move", "reorder", "down"],
-      5,
+      actions.length,
       "Favorites"
     ))
   }
+
+  actions.push(action(
+    "toggle-hidden",
+    state.hidden ? "Unhide from Search" : "Hide from Search",
+    resultTitle,
+    "",
+    state.hidden ? "" : "",
+    ["hide", "unhide", "visibility", "search"],
+    actions.length,
+    "Manage"
+  ))
 
   if (usage[resultId]) {
     actions.push(action(
@@ -288,7 +329,7 @@ function actionsForResult(result, context, route) {
       "",
       "",
       ["reset", "ranking", "usage", "history", "forget", "frecency"],
-      6,
+      actions.length,
       "Manage"
     ))
   }
@@ -302,7 +343,10 @@ function actionsForResult(result, context, route) {
       "",
       ["uninstall", "remove", "delete", "application", resultTitle],
       actions.length,
-      "Manage"
+      "Manage",
+      "command",
+      "",
+      true
     ))
   }
 

@@ -12,8 +12,11 @@ test("application actions expose open and favorites without an Omarchy parent", 
     parentRoute: "root"
   }, { favorite: false, usage: {} })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "configure-actions", "favorite"])
+  assert.deepEqual(actions.map(action => action.id), [
+    "primary", "configure-actions", "favorite", "toggle-hidden"
+  ])
   assert.equal(actions[0].title, "Open Application")
+  assert.equal(actions[1].title, "Configure Application")
   assert.equal(actions[2].title, "Add to Favorites")
 })
 
@@ -29,9 +32,24 @@ test("applications expose uninstall only when the provider supports removal", ()
   assert.equal(unavailable.some(action => action.id === "uninstall-application"), false)
   assert.deepEqual(
     available.map(action => action.id),
-    ["primary", "configure-actions", "favorite", "uninstall-application"]
+    ["primary", "configure-actions", "favorite", "toggle-hidden", "uninstall-application"]
   )
-  assert.equal(available[3].section, "Manage")
+  assert.equal(available[4].section, "Manage")
+  assert.equal(available[4].destructive, true)
+})
+
+test("applications expose desktop-entry utilities only when resolution is available", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "application:org.mozilla.firefox",
+    resultType: "application",
+    appId: "org.mozilla.firefox",
+    title: "Firefox"
+  }, { canResolveDesktopEntry: true })
+
+  assert.deepEqual(actions.slice(0, 4).map(action => action.id), [
+    "primary", "reveal-application", "copy-desktop-entry-path", "copy-application-id"
+  ])
+  assert.equal(actions[3].description, "org.mozilla.firefox")
 })
 
 test("commands expose structured root and Omarchy submenu actions", () => {
@@ -48,12 +66,17 @@ test("commands expose structured root and Omarchy submenu actions", () => {
     usage: { [id]: { count: 3, lastUsed: 1000 } }
   })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "omarchy-actions", "configure-actions", "favorite", "reset-ranking"])
+  assert.deepEqual(actions.map(action => action.id), [
+    "primary", "omarchy-actions", "configure-actions", "favorite", "toggle-hidden", "reset-ranking"
+  ])
   assert.equal(actions[0].title, "Run Command")
   assert.equal(actions[1].kind, "submenu")
   assert.equal(actions[1].target, "omarchy")
+  assert.equal(actions[2].title, "Configure Command")
   assert.equal(actions[3].title, "Remove from Favorites")
-  assert.deepEqual(actions.map(action => action.section), ["Primary", "Navigation", "Configure", "Favorites", "Manage"])
+  assert.deepEqual(actions.map(action => action.section), [
+    "Primary", "Navigation", "Configure", "Favorites", "Manage", "Manage"
+  ])
 
   const omarchyActions = ActionModel.actionsForResult({
     resultId: id,
@@ -76,7 +99,9 @@ test("shell features open directly without an unrelated stock-menu action", () =
     title: "Clipboard"
   }, { usage: {} })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "configure-actions", "favorite"])
+  assert.deepEqual(actions.map(action => action.id), [
+    "primary", "configure-actions", "favorite", "toggle-hidden"
+  ])
   assert.equal(actions[0].title, "Open Shell Feature")
 })
 
@@ -99,11 +124,11 @@ test("CLI actions distinguish reviewed execution from help-only discovery", () =
   }, { usage: {} })
 
   assert.deepEqual(direct.map(action => action.id), [
-    "primary", "command-help", "copy-command", "configure-actions", "favorite"
+    "primary", "command-help", "copy-command", "configure-actions", "favorite", "toggle-hidden"
   ])
   assert.equal(direct[0].title, "Run Command")
   assert.deepEqual(helpOnly.map(action => action.id), [
-    "primary", "copy-command", "configure-actions", "favorite"
+    "primary", "copy-command", "configure-actions", "favorite", "toggle-hidden"
   ])
   assert.equal(helpOnly[0].title, "Show Command Help")
 })
@@ -144,12 +169,14 @@ test("configure submenu exposes alias editing and removal", () => {
   const empty = ActionModel.actionsForResult(result, { alias: "", hidden: false }, "configure")
   const configured = ActionModel.actionsForResult(result, { alias: "bb", hidden: true }, "configure")
 
-  assert.deepEqual(empty.map(action => action.id), ["set-alias", "toggle-hidden"])
+  assert.deepEqual(empty.map(action => action.id), ["set-alias"])
   assert.equal(empty[0].kind, "editor")
-  assert.equal(empty[1].title, "Hide from Search")
-  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias", "toggle-hidden"])
+  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias"])
   assert.equal(configured[0].description, "bb")
-  assert.equal(configured[2].title, "Unhide from Search")
+  const main = ActionModel.actionsForResult(result, { hidden: true })
+  const visibilityAction = main.find(action => action.id === "toggle-hidden")
+  assert.ok(visibilityAction)
+  assert.equal(visibilityAction.title, "Unhide from Search")
 })
 
 test("hidden-result manager exposes only its primary navigation action", () => {

@@ -1041,7 +1041,9 @@ Item {
       favoriteIndex: stateStore.favorites.indexOf(root.actionTarget.resultId),
       favoriteCount: stateStore.favorites.length,
       canUninstall: root.actionTarget.resultType === "application"
-        && appProvider.canRemoveApplications
+        && appProvider.canRemoveApplications,
+      canResolveDesktopEntry: root.actionTarget.resultType === "application"
+        && appProvider.canResolveDesktopEntries
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -1058,7 +1060,8 @@ Item {
         icon: String(action.icon || ""),
         section: section,
         actionKind: String(action.kind || "command"),
-        targetRoute: String(action.target || "")
+        targetRoute: String(action.target || ""),
+        destructive: action.destructive === true
       })
     }
     root.actionSectionCount = Object.keys(sections).length
@@ -1231,6 +1234,21 @@ Item {
 
     if (selectedActionId === "uninstall-application") {
       root.requestActionConfirmation(selectedActionId, target)
+      return
+    }
+
+    if (selectedActionId === "copy-application-id") {
+      root.copyText(target.appId, "Copied application ID")
+      return
+    }
+    if (selectedActionId === "reveal-application"
+        || selectedActionId === "copy-desktop-entry-path") {
+      var operation = selectedActionId === "reveal-application" ? "reveal" : "copy-path"
+      if (!appProvider.resolveDesktopEntry(target.appId, operation)) {
+        root.showOsd("", appProvider.resolvingDesktopEntry
+          ? "Another application action is still running"
+          : "Desktop entry is unavailable")
+      }
       return
     }
 
@@ -1735,6 +1753,14 @@ Item {
     onRecordsChanged: {
       root.appRecords = appProvider.records
       root.rebuildUnifiedRecords()
+    }
+    onDesktopEntryResolved: function(operation, appId, path) {
+      if (operation === "reveal") root.revealFile(path)
+      else if (operation === "copy-path") root.copyText(path, "Copied desktop entry path")
+    }
+    onDesktopEntryResolutionFailed: function(operation, appId) {
+      root.showOsd("", "Could not find the desktop entry")
+      if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
     }
   }
 
@@ -2603,12 +2629,15 @@ Item {
             required property string icon
             required property string actionKind
             required property string targetRoute
+            required property bool destructive
 
             readonly property bool selected: index === root.actionSelectedIndex
             width: ListView.view.width
             height: root.actionRowHeight
             radius: Math.max(0, Style.cornerRadius - Style.space(4))
-            color: selected ? root.selectedBackground : "transparent"
+            color: selected
+              ? (destructive ? Util.alpha(Color.urgent, 0.18) : root.selectedBackground)
+              : "transparent"
             Accessible.role: Accessible.MenuItem
             Accessible.name: actionRow.title
             Accessible.description: actionRow.description
@@ -2625,7 +2654,9 @@ Item {
               anchors.leftMargin: Style.space(10)
               anchors.verticalCenter: parent.verticalCenter
               text: actionRow.icon || (actionRow.actionKind === "submenu" ? "" : "")
-              color: actionRow.selected ? root.selectedText : root.foreground
+              color: actionRow.destructive
+                ? Color.urgent
+                : (actionRow.selected ? root.selectedText : root.foreground)
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.icon
               horizontalAlignment: Text.AlignHCenter
@@ -2642,7 +2673,9 @@ Item {
               Text {
                 width: parent.width
                 text: actionRow.title
-                color: actionRow.selected ? root.selectedText : root.foreground
+                color: actionRow.destructive
+                  ? Color.urgent
+                  : (actionRow.selected ? root.selectedText : root.foreground)
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
                 font.weight: Font.Medium

@@ -1,6 +1,8 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import "AppIndex.js" as AppIndex
+import "AppActionModel.js" as AppActionModel
 
 // Adapter around Omarchy's shared AppLibrary. All internal API usage lives in
 // this file so a future shell change does not leak through the launcher.
@@ -12,9 +14,14 @@ Item {
   property var records: []
   property bool ready: false
   property string error: ""
+  property bool resolvingDesktopEntry: false
   readonly property bool usingSharedLibrary: appLibrary !== null && appLibrary !== undefined
   readonly property bool canRemoveApplications: root.usingSharedLibrary
     && typeof root.appLibrary.remove === "function"
+  readonly property bool canResolveDesktopEntries: true
+
+  signal desktopEntryResolved(string operation, string appId, string path)
+  signal desktopEntryResolutionFailed(string operation, string appId)
 
   function sourceEntries() {
     var entries = []
@@ -93,6 +100,37 @@ Item {
     if (!id || !root.canRemoveApplications) return false
     root.appLibrary.remove(id, title)
     return true
+  }
+
+  function resolveDesktopEntry(appId, operation) {
+    if (desktopEntryResolver.running) return false
+    var request = AppActionModel.resolutionRequest(appId, operation)
+    if (!request.active) return false
+    desktopEntryResolver.requestedAppId = request.appId
+    desktopEntryResolver.operation = request.operation
+    desktopEntryResolver.command = request.command
+    root.resolvingDesktopEntry = true
+    desktopEntryResolver.running = true
+    return true
+  }
+
+  Process {
+    id: desktopEntryResolver
+    property string requestedAppId: ""
+    property string operation: ""
+    stdout: StdioCollector {
+      id: desktopEntryResolverOutput
+      waitForEnd: true
+    }
+    onExited: function(exitCode, exitStatus) {
+      root.resolvingDesktopEntry = false
+      var path = AppActionModel.resolvedPath(desktopEntryResolverOutput.text)
+      if (exitCode === 0 && exitStatus === 0 && path) {
+        root.desktopEntryResolved(desktopEntryResolver.operation, desktopEntryResolver.requestedAppId, path)
+      } else {
+        root.desktopEntryResolutionFailed(desktopEntryResolver.operation, desktopEntryResolver.requestedAppId)
+      }
+    }
   }
 
   onAppLibraryChanged: root.refresh()
