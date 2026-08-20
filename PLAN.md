@@ -1,6 +1,6 @@
 # Omalauncher Product Plan
 
-Status: v0.8.0 interaction completion complete; release validation passes
+Status: v0.8.0 complete; v0.8.1 hardening and v0.9 provider expansion planned
 Last updated: 2026-08-21
 Target platform: Omarchy 4 / Quattro
 
@@ -51,6 +51,160 @@ Implementation rules:
   producing recurring ranking mistakes.
 - Custom navigation-binding presets or an editor.
 - A general third-party Action Panel custom-view SDK.
+
+## v0.9 Raycast-style expansion
+
+Status: Viable and planned after the v0.8.1 acceptance-hardening work.
+
+Goal: add high-value launcher-native utilities without weakening deterministic
+search, warm-open latency, or Omarchy's ownership of system actions.
+
+### Viability decisions
+
+| Feature | Viability | Relative effort | Decision and boundary |
+| --- | --- | --- | --- |
+| Quick result activation | High | Small | Add launcher-local `Ctrl+1` through `Ctrl+8` activation for the first eight results in the current filtered list. The current surface renders at most eight result rows. This is distinct from global per-command hotkeys and needs no Hyprland registration. |
+| Omalauncher Settings | High | Medium | Add a searchable, keyboard-first route inside Omalauncher. Persist only plugin-owned preferences and provider configuration in the versioned state file. Do not edit Omarchy or Hyprland configuration from this screen. |
+| Calculator | High with an optional backend | Medium | Use the `qalc` CLI from `libqalculate` for arithmetic, constants, and unit conversions. The installed `omacalc` application is a GUI, not a reusable expression backend. Never evaluate expressions through a shell. |
+| Scoped file-name search | Medium-high | Large | Use asynchronous `fd` queries only inside user-approved roots. Do not index `/`, recurse through all of `$HOME` by default, search file contents, or place an unbounded file index in the root provider. |
+
+In this section, `Ctrl+N` means Ctrl plus a result number, not the literal
+`Ctrl+N` key. With the current eight-row viewport the supported shortcuts are
+`Ctrl+1` through `Ctrl+8`. If the intended shortcut was literal `Ctrl+N`, revise
+this item before implementation.
+
+### Cross-provider rules
+
+- Finish the v0.8.1 latency benchmarks and stale-response hardening before
+  enabling another asynchronous provider.
+- Keep applications and Omarchy commands searchable immediately; calculator
+  and file providers may not block the unified index or launcher opening.
+- Give every asynchronous request a monotonically increasing generation ID and
+  ignore output from superseded requests.
+- Debounce query-driven subprocesses, cancel superseded work, cap results, and
+  expose provider-specific loading, unavailable, empty, and failure states.
+- Pass untrusted expressions, paths, and queries as process arguments or stdin;
+  never concatenate them into `bash -c` command strings.
+- Keep new providers out of frecency until their result IDs and ranking tiers
+  are stable and tested.
+- Preserve the stock Omarchy launcher as the fallback and request no elevated
+  privileges.
+
+### Ordered delivery
+
+#### Phase 5: Settings foundation and state v3
+
+Goal: provide one safe home for all Omalauncher-owned preferences before adding
+provider-specific configuration.
+
+Deliverables:
+
+- Add an `Omalauncher Settings` management result and an in-launcher settings
+  route with the same keyboard, pointer, and accessibility behavior as other
+  routes.
+- Migrate state schema v2 to v3 without losing favorites, usage, aliases,
+  hidden results, query history, or compact mode.
+- Add settings for calculator enablement, file-search enablement, quick-result
+  shortcuts, file-search scopes, and ignore patterns.
+- Show backend availability and actionable diagnostics without installing
+  packages or changing system configuration automatically.
+- Add reset actions for provider settings and personalization with explicit
+  confirmation for destructive resets.
+
+Exit criteria:
+
+- Settings survive shell restart and plugin reinstall.
+- Invalid or missing paths are reported and never silently broaden a scope.
+- A malformed future setting falls back independently without discarding the
+  rest of the state file.
+
+#### Phase 6: Quick result activation
+
+Goal: run a visible search result directly by ordinal without moving selection.
+
+Deliverables:
+
+- Map `Ctrl+1` through `Ctrl+8` to the corresponding result in the current
+  filtered result list; ignore shortcuts whose row does not exist.
+- Display stable numeric shortcut hints on eligible rows.
+- Route activation through the existing primary-action path so confirmation,
+  query history, usage recording, OSD feedback, and stock-menu handoff remain
+  consistent with Enter.
+- Limit the shortcut to the main results surface. Text editors, the Action
+  Panel, warnings, and Settings retain their existing input behavior.
+- Add tests for filtering, missing ordinals, menus, applications, commands, and
+  compact mode.
+
+Exit criteria:
+
+- The shortcut always activates the row whose displayed hint matches the key.
+- No number shortcut inserts text, triggers twice, or bypasses an Omarchy-owned
+  confirmation flow.
+
+#### Phase 7: Calculator provider
+
+Goal: surface safe calculator results as first-class ephemeral launcher rows.
+
+Deliverables:
+
+- Detect explicit calculator queries beginning with `=` and optionally
+  arithmetic-looking input only when that heuristic cannot hide a stronger
+  application or command match.
+- Run `qalc` asynchronously with a short debounce and generation-based stale
+  response rejection. Do not use JavaScript `eval`, QML dynamic evaluation, or
+  shell evaluation.
+- Normalize one successful response into a pinned `Calculator` result with
+  Copy Result as the primary action and Copy Expression in the Action Panel.
+- Support arithmetic, percentages, constants, and deterministic unit
+  conversions first. Defer currency conversion unless its update and network
+  behavior are explicit to the user.
+- Report a missing `qalc` backend as an unavailable provider with installation
+  guidance; keep every other provider healthy.
+- Add parser, timeout, malformed-output, superseded-query, clipboard, and
+  ranking tests.
+
+Exit criteria:
+
+- Calculator work never blocks typing or persists ephemeral expressions into
+  the normal result index.
+- Invalid expressions produce no executable row and expose a concise error only
+  for explicit `=` queries.
+- Expressions are passed without shell interpolation.
+
+#### Phase 8: Scoped file-name provider
+
+Goal: find and open files quickly while making search scope and cost obvious.
+
+Deliverables:
+
+- Add a `Search Files` route and an explicit query mode such as `f `; do not mix
+  file traversal into every root-search keystroke.
+- Let users opt into one or more canonical directory roots from Settings.
+  Offer detected common directories as choices, but configure no recursive
+  whole-home or filesystem-root scope by default.
+- Query `fd` asynchronously with fixed-string matching for file names, respect
+  its ignore behavior, apply user ignore patterns, require a non-empty query,
+  cap output, and impose a timeout.
+- Use NUL-delimited output so unusual but valid file names remain safe. Reject
+  results that resolve outside their configured canonical root.
+- Normalize file rows with stable scope-relative IDs, path breadcrumbs, type
+  icons where available, and deterministic ranking that prefers basename
+  matches over path-only matches.
+- Provide Open, Reveal in File Manager, and Copy Path actions using literal
+  argument arrays or file URLs, never shell-built commands.
+- Cancel superseded scans and discard late output using the shared generation
+  contract.
+- Add tests for scope boundaries, symlinks, ignores, hidden files, unusual
+  names, result caps, timeouts, cancellation, missing `fd`, and open/reveal
+  actions.
+
+Exit criteria:
+
+- No query can escape configured roots or scan `/` implicitly.
+- File search stays responsive on a representative large development tree and
+  does not regress the 100 ms warm-open or 16 ms local-search budgets.
+- Disabling file search terminates active work and removes its records without
+  affecting applications or Omarchy commands.
 
 ## Product thesis
 
@@ -596,7 +750,7 @@ npm run validate
 npm run spike
 ```
 
-`npm run validate` runs the 38 Node tests, manifest validation, QML linting,
+`npm run validate` runs the 52 Node tests, manifest validation, QML linting,
 the packaging smoke test, and whitespace validation.
 
 Shell verification should also inspect:
@@ -636,13 +790,19 @@ and useful.
 
 ## Post-MVP opportunity order
 
-1. User-managed aliases and direct command hotkeys
-2. Quicklinks and URL detection
-3. Calculator through an existing local calculator backend
-4. Script-command folders with explicit metadata
-5. Clipboard and window providers using existing Omarchy/Quickshell services
-6. File-name search with explicit scopes and ignore rules
-7. A documented provider contract for third-party Omalauncher extensions
+1. v0.8.1 performance measurement and asynchronous stale-result hardening
+2. Omalauncher Settings and numbered quick-result activation
+3. Calculator through the optional `qalc` backend
+4. Scoped file-name search through `fd`
+5. Quicklinks and URL detection
+6. Script-command folders with explicit metadata
+7. Clipboard and window providers using existing Omarchy/Quickshell services
+8. A documented provider contract for third-party Omalauncher extensions
+
+User-managed aliases already shipped in v0.8. Global per-command hotkeys remain
+blocked on a managed Omarchy/Hyprland registration contract; the numbered
+quick-result shortcuts planned for v0.9 are local to the open launcher and do
+not have that dependency.
 
 File search should not begin until ranking, index freshness, ignore behavior,
 and performance budgets are defined; public Raycast feedback shows that file
