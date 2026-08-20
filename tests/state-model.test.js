@@ -22,11 +22,37 @@ test("state normalization repairs malformed and duplicate values", () => {
       "application:firefox": { count: 3.9, lastUsed: 1200.8 },
       broken: { count: -10, lastUsed: -2 },
       empty: null
-    }
+    },
+    aliases: { "application:firefox": " ff ", empty: "" },
+    hidden: ["omarchy:update", "", "omarchy:update"],
+    queryHistory: ["firefox", " Firefox ", "update"],
+    preferences: { compactMode: true }
   }), {
+    version: 2,
+    favorites: ["application:firefox"],
+    usage: { "application:firefox": { count: 3, lastUsed: 1200 } },
+    aliases: { "application:firefox": "ff" },
+    hidden: ["omarchy:update"],
+    queryHistory: ["firefox", "update"],
+    preferences: { compactMode: true }
+  })
+})
+
+test("version 1 state migrates without losing favorites or usage", () => {
+  const migrated = StateModel.normalizeState({
     version: 1,
     favorites: ["application:firefox"],
-    usage: { "application:firefox": { count: 3, lastUsed: 1200 } }
+    usage: { "application:firefox": { count: 2, lastUsed: 3000 } }
+  })
+
+  assert.deepEqual(migrated, {
+    version: 2,
+    favorites: ["application:firefox"],
+    usage: { "application:firefox": { count: 2, lastUsed: 3000 } },
+    aliases: {},
+    hidden: [],
+    queryHistory: [],
+    preferences: { compactMode: false }
   })
 })
 
@@ -47,6 +73,29 @@ test("usage records increment count and update recency", () => {
 
   assert.deepEqual(twice.usage["application:firefox"], { count: 2, lastUsed: 2500 })
   assert.equal(once.usage["application:firefox"].count, 1)
+})
+
+test("interaction preferences update without losing unrelated state", () => {
+  let state = StateModel.toggleFavorite(StateModel.emptyState(), "application:firefox")
+  state = StateModel.setAlias(state, "application:firefox", "ff")
+  state = StateModel.setHidden(state, "omarchy:update", true)
+  state = StateModel.recordQuery(state, "update hyprland")
+  state = StateModel.recordQuery(state, "Update Hyprland")
+  state = StateModel.recordQuery(state, "firefox")
+  state = StateModel.setCompactMode(state, true)
+
+  assert.equal(StateModel.aliasFor(state, "application:firefox"), "ff")
+  assert.equal(StateModel.isHidden(state, "omarchy:update"), true)
+  assert.deepEqual(state.queryHistory, ["firefox", "Update Hyprland"])
+  assert.deepEqual(state.favorites, ["application:firefox"])
+  assert.equal(state.preferences.compactMode, true)
+
+  state = StateModel.setAlias(state, "application:firefox", "")
+  state = StateModel.setHidden(state, "omarchy:update", false)
+  state = StateModel.clearQueryHistory(state)
+  assert.equal(StateModel.aliasFor(state, "application:firefox"), "")
+  assert.equal(StateModel.isHidden(state, "omarchy:update"), false)
+  assert.deepEqual(state.queryHistory, [])
 })
 
 test("empty state groups favorites and recent records without duplicates", () => {

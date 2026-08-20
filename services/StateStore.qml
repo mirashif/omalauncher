@@ -16,6 +16,10 @@ Item {
   property string error: ""
   readonly property var favorites: snapshot.favorites || []
   readonly property var usage: snapshot.usage || ({})
+  readonly property var aliases: snapshot.aliases || ({})
+  readonly property var hidden: snapshot.hidden || []
+  readonly property var queryHistory: snapshot.queryHistory || []
+  readonly property var preferences: snapshot.preferences || ({ compactMode: false })
 
   function hydrate(raw) {
     var parsed = StateModel.parseStateResult(raw)
@@ -53,6 +57,41 @@ Item {
 
   function resetRanking(id) {
     root.snapshot = StateModel.resetUsage(root.snapshot, id)
+    root.scheduleSave()
+  }
+
+  function aliasFor(id) {
+    return StateModel.aliasFor(root.snapshot, id)
+  }
+
+  function setAlias(id, value) {
+    root.snapshot = StateModel.setAlias(root.snapshot, id, value)
+    root.scheduleSave()
+    return root.aliasFor(id)
+  }
+
+  function isHidden(id) {
+    return StateModel.isHidden(root.snapshot, id)
+  }
+
+  function setHidden(id, hiddenValue) {
+    root.snapshot = StateModel.setHidden(root.snapshot, id, hiddenValue)
+    root.scheduleSave()
+    return root.isHidden(id)
+  }
+
+  function recordQuery(value) {
+    root.snapshot = StateModel.recordQuery(root.snapshot, value)
+    root.scheduleSave()
+  }
+
+  function clearQueryHistory() {
+    root.snapshot = StateModel.clearQueryHistory(root.snapshot)
+    root.scheduleSave()
+  }
+
+  function setCompactMode(enabled) {
+    root.snapshot = StateModel.setCompactMode(root.snapshot, enabled)
     root.scheduleSave()
   }
 

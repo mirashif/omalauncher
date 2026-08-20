@@ -1,13 +1,48 @@
 // Pure persistent-state helpers shared by QML and Node tests.
 
-var STATE_VERSION = 1
+var STATE_VERSION = 2
+var QUERY_HISTORY_LIMIT = 50
+
+function emptyPreferences() {
+  return { compactMode: false }
+}
 
 function emptyState() {
-  return { version: STATE_VERSION, favorites: [], usage: {} }
+  return {
+    version: STATE_VERSION,
+    favorites: [],
+    usage: {},
+    aliases: {},
+    hidden: [],
+    queryHistory: [],
+    preferences: emptyPreferences()
+  }
 }
 
 function validId(value) {
   return String(value || "").trim()
+}
+
+function validText(value) {
+  return String(value || "").trim()
+}
+
+function stateWith(state, changes) {
+  var current = normalizeState(state)
+  var next = {
+    version: STATE_VERSION,
+    favorites: current.favorites,
+    usage: current.usage,
+    aliases: current.aliases,
+    hidden: current.hidden,
+    queryHistory: current.queryHistory,
+    preferences: current.preferences
+  }
+  var updates = changes || {}
+  for (var key in updates) {
+    if (Object.prototype.hasOwnProperty.call(updates, key)) next[key] = updates[key]
+  }
+  return next
 }
 
 function normalizeState(value) {
@@ -38,7 +73,51 @@ function normalizeState(value) {
     usage[normalizedId] = { count: count, lastUsed: lastUsed }
   }
 
-  return { version: STATE_VERSION, favorites: favorites, usage: usage }
+  var aliases = {}
+  var sourceAliases = source.aliases && typeof source.aliases === "object" && !Array.isArray(source.aliases)
+    ? source.aliases : {}
+  for (var aliasId in sourceAliases) {
+    if (!Object.prototype.hasOwnProperty.call(sourceAliases, aliasId)) continue
+    var normalizedAliasId = validId(aliasId)
+    var alias = validText(sourceAliases[aliasId])
+    if (!normalizedAliasId || !alias) continue
+    aliases[normalizedAliasId] = alias.slice(0, 64)
+  }
+
+  var hidden = []
+  var hiddenSeen = {}
+  var sourceHidden = Array.isArray(source.hidden) ? source.hidden : []
+  for (var h = 0; h < sourceHidden.length; h++) {
+    var hiddenId = validId(sourceHidden[h])
+    if (!hiddenId || hiddenSeen[hiddenId]) continue
+    hiddenSeen[hiddenId] = true
+    hidden.push(hiddenId)
+  }
+
+  var queryHistory = []
+  var historySeen = {}
+  var sourceHistory = Array.isArray(source.queryHistory) ? source.queryHistory : []
+  for (var q = 0; q < sourceHistory.length && queryHistory.length < QUERY_HISTORY_LIMIT; q++) {
+    var query = validText(sourceHistory[q])
+    var queryKey = query.toLowerCase()
+    if (!query || historySeen[queryKey]) continue
+    historySeen[queryKey] = true
+    queryHistory.push(query.slice(0, 256))
+  }
+
+  var sourcePreferences = source.preferences && typeof source.preferences === "object"
+    ? source.preferences : {}
+  var preferences = { compactMode: sourcePreferences.compactMode === true }
+
+  return {
+    version: STATE_VERSION,
+    favorites: favorites,
+    usage: usage,
+    aliases: aliases,
+    hidden: hidden,
+    queryHistory: queryHistory,
+    preferences: preferences
+  }
 }
 
 function parseState(raw) {
@@ -76,7 +155,7 @@ function toggleFavorite(state, id) {
   if (index >= 0) favorites.splice(index, 1)
   else favorites.unshift(target)
 
-  return { version: STATE_VERSION, favorites: favorites, usage: current.usage }
+  return stateWith(current, { favorites: favorites })
 }
 
 function recordUsage(state, id, now) {
@@ -96,19 +175,75 @@ function recordUsage(state, id, now) {
     lastUsed: timestamp
   }
 
-  return { version: STATE_VERSION, favorites: current.favorites, usage: usage }
+  return stateWith(current, { usage: usage })
 }
 
 function resetUsage(state, id) {
   var current = normalizeState(state)
   var target = validId(id)
-  if (!target) return { version: STATE_VERSION, favorites: current.favorites, usage: {} }
+  if (!target) return stateWith(current, { usage: {} })
 
   var usage = {}
   for (var key in current.usage) {
     if (key !== target && Object.prototype.hasOwnProperty.call(current.usage, key)) usage[key] = current.usage[key]
   }
-  return { version: STATE_VERSION, favorites: current.favorites, usage: usage }
+  return stateWith(current, { usage: usage })
+}
+
+function aliasFor(state, id) {
+  var current = normalizeState(state)
+  var target = validId(id)
+  return target && current.aliases[target] ? current.aliases[target] : ""
+}
+
+function setAlias(state, id, value) {
+  var current = normalizeState(state)
+  var target = validId(id)
+  var alias = validText(value).slice(0, 64)
+  if (!target) return current
+  var aliases = {}
+  for (var key in current.aliases) {
+    if (Object.prototype.hasOwnProperty.call(current.aliases, key) && key !== target) aliases[key] = current.aliases[key]
+  }
+  if (alias) aliases[target] = alias
+  return stateWith(current, { aliases: aliases })
+}
+
+function isHidden(state, id) {
+  var current = normalizeState(state)
+  var target = validId(id)
+  return !!target && current.hidden.indexOf(target) >= 0
+}
+
+function setHidden(state, id, hiddenValue) {
+  var current = normalizeState(state)
+  var target = validId(id)
+  if (!target) return current
+  var hidden = current.hidden.slice()
+  var index = hidden.indexOf(target)
+  if (hiddenValue && index < 0) hidden.unshift(target)
+  else if (!hiddenValue && index >= 0) hidden.splice(index, 1)
+  return stateWith(current, { hidden: hidden })
+}
+
+function recordQuery(state, value) {
+  var current = normalizeState(state)
+  var query = validText(value).slice(0, 256)
+  if (!query) return current
+  var queryKey = query.toLowerCase()
+  var history = [query]
+  for (var i = 0; i < current.queryHistory.length && history.length < QUERY_HISTORY_LIMIT; i++) {
+    if (current.queryHistory[i].toLowerCase() !== queryKey) history.push(current.queryHistory[i])
+  }
+  return stateWith(current, { queryHistory: history })
+}
+
+function clearQueryHistory(state) {
+  return stateWith(state, { queryHistory: [] })
+}
+
+function setCompactMode(state, enabled) {
+  return stateWith(state, { preferences: { compactMode: enabled === true } })
 }
 
 function copyRecord(record, section, favorite) {
@@ -188,6 +323,7 @@ function emptyStateRows(records, state, options) {
 if (typeof module !== "undefined") {
   module.exports = {
     STATE_VERSION: STATE_VERSION,
+    QUERY_HISTORY_LIMIT: QUERY_HISTORY_LIMIT,
     emptyState: emptyState,
     normalizeState: normalizeState,
     parseState: parseState,
@@ -197,6 +333,13 @@ if (typeof module !== "undefined") {
     toggleFavorite: toggleFavorite,
     recordUsage: recordUsage,
     resetUsage: resetUsage,
+    aliasFor: aliasFor,
+    setAlias: setAlias,
+    isHidden: isHidden,
+    setHidden: setHidden,
+    recordQuery: recordQuery,
+    clearQueryHistory: clearQueryHistory,
+    setCompactMode: setCompactMode,
     emptyStateRows: emptyStateRows
   }
 }
