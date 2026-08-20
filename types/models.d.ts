@@ -338,6 +338,7 @@ export interface ActionContext {
   favoriteCount?: number;
   alias?: string;
   hidden?: boolean;
+  canUninstall?: boolean;
 }
 
 export interface ActionRecord extends SearchableRecord {

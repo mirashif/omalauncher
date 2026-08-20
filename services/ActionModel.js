@@ -293,6 +293,19 @@ function actionsForResult(result, context, route) {
     ))
   }
 
+  if (application && state.canUninstall === true) {
+    actions.push(action(
+      "uninstall-application",
+      "Uninstall Application",
+      resultTitle,
+      "",
+      "",
+      ["uninstall", "remove", "delete", "application", resultTitle],
+      actions.length,
+      "Manage"
+    ))
+  }
+
   return actions
 }
 

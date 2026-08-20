@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import qs.Commons
+import qs.Ui
 import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
@@ -62,6 +63,11 @@ Item {
   property int actionSectionCount: 0
   property bool aliasEditorOpen: false
   property string aliasEditorError: ""
+  property bool actionConfirmationOpen: false
+  property string pendingConfirmationAction: ""
+  property var pendingConfirmationTarget: ({})
+  property string actionConfirmationMessage: ""
+  property string actionConfirmationConfirmText: "Confirm"
   property bool warningPanelOpen: false
   property bool guardsPending: false
   property bool guardsReady: false
@@ -990,6 +996,11 @@ Item {
     root.actionSectionCount = 0
     root.aliasEditorOpen = false
     root.aliasEditorError = ""
+    root.actionConfirmationOpen = false
+    root.pendingConfirmationAction = ""
+    root.pendingConfirmationTarget = ({})
+    root.actionConfirmationMessage = ""
+    root.actionConfirmationConfirmText = "Confirm"
     actionResultsModel.clear()
     actionSearchInput.text = ""
   }
@@ -1028,7 +1039,9 @@ Item {
       alias: stateStore.aliasFor(root.actionTarget.resultId),
       hidden: stateStore.isHidden(root.actionTarget.resultId),
       favoriteIndex: stateStore.favorites.indexOf(root.actionTarget.resultId),
-      favoriteCount: stateStore.favorites.length
+      favoriteCount: stateStore.favorites.length,
+      canUninstall: root.actionTarget.resultType === "application"
+        && appProvider.canRemoveApplications
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -1153,6 +1166,42 @@ Item {
     root.rebuildActions()
   }
 
+  function requestActionConfirmation(actionId, target) {
+    var selectedActionId = String(actionId || "")
+    if (selectedActionId !== "uninstall-application"
+        || !target || target.resultType !== "application") return false
+    root.pendingConfirmationAction = selectedActionId
+    root.pendingConfirmationTarget = target
+    root.actionConfirmationMessage = "Do you want to uninstall " + String(target.title || "this application") + "?"
+    root.actionConfirmationConfirmText = "Uninstall"
+    actionConfirmationDialog.selectedIndex = 0
+    root.actionConfirmationOpen = true
+    return true
+  }
+
+  function cancelActionConfirmation() {
+    root.actionConfirmationOpen = false
+    root.pendingConfirmationAction = ""
+    root.pendingConfirmationTarget = ({})
+    root.actionConfirmationMessage = ""
+    root.actionConfirmationConfirmText = "Confirm"
+    if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+  }
+
+  function confirmActionConfirmation() {
+    var actionId = root.pendingConfirmationAction
+    var target = root.pendingConfirmationTarget
+    root.cancelActionConfirmation()
+    if (actionId !== "uninstall-application" || !target || target.resultType !== "application") return
+    if (!appProvider.remove(target.appId, target.title)) {
+      root.showOsd("", "Uninstall is unavailable for " + String(target.title || "this application"))
+      if (root.actionPanelOpen) root.rebuildActions()
+      return
+    }
+    root.showOsd("", "Uninstalling " + String(target.title || "application"))
+    root.dismiss()
+  }
+
   function performAction(actionId) {
     var selectedActionId = String(actionId || "")
     if (!selectedActionId) {
@@ -1177,6 +1226,11 @@ Item {
     if (String(selectedAction.actionKind || "") === "editor"
         && String(selectedAction.targetRoute || "") === "alias") {
       root.openAliasEditor()
+      return
+    }
+
+    if (selectedActionId === "uninstall-application") {
+      root.requestActionConfirmation(selectedActionId, target)
       return
     }
 
@@ -2447,7 +2501,9 @@ Item {
 
             Keys.priority: Keys.BeforeItem
             Keys.onPressed: function(event) {
-              if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
+              if (root.actionConfirmationOpen && actionConfirmationDialog.handleKey(event)) {
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
                 root.dismiss()
                 event.accepted = true
               } else if ((event.modifiers & Qt.ControlModifier) !== 0
@@ -2890,6 +2946,25 @@ Item {
             onClicked: root.retryProviders()
           }
         }
+      }
+
+
+      ConfirmDialog {
+        id: actionConfirmationDialog
+        anchors.fill: parent
+        opened: root.actionConfirmationOpen
+        z: 60
+        message: root.actionConfirmationMessage
+        confirmText: root.actionConfirmationConfirmText
+        background: root.background
+        foreground: root.foreground
+        scrim: root.scrim
+        selectedBackground: root.selectedBackground
+        selectedText: root.selectedText
+        fontFamily: Style.font.menuFamily
+        cornerRadius: Style.cornerRadius
+        onCanceled: root.cancelActionConfirmation()
+        onConfirmed: root.confirmActionConfirmation()
       }
     }
   }

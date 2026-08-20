@@ -17,6 +17,23 @@ test("application actions expose open and favorites without an Omarchy parent", 
   assert.equal(actions[2].title, "Add to Favorites")
 })
 
+test("applications expose uninstall only when the provider supports removal", () => {
+  const result = {
+    resultId: "application:brave-browser",
+    resultType: "application",
+    title: "Brave"
+  }
+  const unavailable = ActionModel.actionsForResult(result, { canUninstall: false })
+  const available = ActionModel.actionsForResult(result, { canUninstall: true })
+
+  assert.equal(unavailable.some(action => action.id === "uninstall-application"), false)
+  assert.deepEqual(
+    available.map(action => action.id),
+    ["primary", "configure-actions", "favorite", "uninstall-application"]
+  )
+  assert.equal(available[3].section, "Manage")
+})
+
 test("commands expose structured root and Omarchy submenu actions", () => {
   const id = "omarchy:update.config.hyprland"
   const actions = ActionModel.actionsForResult({

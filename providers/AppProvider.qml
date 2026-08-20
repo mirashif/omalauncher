@@ -13,6 +13,8 @@ Item {
   property bool ready: false
   property string error: ""
   readonly property bool usingSharedLibrary: appLibrary !== null && appLibrary !== undefined
+  readonly property bool canRemoveApplications: root.usingSharedLibrary
+    && typeof root.appLibrary.remove === "function"
 
   function sourceEntries() {
     var entries = []
@@ -83,6 +85,13 @@ Item {
       return false
     }
     entry.execute()
+    return true
+  }
+
+  function remove(appId, title) {
+    var id = AppIndex.normalizeDesktopId(appId)
+    if (!id || !root.canRemoveApplications) return false
+    root.appLibrary.remove(id, title)
     return true
   }
 
