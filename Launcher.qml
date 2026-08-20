@@ -2208,7 +2208,7 @@ Item {
           anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
           color: root.selectedText
-          selectionColor: root.selectedText
+          selectionColor: root.foreground
           selectedTextColor: root.selectedBackground
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
@@ -2443,36 +2443,59 @@ Item {
           }
 
           Column {
+            id: resultContent
             anchors.left: rowIcon.right
             anchors.leftMargin: Style.space(6)
-            anchors.right: rowBadges.left
-            anchors.rightMargin: Style.space(12)
             anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, rowBadges.x - x - Style.space(12))
             spacing: Style.space(3)
+            clip: true
+
+            TextMetrics {
+              id: resultTitleMetrics
+              text: resultRow.title + (resultRow.isChecked ? " ✓" : "")
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.heading
+              font.weight: Font.Bold
+              elide: Qt.ElideRight
+              elideWidth: resultContent.width
+            }
 
             Text {
               width: parent.width
-              text: root.highlightedText(resultRow.title) + (resultRow.isChecked ? " ✓" : "")
+              text: root.highlightedText(resultTitleMetrics.elidedText)
               textFormat: Text.RichText
               color: resultRow.selected ? root.selectedText : root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.heading
               font.weight: Font.Medium
-              elide: Text.ElideRight
+              wrapMode: Text.NoWrap
+              clip: true
+            }
+
+            TextMetrics {
+              id: resultSupportingMetrics
+              text: resultRow.breadcrumb || resultRow.description
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              font.weight: resultRow.breadcrumb ? Font.Bold : Font.Normal
+              elide: Qt.ElideRight
+              elideWidth: resultContent.width
             }
 
             Text {
               width: parent.width
               text: resultRow.breadcrumb
-                ? root.highlightedText(resultRow.breadcrumb)
-                : HighlightModel.escapeHtml(resultRow.description)
-              visible: text.length > 0
+                ? root.highlightedText(resultSupportingMetrics.elidedText)
+                : HighlightModel.escapeHtml(resultSupportingMetrics.elidedText)
+              visible: (resultRow.breadcrumb || resultRow.description).length > 0
               textFormat: Text.RichText
               color: resultRow.selected ? root.selectedText : root.foreground
               opacity: 0.58
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
+              wrapMode: Text.NoWrap
+              clip: true
             }
           }
 
@@ -2725,7 +2748,7 @@ Item {
             anchors.rightMargin: Style.space(12)
             anchors.verticalCenter: parent.verticalCenter
             color: root.selectedText
-            selectionColor: root.selectedText
+            selectionColor: root.foreground
             selectedTextColor: root.selectedBackground
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.body
@@ -3001,7 +3024,7 @@ Item {
                 anchors.rightMargin: Style.space(14)
                 verticalAlignment: TextInput.AlignVCenter
                 color: root.selectedText
-                selectionColor: root.selectedText
+                selectionColor: root.foreground
                 selectedTextColor: root.selectedBackground
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
