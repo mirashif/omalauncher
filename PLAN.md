@@ -1,6 +1,6 @@
 # Omalauncher MVP Plan
 
-Status: MVP complete (v0.7.1)
+Status: MVP shipped; acceptance hardening in progress (v0.7.1)
 Last updated: 2026-08-20
 Target platform: Omarchy 4 / Quattro
 
@@ -13,6 +13,22 @@ deep.
 
 The MVP is inspired by Raycast's Root Search and Action Panel interaction
 models, but it is not intended to reproduce Raycast's complete feature set.
+
+## Current release
+
+Version 0.7.1 is installed on the development machine and published to the
+private `mirashif/omalauncher` GitHub repository. The current live index
+contains 45 installed applications and 244 conditionally visible Omarchy
+records. The release check currently passes 38 automated tests, manifest
+validation, QML linting, and an isolated install/remove cycle.
+
+The implementation has moved beyond the original MVP in three areas:
+
+- An empty query shows the complete visible index after favorites and recents.
+- Static Omarchy submenus, links, and the Apps provider navigate inside
+  Omalauncher.
+- Checked menu state is displayed, while an explicit Action Panel fallback can
+  still open the stock Omarchy menu.
 
 ## Problem
 
@@ -31,7 +47,7 @@ The Omarchy 4.0 menu installed during planning contained:
 
 Examples from the current search implementation:
 
-| Query | Current behavior | Required Omalauncher behavior |
+| Query | Stock behavior at planning | Required Omalauncher behavior |
 | --- | --- | --- |
 | `docker` | Finds Docker DB | Finds Docker DB |
 | `install docker` | No result | Docker DB — Install > Development |
@@ -56,25 +72,25 @@ the path as visible context.
 
 ## Hotkey and coexistence
 
-Omalauncher will use `SUPER + R`, which was unbound on the development machine
-when this plan was created.
+Omalauncher uses `SUPER + R`, which was unbound on the development machine when
+this plan was created.
 
 The existing bindings remain unchanged:
 
 - `SUPER + SPACE`: stock Omarchy menu
 - `SUPER + ALT + SPACE`: stock Omarchy Apps menu
 
-The eventual user override will have this shape:
+The installed user override has this shape:
 
 ```lua
 o.bind(
   "SUPER + R",
   "Omalauncher",
-  "omarchy-shell shell toggle io.github.yourname.omalauncher '{}'"
+  "omarchy-shell shell toggle io.github.omalauncher '{}'"
 )
 ```
 
-The exact permanent plugin ID will be chosen before publishing.
+The published plugin ID is `io.github.omalauncher`.
 
 ## MVP experience
 
@@ -83,7 +99,8 @@ The exact permanent plugin ID will be chosen before publishing.
 - `SUPER + R` toggles Omalauncher.
 - The search field receives focus immediately.
 - The surface opens on the currently focused monitor.
-- With an empty query, it shows favorites and recent selections.
+- With an empty query, it shows favorites and recent selections first, followed
+  by every remaining visible application and Omarchy record exactly once.
 - The plugin uses `keepLoaded: true` to avoid repeated QML startup cost.
 
 ### Searching
@@ -138,9 +155,10 @@ Firefox    Remove > Browser
 | Typing | Update results immediately |
 | Up / Down | Move the selection |
 | Enter | Run the primary action |
-| Ctrl + Enter | Run the secondary action |
+| Ctrl + Enter | Open the selected command's parent inside Omalauncher |
 | Ctrl + K | Open or close the Action Panel |
-| Escape | Close Action Panel, then clear query, then close launcher |
+| Escape | Close Action Panel, clear query, return from submenu, then close |
+| Backspace / Left | Return from a submenu when the query is empty |
 | Page Up / Page Down | Move by one result page |
 
 ### Action Panel
@@ -148,7 +166,8 @@ Firefox    Remove > Browser
 The MVP Action Panel contains only:
 
 - Open or run
-- Open the command's parent in the stock Omarchy menu
+- Open the command's parent inside Omalauncher
+- Open the relevant route in the stock Omarchy menu as a fallback
 - Add to or remove from favorites
 - Reset learned ranking for the result
 
@@ -207,32 +226,39 @@ Both files must be watched so menu changes appear without restarting the shell.
 The 141 conditional stock entries make visibility part of the MVP, not an
 optional enhancement.
 
-Omalauncher will evaluate `when` and `checked` expressions in one batched
+Omalauncher evaluates `when` and `checked` expressions in one batched
 subprocess, following Omarchy's current menu approach. It must not launch a
 separate process for every row or every keystroke.
 
 Visibility results are cached and refreshed when:
 
 - The menu source changes
-- The launcher is opened after a reasonable stale interval
-- A command that may change system state completes
-- The user explicitly requests refresh later
+- The launcher opens
+- A state-changing command has run and the launcher is opened again
+- The explicit refresh IPC method is called
 
 ### Execution delegation
 
-Omalauncher discovers and ranks commands but delegates execution to the stock
-menu route:
+Omalauncher discovers, ranks, and navigates commands but continues to delegate
+leaf execution to the stock menu route:
 
 ```text
 omarchy menu summon <route-id>
 ```
 
-Execution flow:
+Leaf execution flow:
 
 1. Record the selection for ranking.
 2. Close Omalauncher.
 3. Send the selected route to the stock Omarchy menu.
-4. Let Omarchy execute the action or open the target submenu.
+4. Let Omarchy execute the action and retain any confirmation flow.
+
+Menu navigation flow:
+
+1. Static menus and links open inside Omalauncher.
+2. The Apps provider reuses the application adapter inside Omalauncher.
+3. Unsupported dynamic providers open their stock Omarchy submenu.
+4. The Action Panel always exposes an explicit stock-menu fallback.
 
 This avoids copying hundreds of shell action strings into Omalauncher and
 allows upstream and user-defined commands to retain their existing behavior.
@@ -242,14 +268,14 @@ allows upstream and user-defined commands to retain their existing behavior.
 The stock menu currently has native Apps and dynamic Font providers.
 
 - Apps are indexed directly through the application provider.
-- A dynamic submenu such as Font appears as a searchable command that opens the
-  correct stock submenu.
+- A dynamic submenu such as Font appears as a searchable command and opens the
+  correct stock submenu because its generated leaves have no stable routes.
 - Flattening arbitrary dynamic provider output is deferred until a stable
   provider contract exists.
 
 ## Application provider
 
-For Omarchy 4, the first implementation may use `shell.appLibrary` for:
+On Omarchy 4, the application adapter uses `shell.appLibrary` for:
 
 - Visible desktop entries
 - Hidden-entry filtering
@@ -258,7 +284,7 @@ For Omarchy 4, the first implementation may use `shell.appLibrary` for:
 - Application launching
 
 Because `shell.appLibrary` is not a documented third-party stability contract,
-it must sit behind an adapter with a fallback based on Quickshell
+it sits behind an adapter with a fallback based on Quickshell
 `DesktopEntries`.
 
 Application records include:
@@ -273,8 +299,7 @@ Application records include:
 
 ## State
 
-User state should live outside the plugin checkout so updates do not overwrite
-it:
+User state lives outside the plugin checkout so updates do not overwrite it:
 
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
@@ -290,8 +315,8 @@ Initial state schema:
 }
 ```
 
-Usage entries track selection count, last-selected timestamp, and optionally
-query-specific selections. Writes should be debounced and atomic.
+Usage entries track selection count and last-selected timestamp. Writes are
+debounced and atomic.
 
 ## Plugin architecture
 
@@ -304,10 +329,11 @@ Omarchy shell IPC
     v
 Launcher.qml
     |
-    +-- AppProvider
-    +-- OmarchyCommandProvider
+    +-- AppProvider + AppIndex
+    +-- MenuIndex
     +-- SearchEngine
-    +-- StateStore
+    +-- StateStore + StateModel
+    +-- ActionModel + StatusModel + LayoutModel
     |
     v
 Unified result model
@@ -317,7 +343,7 @@ Unified result model
     +-- open Action Panel
 ```
 
-Proposed repository structure:
+Current repository structure:
 
 ```text
 omalauncher/
@@ -327,34 +353,36 @@ omalauncher/
 ├── manifest.json
 ├── Launcher.qml
 ├── SearchEngine.js
-├── components/
-│   ├── ActionPanel.qml
-│   ├── ResultList.qml
-│   ├── ResultRow.qml
-│   └── SearchField.qml
 ├── providers/
+│   ├── AppIndex.js
 │   ├── AppProvider.qml
-│   ├── MenuIndex.js
-│   └── OmarchyCommandProvider.qml
+│   └── MenuIndex.js
 ├── services/
-│   └── StateStore.qml
+│   ├── ActionModel.js
+│   ├── LayoutModel.js
+│   ├── StateModel.js
+│   ├── StateStore.qml
+│   └── StatusModel.js
 ├── tests/
 │   ├── fixtures/
-│   ├── menu-index.test.js
-│   └── search-engine.test.js
-└── preview.png
+│   └── *.test.js
+├── scripts/
+│   ├── index-spike.js
+│   ├── package-smoke-test.sh
+│   └── release-check.sh
+└── assets/preview.png
 ```
 
-The MVP manifest is expected to declare:
+The v0.7.1 manifest declares:
 
 ```json
 {
   "schemaVersion": 1,
-  "id": "io.github.yourname.omalauncher",
+  "id": "io.github.omalauncher",
   "name": "Omalauncher",
-  "version": "0.1.0",
-  "author": "Your Name",
-  "description": "A keyboard-first command launcher for Omarchy.",
+  "version": "0.7.1",
+  "author": "Omalauncher contributors",
+  "description": "A keyboard-first command palette for Omarchy.",
   "kinds": ["menu"],
   "keepLoaded": true,
   "entryPoints": {
@@ -366,6 +394,8 @@ The MVP manifest is expected to declare:
 ## Delivery phases
 
 ### Phase 0: Contract spike
+
+Status: Complete in `f42ff3d`.
 
 Goal: prove that an independent menu plugin can open on `SUPER + R` without
 affecting the stock launcher.
@@ -386,6 +416,8 @@ Exit criteria:
 - Escape and repeated toggles never strand keyboard focus.
 
 ### Phase 1: Command index
+
+Status: Complete in `f42ff3d`.
 
 Goal: solve submenu discovery before adding visual polish.
 
@@ -409,6 +441,8 @@ Required query tests:
 
 ### Phase 2: Unified launcher
 
+Status: Complete in `a4f8bf7` and `8d0ec2f`.
+
 Goal: search applications and Omarchy commands together.
 
 Deliverables:
@@ -422,6 +456,8 @@ Deliverables:
 
 ### Phase 3: Raycast-style actions and learning
 
+Status: Complete in `f818800` and `ca72bc2`.
+
 Goal: improve repeat use without making ranking unpredictable.
 
 Deliverables:
@@ -434,6 +470,9 @@ Deliverables:
 - Persistent state
 
 ### Phase 4: Polish and packaging
+
+Status: Complete in `7e3ce33`, with follow-up navigation and layout polish in
+`e589993` and `1de314e`.
 
 Goal: make the MVP safe to install, update, and remove.
 
@@ -450,7 +489,24 @@ Deliverables:
 
 Estimated effort: four to six focused development days for a polished MVP.
 
+All five delivery phases are complete. The remaining work below concerns
+measuring or hardening acceptance properties rather than missing MVP features.
+
 ## Acceptance criteria
+
+### Current acceptance status
+
+Discovery, core interaction, safety, compatibility, and packaging are covered
+by the installed build and automated release check. The following items still
+need explicit proof or hardening:
+
+- Benchmark warm-open latency against the 100 ms budget.
+- Benchmark worst-case search updates against the 16 ms budget.
+- Add a generation identifier so a completed guard subprocess cannot briefly
+  apply results from a superseded menu revision before the queued refresh runs.
+- Add a focused regression test for pointer movement and selection ownership.
+- Add instrumentation or caching if benchmarks show unnecessary result-model
+  rebuilds are material.
 
 ### Discovery
 
@@ -488,19 +544,20 @@ Estimated effort: four to six focused development days for a polished MVP.
 ### Validation
 
 ```bash
-omarchy plugin validate ./omalauncher
-
-qmllint -I "$OMARCHY_PATH/shell" \
-  Launcher.qml components/*.qml providers/*.qml services/*.qml
+npm run validate
+npm run spike
 ```
+
+`npm run validate` runs the 38 Node tests, manifest validation, QML linting,
+the packaging smoke test, and whitespace validation.
 
 Shell verification should also inspect:
 
 ```bash
-qs log -p "$OMARCHY_PATH/shell" --tail 100
+qs log -p "$OMARCHY_PATH/shell" -t 100
 ```
 
-## Explicit non-goals for v0.1
+## Explicit non-goals for the MVP
 
 - Replacing `SUPER + SPACE`
 - Replacing the stock menu bar widget
@@ -522,10 +579,10 @@ and useful.
 | Risk | Mitigation |
 | --- | --- |
 | Omarchy internal APIs change | Isolate `shell.appLibrary` behind an adapter and set a minimum tested Omarchy version. |
-| Conditional commands become stale | Batch evaluation, cache briefly, and refresh after state-changing actions. |
+| Conditional commands become stale | Batch evaluation on source changes and launcher open; add generation-based stale-response rejection during hardening. |
 | Opaque frecency produces surprising results | Apply frecency only within an existing semantic tier and provide Reset Ranking. |
-| Dynamic providers cannot be flattened safely | Index the provider submenu and delegate to the stock menu for v0.1. |
-| Large QML work blocks the shared shell | Keep indexing incremental, subprocess work asynchronous, and render only limited results. |
+| Dynamic providers cannot be flattened safely | Index the provider submenu and delegate to the stock menu for the MVP. |
+| Large QML work blocks the shared shell | Keep subprocess work asynchronous and rendered search results limited; verify the frame budget with benchmarks. |
 | A plugin failure affects the shared shell process | Keep the stock launcher bindings untouched and test malformed-source behavior. |
 | User actions contain shell commands | Treat menu sources as trusted Omarchy/user configuration and delegate execution to stock routes. |
 
