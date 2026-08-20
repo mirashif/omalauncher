@@ -1,8 +1,56 @@
-# Omalauncher MVP Plan
+# Omalauncher Product Plan
 
-Status: MVP shipped; acceptance hardening in progress (v0.7.1)
-Last updated: 2026-08-20
+Status: MVP shipped (v0.7.1); v0.8 interaction completion in progress
+Last updated: 2026-08-21
 Target platform: Omarchy 4 / Quattro
+
+## v0.8 interaction completion
+
+Goal: complete the existing search-and-run loop before adding new providers.
+The release deliberately avoids promises the current Omarchy plugin contract
+cannot fulfill: global command-hotkey recording, generic Quick Look, generic
+undo, and success/failure reporting for commands delegated through the stock
+menu.
+
+Implementation rules:
+
+- Keep Omarchy command execution delegated to the stock menu.
+- Report delegated execution as a handoff, never as confirmed success.
+- Use Omarchy's existing OSD for transient feedback.
+- Store personalization outside the plugin checkout with versioned migration.
+- Keep navigation shortcuts fixed and documented for v0.8.
+- Complete and validate each todo in an independent commit.
+
+### Ordered todos
+
+- [ ] 1. Extend persistent state for aliases, hidden results, query history, and
+  compact-mode preference, including migration from the v1 state schema.
+- [ ] 2. Introduce structured Action Panel sections and shallow submenu
+  navigation, and open the panel from a result row's right-click action.
+- [ ] 3. Add editable user aliases with conflict handling, search integration,
+  persistent result badges, and remove-alias support.
+- [ ] 4. Add hide/unhide actions plus a searchable Manage Hidden Results view so
+  every hidden item remains recoverable.
+- [ ] 5. Add favorite reordering through Action Panel actions and direct
+  keyboard shortcuts.
+- [ ] 6. Add query-history cycling, section jumps, pop-to-root, and immediate
+  close shortcuts without breaking normal text editing.
+- [ ] 7. Add a stable footer, persistent favorite/alias badges, and safe title
+  match highlighting.
+- [ ] 8. Make provider warnings interactive with diagnostic detail and retry,
+  and use truthful Omarchy OSD feedback for local changes and command handoff.
+- [ ] 9. Add compact mode, explicit accessibility metadata, final documentation,
+  and full release validation.
+
+### Deferred beyond v0.8
+
+- Global per-command hotkey recording, pending a managed Omarchy/Hyprland
+  registration contract.
+- Generic Quick Look, pending preview metadata and file-like providers.
+- Query-specific learned ranking, pending evidence that deterministic tiers are
+  producing recurring ranking mistakes.
+- Custom navigation-binding presets or an editor.
+- A general third-party Action Panel custom-view SDK.
 
 ## Product thesis
 
