@@ -1,0 +1,28 @@
+{
+  // The fixture is deliberately small but preserves the relevant stock paths.
+  "install": {"label":"Install"},
+  "install.browser": {"label":"Browser"},
+  "install.browser.firefox": {"label":"Firefox","action":"install-firefox"},
+  "install.development": {"label":"Development"},
+  "install.development.docker-dbs": {"label":"Docker DB","action":"install-docker-dbs"},
+
+  "remove": {"label":"Remove","aliases":["uninstall"]},
+  "remove.browser": {"label":"Browser"},
+  "remove.browser.firefox": {"label":"Firefox","when":"has-firefox","action":"remove-firefox"},
+
+  "update": {"label":"Update"},
+  "update.config": {"label":"Config"},
+  "update.config.hyprland": {"label":"Hyprland","action":"update-hyprland"},
+
+  "style": {"label":"Style"},
+  "style.screensaver": {"label":"Screensaver"},
+  "style.screensaver.text": {"label":"Edit Text","action":"edit-screensaver-text"},
+
+  "setup": {"label":"Setup","aliases":["settings"]},
+  "setup.default": {"label":"Defaults","aliases":["default"]},
+  "setup.default.browser": {"label":"Browser"},
+  "setup.default.browser.firefox": {"label":"Firefox","action":"default-firefox"},
+
+  "hidden": {"label":"Hidden"},
+  "hidden.action": {"label":"Unavailable","when":"false","action":"never"},
+}

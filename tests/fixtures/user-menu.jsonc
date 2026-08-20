@@ -1,0 +1,8 @@
+{
+  // Partial overrides must retain the stock action and visibility expression.
+  "remove.browser.firefox": {
+    "description": "Remove the Mozilla browser"
+  },
+  "personal": {"label":"Personal"},
+  "personal.notes": {"label":"Notes","action":"open-notes"},
+}

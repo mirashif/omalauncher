@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.omalauncher",
+  "name": "Omalauncher",
+  "version": "0.1.0",
+  "author": "Omalauncher contributors",
+  "license": "MIT",
+  "description": "A keyboard-first command palette for Omarchy.",
+  "kinds": [
+    "menu"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Launcher.qml"
+  }
+}

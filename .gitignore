@@ -1,0 +1,31 @@
+# Node dependencies and test output
+node_modules/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# QML/Qt build and editor state
+.qmlcache/
+.qmlls.ini
+build/
+dist/
+*.qmlc
+*.jsc
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local backups and logs
+*.bak
+*.log
