@@ -38,6 +38,8 @@ Item {
   property var commandRecords: []
   property var appRecords: []
   property var allRecords: []
+  property var rootSearchRecords: []
+  property var rootEmptyRecords: []
   property string activeRoute: "root"
   property var navigationStack: []
   property int selectedIndex: 0
@@ -45,6 +47,7 @@ Item {
   property int queryHistoryIndex: -1
   property string queryHistoryDraft: ""
   property bool applyingQueryHistory: false
+  property bool suppressSearchChange: false
   property bool compactExpanded: false
   property bool actionPanelOpen: false
   property var actionTarget: ({})
@@ -178,7 +181,7 @@ Item {
     root.activeRoute = "root"
     root.navigationStack = []
     root.opened = true
-    searchInput.text = String(payload.query || "")
+    root.setSearchTextSilently(String(payload.query || ""))
     root.selectedIndex = 0
     root.resetQueryHistoryNavigation()
     root.rebuildResults()
@@ -202,7 +205,7 @@ Item {
     root.opened = false
     root.activeRoute = "root"
     root.navigationStack = []
-    searchInput.text = ""
+    root.setSearchTextSilently("")
     root.selectedIndex = 0
     root.resetQueryHistoryNavigation()
   }
@@ -442,7 +445,13 @@ Item {
 
   function rebuildUnifiedRecords() {
     root.allRecords = root.appRecords.concat(root.commandRecords)
+    root.rebuildCachedRecords()
     root.rebuildResults()
+  }
+
+  function rebuildCachedRecords() {
+    root.rootSearchRecords = root.personalizedRecords(root.visibleRecords(root.allRecords))
+    root.rootEmptyRecords = stateStore.emptyRows(root.allRecords)
   }
 
   function hiddenRecords() {
@@ -506,7 +515,7 @@ Item {
     records.push(FileSearchModel.managementRecord(
       preferences.fileSearchEnabled === true,
       fileScopes.length))
-    if (root.hiddenRecords().length > 0) records.push({
+    if ((stateStore.hidden || []).length > 0) records.push({
       id: "omalauncher:manage-hidden",
       type: "launcher-command",
       kind: "manage-hidden",
@@ -579,8 +588,12 @@ Item {
       root.navigationStack = []
     }
 
-    var scopedRecords = root.visibleRecords(root.allRecords).concat(root.managementRecords())
-    if (root.activeRoute === "apps") {
+    var scopedRecords = []
+    var scopedRecordsPersonalized = false
+    if (root.activeRoute === "root") {
+      scopedRecords = root.rootSearchRecords.concat(root.personalizedRecords(root.managementRecords()))
+      scopedRecordsPersonalized = true
+    } else if (root.activeRoute === "apps") {
       scopedRecords = root.visibleRecords(root.appRecords)
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
@@ -601,12 +614,12 @@ Item {
       scopedRecords = root.visibleRecords(MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query))
     }
 
-    scopedRecords = root.personalizedRecords(scopedRecords)
+    if (!scopedRecordsPersonalized) scopedRecords = root.personalizedRecords(scopedRecords)
     var results
     if (SettingsModel.isInputRoute(root.activeRoute)
         || SettingsModel.isConfirmationRoute(root.activeRoute)) results = scopedRecords
     else if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
-    else if (root.activeRoute === "root") results = stateStore.emptyRows(root.allRecords)
+    else if (root.activeRoute === "root") results = root.rootEmptyRecords
     else results = scopedRecords
 
     var strongLauncherMatch = false
@@ -705,6 +718,12 @@ Item {
     root.queryHistoryDraft = ""
   }
 
+  function setSearchTextSilently(value) {
+    root.suppressSearchChange = true
+    searchInput.text = String(value || "")
+    root.suppressSearchChange = false
+  }
+
   function cycleQueryHistory(older) {
     var history = stateStore.queryHistory || []
     if (history.length === 0) return false
@@ -730,7 +749,7 @@ Item {
     root.resetActionPanel()
     root.activeRoute = "root"
     root.navigationStack = []
-    searchInput.text = ""
+    root.setSearchTextSilently("")
     root.selectedIndex = 0
     root.resetQueryHistoryNavigation()
     root.rebuildResults()
@@ -855,7 +874,7 @@ Item {
       root.settingsScopeSuggested = false
     }
     root.activeRoute = nextRoute
-    searchInput.text = ""
+    root.setSearchTextSilently("")
     root.selectedIndex = 0
     root.rebuildResults()
     Qt.callLater(function() { searchInput.forceActiveFocus() })
@@ -1281,7 +1300,7 @@ Item {
     root.warningPanelOpen = false
     stateStore.setCompactMode(enabled)
     root.compactExpanded = false
-    searchInput.text = ""
+    root.setSearchTextSilently("")
     root.selectedIndex = 0
     root.showOsd(enabled ? "" : "", enabled ? "Compact Mode enabled" : "Compact Mode disabled")
     root.rebuildResults()
@@ -1487,6 +1506,7 @@ Item {
   StateStore {
     id: stateStore
     onSnapshotChanged: {
+      root.rebuildCachedRecords()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
     }
@@ -1724,6 +1744,7 @@ Item {
           Accessible.focusable: true
           Accessible.searchEdit: true
           onTextChanged: {
+            if (root.suppressSearchChange) return
             if (!root.applyingQueryHistory) root.resetQueryHistoryNavigation()
             if (SettingsModel.isInputRoute(root.activeRoute)) root.settingsInputError = ""
             if (!searchInput.text) root.compactExpanded = false
