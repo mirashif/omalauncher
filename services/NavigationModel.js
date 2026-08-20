@@ -30,6 +30,19 @@ function sectionJumpIndex(rows, currentIndex, delta) {
   return current
 }
 
+function pointerSelectionIndex(count, currentIndex, hoveredIndex, moved) {
+  var length = Math.max(0, Math.floor(Number(count || 0)))
+  if (length === 0) return 0
+  var current = Math.max(0, Math.min(length - 1, Math.floor(Number(currentIndex || 0))))
+  if (moved !== true) return current
+  var hovered = Math.floor(Number(hoveredIndex))
+  if (!isFinite(hovered) || hovered < 0 || hovered >= length) return current
+  return hovered
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { sectionJumpIndex: sectionJumpIndex }
+  module.exports = {
+    sectionJumpIndex: sectionJumpIndex,
+    pointerSelectionIndex: pointerSelectionIndex
+  }
 }

@@ -8,6 +8,7 @@ import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "services/ActionModel.js" as ActionModel
+import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
 import "services/LayoutModel.js" as LayoutModel
 import "services/NavigationModel.js" as NavigationModel
@@ -56,9 +57,15 @@ Item {
   property bool guardsReady: false
   property bool guardEvaluationSettled: false
   property bool guardResultsAvailable: false
+  property int menuRevision: 0
   property string defaultSourceError: ""
   property string userSourceError: ""
   property string guardError: ""
+  property double openMeasurementStartedAt: 0
+  property double lastWarmOpenMs: 0
+  property double lastSearchUpdateMs: 0
+  property double maxSearchUpdateMs: 0
+  property int resultRebuilds: 0
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
   readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
@@ -152,6 +159,7 @@ Item {
   }
 
   function open(payloadJson) {
+    root.openMeasurementStartedAt = Date.now()
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (error) { payload = ({}) }
     var targetScreen = root.focusedScreen()
@@ -168,7 +176,12 @@ Item {
     root.rebuildResults()
     root.evaluateGuards()
     appProvider.refreshIcons()
-    Qt.callLater(function() { searchInput.forceActiveFocus() })
+    Qt.callLater(function() {
+      searchInput.forceActiveFocus()
+      if (root.opened && root.openMeasurementStartedAt > 0) {
+        root.lastWarmOpenMs = Math.max(0, Date.now() - root.openMeasurementStartedAt)
+      }
+    })
   }
 
   function close() {
@@ -241,7 +254,22 @@ Item {
       sharedAppLibrary: appProvider.usingSharedLibrary,
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length,
-      stateReady: stateStore.loaded
+      stateReady: stateStore.loaded,
+      warmOpenMs: root.lastWarmOpenMs,
+      maxSearchUpdateMs: root.maxSearchUpdateMs
+    })
+  }
+
+  function performanceStats() {
+    return JSON.stringify({
+      warmOpenMs: root.lastWarmOpenMs,
+      lastSearchUpdateMs: root.lastSearchUpdateMs,
+      maxSearchUpdateMs: root.maxSearchUpdateMs,
+      resultRebuilds: root.resultRebuilds,
+      budgets: {
+        warmOpenMs: 100,
+        searchUpdateMs: 16
+      }
     })
   }
 
@@ -371,6 +399,7 @@ Item {
 
   function rebuildMenu() {
     if (!root.defaultSourceLoaded) return
+    root.menuRevision = GenerationModel.next(root.menuRevision)
     var merged = MenuIndex.mergeMenuSources(root.defaultMenuItems, root.userMenuItems)
     root.menuItems = merged.items
     root.menuOrder = merged.itemOrder
@@ -483,6 +512,7 @@ Item {
   }
 
   function rebuildResults() {
+    var rebuildStartedAt = Date.now()
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
     if (root.activeRoute !== "root" && root.activeRoute !== "apps"
@@ -536,6 +566,9 @@ Item {
 
     if (resultsModel.count === 0) root.selectedIndex = 0
     else root.selectedIndex = Math.max(0, Math.min(root.selectedIndex, resultsModel.count - 1))
+    root.lastSearchUpdateMs = Math.max(0, Date.now() - rebuildStartedAt)
+    root.maxSearchUpdateMs = Math.max(root.maxSearchUpdateMs, root.lastSearchUpdateMs)
+    root.resultRebuilds += 1
     Qt.callLater(root.revealSelection)
   }
 
@@ -1049,6 +1082,7 @@ Item {
       return
     }
     guardProc.collected = ""
+    guardProc.generation = root.menuRevision
     guardProc.command = ["bash", "-lc", script]
     guardProc.running = true
   }
@@ -1105,39 +1139,44 @@ Item {
   Process {
     id: guardProc
     property string collected: ""
+    property int generation: 0
     stdout: SplitParser {
       onRead: function(data) { guardProc.collected += data + "\n" }
     }
     onExited: function(exitCode, exitStatus) {
-      if (exitCode === 0 && exitStatus === 0) {
-        var parsed = MenuIndex.parseGuardResults(guardProc.collected)
-        root.whenResults = parsed.when
-        root.checkedResults = parsed.checked
-        root.guardsReady = true
-        root.guardResultsAvailable = true
-        root.guardEvaluationSettled = true
-        root.guardError = ""
-        root.rebuildCommandRecords()
-      } else {
-        if (!root.guardResultsAvailable) {
-          var fallbackWhen = ({})
-          var ids = Object.keys(root.menuItems)
-          for (var i = 0; i < ids.length; i++) {
-            var entry = root.menuItems[ids[i]]
-            if (entry && entry.when) fallbackWhen[ids[i]] = false
-          }
-          root.whenResults = fallbackWhen
-          root.checkedResults = ({})
-          root.guardError = "Some Omarchy commands were hidden because availability checks failed"
+      var completion = GenerationModel.completion(
+        guardProc.generation, root.menuRevision, root.guardsPending)
+      if (completion.apply) {
+        if (exitCode === 0 && exitStatus === 0) {
+          var parsed = MenuIndex.parseGuardResults(guardProc.collected)
+          root.whenResults = parsed.when
+          root.checkedResults = parsed.checked
+          root.guardsReady = true
+          root.guardResultsAvailable = true
+          root.guardEvaluationSettled = true
+          root.guardError = ""
           root.rebuildCommandRecords()
         } else {
-          root.guardError = "Command availability could not be refreshed; showing last known results"
+          if (!root.guardResultsAvailable) {
+            var fallbackWhen = ({})
+            var ids = Object.keys(root.menuItems)
+            for (var i = 0; i < ids.length; i++) {
+              var entry = root.menuItems[ids[i]]
+              if (entry && entry.when) fallbackWhen[ids[i]] = false
+            }
+            root.whenResults = fallbackWhen
+            root.checkedResults = ({})
+            root.guardError = "Some Omarchy commands were hidden because availability checks failed"
+            root.rebuildCommandRecords()
+          } else {
+            root.guardError = "Command availability could not be refreshed; showing last known results"
+          }
+          root.guardsReady = true
+          root.guardEvaluationSettled = true
+          console.warn("Omalauncher: menu visibility batch failed; unavailable commands remain hidden")
         }
-        root.guardsReady = true
-        root.guardEvaluationSettled = true
-        console.warn("Omalauncher: menu visibility batch failed; unavailable commands remain hidden")
       }
-      if (root.guardsPending) Qt.callLater(root.evaluateGuards)
+      if (completion.restart) Qt.callLater(root.evaluateGuards)
     }
   }
 
@@ -1565,7 +1604,8 @@ Item {
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
-            onPositionChanged: root.selectedIndex = resultRow.index
+            onPositionChanged: root.selectedIndex = NavigationModel.pointerSelectionIndex(
+              resultsModel.count, root.selectedIndex, resultRow.index, true)
             onClicked: function(mouse) {
               root.selectedIndex = resultRow.index
               if (mouse.button === Qt.RightButton) root.openActionPanel()
@@ -1946,7 +1986,8 @@ Item {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onPositionChanged: root.actionSelectedIndex = actionRow.index
+              onPositionChanged: root.actionSelectedIndex = NavigationModel.pointerSelectionIndex(
+                actionResultsModel.count, root.actionSelectedIndex, actionRow.index, true)
               onClicked: {
                 root.actionSelectedIndex = actionRow.index
                 root.performAction(actionRow.actionId)

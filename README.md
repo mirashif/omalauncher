@@ -95,6 +95,7 @@ assistive technology.
 ```bash
 npm run validate
 npm run spike
+npm run benchmark
 ```
 
 The release check runs all Node tests, manifest validation, `qmllint`, and an
@@ -104,6 +105,10 @@ only the packaging smoke test with `npm run package:smoke`.
 Use `npm run spike -- --all` to inspect static discovery without applying
 `when` visibility. This is useful for proving paths for software that is not
 currently installed.
+
+`npm run benchmark` checks representative empty-state and search work against
+the 100 ms warm-open and 16 ms search-update budgets. With the development copy
+loaded, `npm run benchmark:runtime` checks the instrumented QML path as well.
 
 ## Install
 

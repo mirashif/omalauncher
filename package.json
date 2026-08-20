@@ -4,6 +4,8 @@
   "private": true,
   "description": "A keyboard-first command palette for Omarchy.",
   "scripts": {
+    "benchmark": "node scripts/performance-benchmark.js",
+    "benchmark:runtime": "bash scripts/runtime-performance-check.sh",
     "test": "node --test tests/*.test.js",
     "spike": "node scripts/index-spike.js",
     "validate": "bash scripts/release-check.sh",
