@@ -164,6 +164,23 @@ Item {
     }))
   }
 
+  function emptyStateStats() {
+    var rows = stateStore.emptyRows(root.allRecords)
+    var sections = ({})
+    var seen = ({})
+    for (var i = 0; i < rows.length; i++) {
+      var section = String(rows[i].section || "")
+      sections[section] = Number(sections[section] || 0) + 1
+      seen[String(rows[i].id || "")] = true
+    }
+    return JSON.stringify({
+      rows: rows.length,
+      unique: Object.keys(seen).length,
+      indexed: root.allRecords.length,
+      sections: sections
+    })
+  }
+
   function debugSearch(query) {
     var rows = SearchEngine.search(root.allRecords, String(query || ""), {
       limit: 5,

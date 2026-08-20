@@ -18,7 +18,7 @@ The current implementation includes:
 - Deterministic semantic ranking
 - Persistent favorites and usage history
 - Frecency as a tie-breaker within equal semantic matches
-- Favorites and recent applications/commands before typing
+- Favorites and recent items first, followed by the complete visible index
 - A searchable, context-aware Action Panel
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
@@ -31,6 +31,10 @@ ahead of frecency. State is written atomically to:
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
 ```
+
+With an empty query, every currently available application and Omarchy command
+is shown exactly once. Favorites and recent items remain at the top; all other
+entries follow in Applications and Omarchy Commands sections.
 
 Press `Ctrl+K` to open the Action Panel for the selected result. Its actions
 can be searched immediately and include:

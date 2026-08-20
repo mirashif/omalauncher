@@ -58,7 +58,6 @@ Item {
 
   function emptyRows(records) {
     return StateModel.emptyStateRows(records, root.snapshot, {
-      favoriteLimit: 8,
       recentApplicationLimit: 4,
       recentCommandLimit: 4
     })

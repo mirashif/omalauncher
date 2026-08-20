@@ -59,8 +59,8 @@ function emptyStatus(options) {
   return {
     visible: true,
     kind: "empty",
-    title: "No favorites or recent items yet",
-    detail: warnings.length ? "Partial index: " + warnings.join(" · ") : "Start typing to search applications and Omarchy commands."
+    title: "No applications or commands available",
+    detail: warnings.length ? "Partial index: " + warnings.join(" · ") : "The unified index is empty."
   }
 }
 

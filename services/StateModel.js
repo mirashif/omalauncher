@@ -124,12 +124,13 @@ function copyRecord(record, section, favorite) {
 function emptyStateRows(records, state, options) {
   var current = normalizeState(state)
   var opts = options || {}
-  var favoriteLimit = Math.max(0, Number(opts.favoriteLimit === undefined ? 8 : opts.favoriteLimit))
+  var favoriteLimit = Math.max(0, Number(opts.favoriteLimit === undefined ? (records || []).length : opts.favoriteLimit))
   var recentApplicationLimit = Math.max(0, Number(opts.recentApplicationLimit === undefined ? 4 : opts.recentApplicationLimit))
   var recentCommandLimit = Math.max(0, Number(opts.recentCommandLimit === undefined ? 4 : opts.recentCommandLimit))
   var byId = {}
   var rows = []
   var favoriteSet = {}
+  var included = {}
 
   for (var i = 0; i < (records || []).length; i++) {
     var record = records[i]
@@ -144,6 +145,7 @@ function emptyStateRows(records, state, options) {
     var favoriteRecord = byId[favoriteId]
     if (!favoriteRecord) continue
     rows.push(copyRecord(favoriteRecord, "Favorites", true))
+    included[favoriteId] = true
   }
 
   var recentApplications = []
@@ -165,9 +167,20 @@ function emptyStateRows(records, state, options) {
   recentCommands.sort(recentOrder)
   for (var a = 0; a < recentApplications.length && a < recentApplicationLimit; a++) {
     rows.push(copyRecord(recentApplications[a].record, "Recent Applications", false))
+    included[recentApplications[a].record.id] = true
   }
   for (var c = 0; c < recentCommands.length && c < recentCommandLimit; c++) {
     rows.push(copyRecord(recentCommands[c].record, "Recent Commands", false))
+    included[recentCommands[c].record.id] = true
+  }
+
+  for (var r = 0; r < (records || []).length; r++) {
+    var remainingRecord = records[r]
+    var remainingId = validId(remainingRecord && remainingRecord.id)
+    if (!remainingId || included[remainingId]) continue
+    var section = remainingRecord.type === "application" ? "Applications" : "Omarchy Commands"
+    rows.push(copyRecord(remainingRecord, section, isFavorite(current, remainingId)))
+    included[remainingId] = true
   }
   return rows
 }

@@ -53,8 +53,10 @@ test("empty state groups favorites and recent records without duplicates", () =>
   const records = [
     app("application:firefox", "Firefox"),
     app("application:brave", "Brave"),
+    app("application:code", "Code"),
     command("omarchy:update", "Update"),
-    command("omarchy:remove.firefox", "Firefox")
+    command("omarchy:remove.firefox", "Firefox"),
+    command("omarchy:style.screensaver", "Screensaver")
   ]
   const state = {
     version: 1,
@@ -73,11 +75,36 @@ test("empty state groups favorites and recent records without duplicates", () =>
     ["omarchy:update", "Favorites", true],
     ["application:firefox", "Favorites", true],
     ["application:brave", "Recent Applications", false],
-    ["omarchy:remove.firefox", "Recent Commands", false]
+    ["omarchy:remove.firefox", "Recent Commands", false],
+    ["application:code", "Applications", false],
+    ["omarchy:style.screensaver", "Omarchy Commands", false]
   ])
+  assert.equal(rows.length, records.length)
+  assert.equal(new Set(rows.map(row => row.id)).size, records.length)
 
   const limited = StateModel.emptyStateRows(records, state, { favoriteLimit: 1 })
-  assert.equal(limited.some(row => row.id === "application:firefox" && row.section !== "Favorites"), false)
+  assert.equal(limited.length, records.length)
+  assert.deepEqual(
+    limited.find(row => row.id === "application:firefox"),
+    { id: "application:firefox", type: "application", title: "Firefox", section: "Applications", favorite: true }
+  )
+})
+
+test("empty state shows the complete index without history", () => {
+  const records = [
+    app("application:firefox", "Firefox"),
+    app("application:code", "Code"),
+    command("omarchy:update", "Update"),
+    command("omarchy:remove.firefox", "Firefox")
+  ]
+
+  const rows = StateModel.emptyStateRows(records, StateModel.emptyState())
+  assert.deepEqual(rows.map(row => [row.id, row.section]), [
+    ["application:firefox", "Applications"],
+    ["application:code", "Applications"],
+    ["omarchy:update", "Omarchy Commands"],
+    ["omarchy:remove.firefox", "Omarchy Commands"]
+  ])
 })
 
 test("reset ranking can clear one result or all usage", () => {
