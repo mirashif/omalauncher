@@ -1,175 +1,140 @@
 # Omalauncher
 
-Omalauncher is a keyboard-first command palette for Omarchy 4. It searches
-installed applications and flattens the stock JSONC menu into a unified index,
-while keeping each command's ancestor path as context.
+## Find every app and Omarchy feature from one place
 
-The current release is v0.9.0.
+Omalauncher turns Omarchy's apps, nested menus, shell features, and CLI catalog
+into fast, keyboard-first search. Type what you mean—such as `clipboard`,
+`toggle nightlight`, or `browser default`—without remembering where it lives.
 
-![Omalauncher searching for Update Hyprland with its Action Panel open](assets/preview.png)
+**Built for Omarchy 4 · Current release: v0.9.0**
 
-The current implementation includes:
+[Install](#install) · [See how it works](#how-it-works) ·
+[View shortcuts](#keyboard-shortcuts)
 
-- Installed applications from Omarchy's shared application library
-- A `DesktopEntries` fallback isolated behind the application adapter
-- Application names, generic names, comments, keywords, categories, and IDs
-- Stock and user menu JSONC parsing with hot reload
-- Per-field user overrides
-- Breadcrumb-aware command records
-- One batched `when`/`checked` visibility process
-- Deterministic semantic ranking
-- Persistent favorites, aliases, hidden results, query history, and usage history
-- Frecency as a tie-breaker within equal semantic matches
-- Favorites and recent items first, followed by the complete visible index
-- Native drill-down navigation for static Omarchy menus and installed apps
-- A searchable, structured Action Panel with shallow submenus
-- A stable primary-action footer, persistent badges, and title highlighting
-- Interactive provider warnings with diagnostics and retry
-- Optional Compact Mode and explicit Qt accessibility metadata
-- In-launcher settings with versioned provider preferences
-- Numbered `Ctrl+1`…`Ctrl+8` result activation
-- Optional `qalc` calculator results
-- Opt-in, scoped file-name search backed by `fd`
-- A minimal focused Quickshell menu surface
-- Native application icons and launch feedback
-- Delegated execution through `omarchy menu summon <route>`
+![Omalauncher opening in Compact Mode, searching for the default browser settings, and opening the Browser Action Panel](assets/omalauncher-demo.gif)
 
-Selecting an application or Omarchy result updates its usage history; stronger
-semantic matches always remain ahead of frecency. Ephemeral calculator and file
-results are intentionally excluded. Personalization state is written atomically
-to:
+_Open, search, and act without leaving the keyboard._
 
-```text
-${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
-```
+## Why Omalauncher?
 
-With an empty query, every currently available application and Omarchy command
-is shown exactly once. Favorites and recent items remain at the top; all other
-entries follow in Applications and Omarchy Commands sections.
+Omarchy provides hundreds of useful actions, but finding one can mean
+remembering a submenu, shortcut, panel, or terminal route. Omalauncher searches
+applications, commands, and summonable shell features together.
 
-## Keyboard shortcuts
-
-| Shortcut | Behavior |
+| Type what you remember | Find what you need |
 | --- | --- |
-| `Enter` | Run the selected command or open the selected app/menu |
-| `Ctrl+Enter` | Open the selected command's parent inside Omalauncher |
-| `Ctrl+K` | Open or close the Action Panel |
-| `Ctrl+F` | Add or remove the selected favorite |
-| `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
-| `Ctrl+Up/Down` | Jump between result or action sections |
-| `Up` at the first row | Cycle backward through successful queries |
-| `Down` while cycling | Return toward the draft query |
-| `Shift+Escape` | Return directly to Root Search |
-| `Ctrl+Shift+C` | Enable or disable Compact Mode |
-| `Ctrl+1`…`Ctrl+8` | Activate the corresponding visible result directly |
-| `Ctrl+W` | Close Omalauncher immediately |
-| `Escape` | Close the current layer, clear search, go back, or close |
+| `docker` | Docker app and Docker DB — Install › Development |
+| `install spotify` | Spotify — Install › Service |
+| `toggle nightlight` | Nightlight — Trigger › Toggle |
+| `browser default` | Browser — Setup › Defaults |
 
-`Backspace` and `Left` also return from a submenu when its search is empty.
-Right-clicking any result opens its Action Panel.
+Results still respect Omarchy's availability checks, so commands appear only
+when they can be used on the current system.
 
-Press `Ctrl+K` to open the Action Panel for the selected result. Its actions
-can be searched immediately and include:
+## What you can do
 
-- Run the command or open the application/menu
-- Open a command's parent in the stock Omarchy menu
-- Add or remove the result from Favorites
-- Reorder a favorite
-- Set or remove a search alias
-- Hide the result from normal search, or restore it from Manage Hidden Results
-- Reset learned ranking when usage history exists
-- Open or reveal a file, or copy its absolute path
+- **Search everything together.** Find installed applications, Omarchy menu
+  commands, live shell features, CLI commands, and your own menu additions from
+  one search field.
+- **Keep the context.** Breadcrumbs distinguish similar results and show where
+  every command lives in Omarchy.
+- **Make results yours.** Favorite and reorder important items, create your own
+  search aliases, hide distractions, and recover hidden results at any time.
+- **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
+  search its actions, open its parent menu, or manage personalization.
+- **Get useful defaults.** An empty search shows favorites and recent items
+  first, followed by browsable applications, menu commands, and shell features.
+  The larger CLI catalog appears when you search, without cluttering that view.
+- **Stay inside familiar Omarchy flows.** Menu actions return to Omarchy,
+  shell features use the shell's own summon API, and CLI commands are passed as
+  literal argument arrays.
 
-Compact Mode persists across sessions and collapses an empty Root Search to the
-search field. Typing, pressing `Down`, opening Actions, or opening provider
-diagnostics reveals the complete launcher. Search for
-`compact` if you prefer to toggle the mode as a normal launcher command.
+## A closer look
 
-Search for `Omalauncher Settings` to configure Compact Mode, numbered result
-shortcuts, calculator and file-search providers, file-search scopes, and ignore
-patterns without leaving the launcher. Scope paths are canonicalized and must
-name an existing directory; `/` is never accepted. Provider and personalization
-resets open a separate confirmation route before applying.
+### Applications and commands, side by side
 
-Calculator results use the optional `qalc` command from `libqalculate`. Prefix
-an expression with `=` for explicit calculation, for example `= 12 * 8` or
-`= 10 km to mi`. Arithmetic-looking queries can also calculate automatically
-when they do not compete with a strong application or command match. Enter
-copies the result; the Action Panel can copy the original expression. Missing
-or invalid calculator backends never affect application or command search.
+The same query can find an installed application and a related Omarchy command
+without mixing up what each result will do.
 
-Scoped file search is disabled and unconfigured by default. Enable it in
-`Omalauncher Settings`, then add an existing directory manually or choose one
-of the detected common-directory suggestions. Open the `Search Files` result
-for a dedicated route, or type an explicit root query such as `f report`.
-Searches require a non-empty term, use fixed-string `fd` matching, respect
-hidden/ignore behavior plus configured ignore patterns, and cap and time out
-each request. Every result is canonicalized and checked against its configured
-scope before display. Enter opens a file; its Action Panel can reveal the
-parent directory or copy the absolute path. Install `fd` if the Settings status
-reports that its backend is unavailable.
+![Searching for Docker returns both the Docker application and the Docker DB installation command](assets/unified-search.png)
 
-Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
-provider that generates non-routable actions dynamically—currently Fonts—is
-opened in the default Omarchy menu so Omalauncher does not duplicate its
-execution logic.
+### Context for every command
 
-When a provider warning appears in the search field, select its warning icon
-to see the affected source and recovery detail. Press `Enter` or `Ctrl+R` in
-that panel to reload launcher state, menus, command checks, and applications.
-Local state changes and stock-menu handoffs use Omarchy's OSD for brief,
-truthful confirmation.
+Breadcrumbs make deeply nested actions understandable before you run them. For
+example, `install spotify` finds the Spotify action under Install › Service.
 
-Search, results, actions, alias editing, provider diagnostics, and retry expose
-Qt accessibility roles, names, descriptions, focus state, and press actions to
-assistive technology.
+![Searching for Install Spotify shows the Spotify command under Install and Service](assets/command-context.png)
 
-## Validate
+### More actions when you need them
 
-```bash
-npm run validate
-npm run spike
-npm run benchmark
-```
+The Action Panel keeps the primary action obvious while putting navigation,
+aliases, favorites, and ranking controls one shortcut away.
 
-The release check runs all Node tests, manifest validation, `qmllint`, and an
-isolated clean install/remove cycle through the real Omarchy plugin CLI. Run
-only the packaging smoke test with `npm run package:smoke`.
+![The Visual Studio Code Action Panel showing open, configuration, and favorite actions](assets/personalization.png)
 
-Use `npm run spike -- --all` to inspect static discovery without applying
-`when` visibility. This is useful for proving paths for software that is not
-currently installed.
+## More than app search
 
-`npm run benchmark` checks representative empty-state and search work against
-the 100 ms warm-open and 16 ms search-update budgets. With the development copy
-loaded, `npm run benchmark:runtime` checks the instrumented QML path as well.
+### Shell features and the complete CLI catalog
+
+Search for **Clipboard** to open Omarchy's clipboard history directly. Other
+enabled, summonable shell surfaces—such as Audio, Bluetooth, Display, Network,
+Power, Calendar, Weather, Agents, and Tailscale—are discovered from the live
+shell registry instead of being maintained as a second hard-coded menu.
+Notification History and the coding-agent picker are included as searchable
+first-class actions as well.
+
+Omalauncher also indexes `omarchy commands --json`. A small reviewed set of
+context-free commands can run directly; commands that need arguments,
+privileges, or more context open their `--help` in a terminal. Exact menu and
+shell duplicates appear only once. The CLI catalog, plugin registry, plugin
+configuration, and menu sources refresh automatically when they change, and
+the provider retry action reloads them on demand.
+
+### Calculator
+
+Enter an expression such as `= 12 * 8` or `= 10 km to mi`. The answer appears
+as a result and `Enter` copies it. Calculator support uses the optional `qalc`
+command from `libqalculate`; the rest of Omalauncher keeps working when it is
+not installed.
+
+### Scoped file search
+
+Search for files inside only the folders you choose. Enable the provider in
+`Omalauncher Settings`, add one or more folders, then open **Search Files** or
+type a query such as `f report` from Root Search.
+
+File search is off by default, never accepts `/` as a scope, and uses the
+optional `fd` command. From a file's Action Panel you can open it, reveal its
+folder, or copy its full path.
+
+### Settings inside the launcher
+
+Search for **Omalauncher Settings** to configure Compact Mode, numbered result
+shortcuts, calculator and file search, folder scopes, and ignore patterns.
+Settings and personalization resets require confirmation.
 
 ## Install
 
-Omalauncher is tested with Omarchy 4.0 and Quickshell 0.3. Install the private
-repository through Omarchy after ensuring Git can authenticate to GitHub:
+Omalauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**. This
+repository is currently private, so Git must already be authenticated to a
+GitHub account with access.
+
+### 1. Add the plugin
 
 ```bash
 omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 ```
 
-Third-party Omarchy plugins live at:
+### 2. Choose a shortcut
 
-```text
-~/.config/omarchy/plugins/io.github.omalauncher/
-```
-
-For development, copy a local checkout there instead:
+First, check whether your preferred shortcut is already assigned:
 
 ```bash
-mkdir -p ~/.config/omarchy/plugins/io.github.omalauncher
-rsync -a --exclude=.git --exclude=node_modules \
-  ./ ~/.config/omarchy/plugins/io.github.omalauncher/
-omarchy-shell shell rescanPlugins
-omarchy plugin enable io.github.omalauncher
+omarchy menu keybindings --print
 ```
 
-Then add this user binding to `~/.config/hypr/bindings.lua`:
+Add the following binding to `~/.config/hypr/bindings.lua`, or replace
+`SUPER + R` with another unused shortcut:
 
 ```lua
 o.bind(
@@ -179,24 +144,99 @@ o.bind(
 )
 ```
 
-`SUPER + SPACE` and `SUPER + ALT + SPACE` remain owned by the stock Omarchy
-menu. After changing the binding, validate Hyprland with:
+If `SUPER + R` is already assigned, choose another shortcut or explicitly
+unbind the existing action before replacing it. Then validate the Hyprland
+configuration:
 
 ```bash
 hyprctl reload
 hyprctl configerrors
 ```
 
-Update a Git-managed installation with:
+The stock Omarchy launchers remain available on `SUPER + SPACE` and
+`SUPER + ALT + SPACE`.
+
+### 3. Start searching
+
+Press `SUPER + R`, type an application or command, and press `Enter`. Use
+`Ctrl+K` whenever you want to see more actions for the selected result.
+
+## How it works
+
+1. Open Omalauncher and start typing.
+2. Applications, menu commands, live shell features, and CLI commands are
+   searched together.
+3. The closest textual match wins; recent use helps order equally strong
+   matches.
+4. Press `Enter` for the primary action, or `Ctrl+K` for everything else.
+
+Static Omarchy submenus and installed applications open inside Omalauncher.
+Summonable panels and overlays open through Omarchy Shell. Dynamic providers
+that cannot be reproduced safely—currently Fonts—open in the stock Omarchy
+menu instead.
+
+## Keyboard shortcuts
+
+These shortcuts cover the everyday search-and-run flow:
+
+| Shortcut | What it does |
+| --- | --- |
+| `Enter` | Open or run the selected result |
+| `Ctrl+K` | Open or close the selected result's Action Panel |
+| `Ctrl+F` | Add or remove the selected favorite |
+| `Ctrl+1`…`Ctrl+8` | Open the corresponding visible result |
+| `Shift+Escape` | Return directly to Root Search |
+| `Ctrl+W` | Close Omalauncher immediately |
+| `Escape` | Close the current layer, clear search, go back, or close |
+
+<details>
+<summary>All keyboard shortcuts</summary>
+
+| Shortcut | What it does |
+| --- | --- |
+| `Ctrl+Enter` | Open the selected static menu command's parent inside Omalauncher |
+| `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
+| `Ctrl+Up/Down` | Jump between result or action sections |
+| `Up` at the first row | Cycle backward through successful queries |
+| `Down` while cycling | Return toward the draft query |
+| `Ctrl+Shift+C` | Enable or disable Compact Mode |
+| `Backspace` or `Left` | Leave a submenu when its search is empty |
+
+Right-clicking a result opens the same Action Panel as `Ctrl+K`.
+
+</details>
+
+## Personal, local, and accessible
+
+Favorites, aliases, hidden results, preferences, and usage history are stored
+locally at:
+
+```text
+${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
+```
+
+This state survives plugin updates and reinstalls. Calculator expressions and
+file results are not added to usage history.
+
+Search, results, actions, editing, settings, warnings, and retry controls expose
+Qt accessibility information for assistive technology. Compact Mode can reduce
+the empty launcher to a single search field and expands automatically when you
+start interacting.
+
+## Update
 
 ```bash
 omarchy plugin update io.github.omalauncher --yes
 ```
 
-## Roll back
+If a keep-loaded instance does not refresh after an update, restart the shell:
 
-For a Git-managed installation, select a known-good commit and restart only
-the shell:
+```bash
+omarchy restart shell
+```
+
+<details>
+<summary>Roll back to an earlier commit</summary>
 
 ```bash
 plugin_dir="$HOME/.config/omarchy/plugins/io.github.omalauncher"
@@ -205,10 +245,12 @@ git -C "$plugin_dir" checkout <commit>
 omarchy restart shell
 ```
 
+</details>
+
 ## Remove
 
-Remove the `SUPER + R` stanza from `~/.config/hypr/bindings.lua`, validate the
-configuration, then remove the plugin:
+Remove the Omalauncher binding from `~/.config/hypr/bindings.lua`, then
+validate the configuration and remove the plugin:
 
 ```bash
 hyprctl reload
@@ -217,22 +259,14 @@ omarchy plugin disable io.github.omalauncher
 omarchy plugin remove io.github.omalauncher
 ```
 
-Favorites and usage history intentionally remain at the state path shown
-above, so reinstalling preserves them. That directory can be deleted
-separately if a complete data reset is desired. No packaged file below
-`/usr/share/omarchy` is modified.
+Personalization remains at the state path above so it is available after a
+reinstall. Delete that directory separately only if you want a complete reset.
+Omalauncher never modifies packaged files below `/usr/share/omarchy`.
 
 ## Troubleshooting
 
-Check that the plugin is loaded and its providers have settled:
-
-```bash
-omarchy-shell shell call io.github.omalauncher ping ''
-omarchy-shell shell call io.github.omalauncher stats ''
-```
-
-If `SUPER + R` does nothing, verify the binding, reload Hyprland, and inspect
-configuration errors:
+If the shortcut does nothing, confirm the binding exists and ask Hyprland to
+report configuration errors:
 
 ```bash
 rg -n 'SUPER.*R|io.github.omalauncher' ~/.config/hypr/bindings.lua
@@ -240,22 +274,40 @@ hyprctl reload
 hyprctl configerrors
 ```
 
-If the plugin was updated but the old keep-loaded instance remains, recreate
-the shell process and inspect its recent log:
+If a warning icon appears in Omalauncher, open it for provider-specific details.
+Press `Enter` or `Ctrl+R` in that panel to reload applications, menus, shell
+features, the CLI catalog, checks, and launcher state.
+
+For a stale instance or an unexplained provider failure, restart the shell and
+inspect its recent log:
 
 ```bash
 omarchy restart shell
 qs log -p "$OMARCHY_PATH/shell" -t 100 | rg -i 'omalauncher|warning|error'
 ```
 
+<details>
+<summary>Advanced health check</summary>
+
+```bash
+omarchy-shell shell call io.github.omalauncher ping ''
+omarchy-shell shell call io.github.omalauncher stats ''
+```
+
 A malformed `~/.config/omarchy/extensions/omarchy-menu.jsonc` is reported in
 the launcher and shell log while the last valid command index remains usable.
-Commands whose `when` checks are false are intentionally absent. Use
-`npm run spike -- --all` from a checkout to inspect static routes without
-visibility filtering.
+Commands whose availability checks are false are intentionally absent.
+
+</details>
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation, benchmarks,
+and implementation notes. The longer-term direction and product boundaries are
+documented in [PLAN.md](PLAN.md).
 
 ## License
 
 Omalauncher is available under the [MIT License](LICENSE). It integrates with
-the installed Omarchy shell and theme APIs but does not redistribute or modify
-packaged files under `/usr/share/omarchy`.
+the installed Omarchy shell and theme APIs but does not redistribute Omarchy's
+packaged files.

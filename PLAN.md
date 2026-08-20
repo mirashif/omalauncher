@@ -9,9 +9,9 @@ Target: Omarchy 4 / Quattro with Quickshell 0.3
 ## Product direction
 
 Omalauncher is a keyboard-first command palette for Omarchy. It combines
-installed applications and the nested Omarchy command menu in one searchable
-surface while leaving system-action execution and confirmation flows owned by
-Omarchy.
+installed applications, the nested Omarchy command menu, live summonable shell
+features, and the CLI catalog in one searchable surface while preserving each
+source's execution and confirmation contracts.
 
 The product should remain:
 
@@ -44,6 +44,12 @@ The product should remain:
 
 ### Providers
 
+- Live discovery of enabled shell panels, overlays, menus, and panel-capable bar
+  widgets through Omarchy's plugin registry and summon API.
+- Asynchronous discovery of the complete `omarchy commands --json` catalog,
+  with command-directory watching, last-valid fallback, and stale refresh.
+- Source-aware deduplication across static menu actions, shell features, and
+  canonical CLI routes.
 - Optional asynchronous calculator backed by `qalc`, with explicit `=` queries,
   safe argument passing, Copy Result, and Copy Expression.
 - Opt-in file-name search backed by `fd`, limited to canonical user-approved
@@ -63,8 +69,12 @@ The product should remain:
 
 ## Maintained boundaries
 
-- Omarchy commands are delegated to `omarchy menu summon <route>`; the launcher
-  never reports delegated execution as confirmed success.
+- Static menu commands are delegated to `omarchy menu summon <route>`; shell
+  features use `shell.summon`. Neither path is reported as confirmed success.
+- Only reviewed context-free, non-privileged CLI routes execute directly.
+  Argument-taking, privileged, and unknown routes open `--help` in a terminal.
+- CLI catalog and shell registry changes refresh without restarting the
+  launcher; invalid refreshes preserve the last valid index.
 - Calculator expressions, file queries, and paths are passed as literal process
   arguments. They are never evaluated through a shell.
 - File search is disabled and unconfigured by default. It never scans `/`, all
@@ -77,7 +87,7 @@ The product should remain:
 
 ## Quality contract
 
-The release check currently covers 87 Node tests, manifest validation, QML
+The release check currently covers 100 Node tests, manifest validation, QML
 linting, a clean install/remove smoke test, and whitespace validation.
 
 ```bash
@@ -107,8 +117,8 @@ logs healthy after an update.
 | --- | --- | --- | --- |
 | 1 | Quicklinks and URL detection | High | Define explicit detection, escaping, browser handoff, and false-positive tests. |
 | 2 | Script-command folders | Medium-high | Define trusted metadata, argument handling, refresh behavior, and failure reporting. |
-| 3 | Clipboard and window providers | Medium | Reuse stable Omarchy/Quickshell services and define privacy and lifecycle boundaries. |
-| 4 | Third-party provider contract | Medium | Stabilize result IDs, actions, async cancellation, diagnostics, and compatibility rules first. |
+| 3 | Context-aware command arguments | Medium | Define typed prompts and confirmation boundaries without evaluating shell text. |
+| 4 | General third-party result contract | Medium | Stabilize result IDs, actions, async cancellation, diagnostics, and compatibility rules first. |
 
 Deferred without a platform contract or stronger user evidence:
 
