@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.omalauncher",
   "name": "Omalauncher",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": "Omalauncher contributors",
   "license": "MIT",
   "description": "A keyboard-first command palette for Omarchy.",

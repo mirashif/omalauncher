@@ -1,10 +1,12 @@
 {
   "name": "omalauncher",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "A keyboard-first command palette for Omarchy.",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "spike": "node scripts/index-spike.js"
+    "spike": "node scripts/index-spike.js",
+    "validate": "bash scripts/release-check.sh",
+    "package:smoke": "bash scripts/package-smoke-test.sh"
   }
 }

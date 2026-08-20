@@ -42,9 +42,17 @@ function normalizeState(value) {
 }
 
 function parseState(raw) {
+  return parseStateResult(raw).state
+}
+
+function parseStateResult(raw) {
   var text = String(raw || "").trim()
-  if (!text) return emptyState()
-  try { return normalizeState(JSON.parse(text)) } catch (error) { return emptyState() }
+  if (!text) return { state: emptyState(), error: "" }
+  try {
+    return { state: normalizeState(JSON.parse(text)), error: "" }
+  } catch (error) {
+    return { state: emptyState(), error: "Launcher state is malformed; using temporary defaults" }
+  }
 }
 
 function serializeState(state) {
@@ -170,6 +178,7 @@ if (typeof module !== "undefined") {
     emptyState: emptyState,
     normalizeState: normalizeState,
     parseState: parseState,
+    parseStateResult: parseStateResult,
     serializeState: serializeState,
     isFavorite: isFavorite,
     toggleFavorite: toggleFavorite,

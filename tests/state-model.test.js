@@ -13,6 +13,8 @@ function command(id, title) {
 
 test("state normalization repairs malformed and duplicate values", () => {
   assert.deepEqual(StateModel.parseState("not json"), StateModel.emptyState())
+  assert.match(StateModel.parseStateResult("not json").error, /malformed/)
+  assert.equal(StateModel.parseStateResult("").error, "")
   assert.deepEqual(StateModel.normalizeState({
     version: 99,
     favorites: ["application:firefox", "", "application:firefox", null],

@@ -13,11 +13,15 @@ Item {
   property bool loaded: false
   property bool directoryReady: false
   property bool dirty: false
+  property string error: ""
   readonly property var favorites: snapshot.favorites || []
   readonly property var usage: snapshot.usage || ({})
 
   function hydrate(raw) {
-    root.snapshot = StateModel.parseState(raw)
+    var parsed = StateModel.parseStateResult(raw)
+    root.snapshot = parsed.state
+    root.error = parsed.error
+    if (parsed.error) console.warn("Omalauncher: " + parsed.error + " at " + root.statePath)
     root.loaded = true
   }
 
@@ -65,7 +69,9 @@ Item {
     command: ["mkdir", "-p", "--", root.stateDir]
     onExited: function(exitCode, exitStatus) {
       if (exitCode !== 0 || exitStatus !== 0) {
-        console.warn("Omalauncher: could not create state directory " + root.stateDir)
+        root.error = "Favorites and usage history are unavailable"
+        root.loaded = true
+        console.warn("Omalauncher: could not create state directory " + root.stateDir + "; using in-memory state")
         return
       }
       root.directoryReady = true
@@ -83,6 +89,11 @@ Item {
     onLoaded: root.hydrate(text())
     onLoadFailed: if (root.directoryReady) root.hydrate("")
     onFileChanged: if (!root.dirty) reload()
+    onSaved: root.error = ""
+    onSaveFailed: {
+      root.error = "Favorites and usage history could not be saved"
+      console.warn("Omalauncher: state save failed at " + root.statePath)
+    }
   }
 
   Timer {

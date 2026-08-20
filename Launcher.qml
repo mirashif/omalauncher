@@ -8,6 +8,8 @@ import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "services/ActionModel.js" as ActionModel
+import "services/LayoutModel.js" as LayoutModel
+import "services/StatusModel.js" as StatusModel
 import "SearchEngine.js" as SearchEngine
 
 Item {
@@ -20,6 +22,7 @@ Item {
 
   property bool opened: false
   property bool defaultSourceLoaded: false
+  property bool defaultSourceSettled: false
   property var defaultMenuItems: []
   property var userMenuItems: []
   property var menuItems: ({})
@@ -36,10 +39,32 @@ Item {
   property int actionSelectedIndex: 0
   property bool guardsPending: false
   property bool guardsReady: false
-  property string sourceError: ""
+  property bool guardEvaluationSettled: false
+  property bool guardResultsAvailable: false
+  property string defaultSourceError: ""
+  property string userSourceError: ""
+  property string guardError: ""
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
-  readonly property bool indexReady: guardsReady && appsReady && stateStore.loaded
+  readonly property bool commandIndexSettled: defaultSourceSettled
+    && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
+  readonly property bool indexSettled: stateStore.loaded && appsReady && commandIndexSettled
+  readonly property bool indexReady: indexSettled
+  readonly property string providerWarning: StatusModel.warningText([
+    stateStore.error,
+    defaultSourceError,
+    userSourceError,
+    guardError,
+    appProviderError
+  ])
+  readonly property var emptyStatus: StatusModel.emptyStatus({
+    stateReady: stateStore.loaded,
+    indexSettled: root.indexSettled,
+    query: searchInput.text,
+    resultCount: resultsModel.count,
+    totalRecords: root.allRecords.length,
+    warnings: [stateStore.error, defaultSourceError, userSourceError, guardError, appProviderError]
+  })
 
   readonly property string pluginId: manifest && manifest.id
     ? String(manifest.id) : "io.github.omalauncher"
@@ -65,11 +90,7 @@ Item {
   function focusedScreen() {
     var monitor = Hyprland.focusedMonitor
     var name = monitor ? String(monitor.name || "") : ""
-    var screens = Quickshell.screens || []
-    for (var i = 0; i < screens.length; i++) {
-      if (String(screens[i].name || "") === name) return screens[i]
-    }
-    return null
+    return LayoutModel.screenForMonitor(Quickshell.screens || [], name)
   }
 
   function open(payloadJson) {
@@ -102,6 +123,8 @@ Item {
   }
 
   function refresh() {
+    root.defaultSourceSettled = false
+    root.guardEvaluationSettled = false
     defaultMenuFile.reload()
     userMenuFile.reload()
     appProvider.refresh()
@@ -115,7 +138,9 @@ Item {
       applications: root.appRecords.length,
       commands: root.commandRecords.length,
       total: root.allRecords.length,
-      ready: root.indexReady,
+      ready: root.indexSettled,
+      healthy: !root.providerWarning,
+      warning: root.providerWarning,
       sharedAppLibrary: appProvider.usingSharedLibrary,
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length,
@@ -127,6 +152,7 @@ Item {
     return JSON.stringify({
       path: stateStore.statePath,
       loaded: stateStore.loaded,
+      error: stateStore.error,
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length
     })
@@ -171,21 +197,46 @@ Item {
     })
   }
 
+  function uiStats() {
+    var screen = panel.screen
+    return JSON.stringify({
+      launcherOpen: root.opened,
+      focusedMonitor: Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : "",
+      panelScreen: screen ? String(screen.name || "") : "",
+      monitorScale: Hyprland.focusedMonitor ? Number(Hyprland.focusedMonitor.scale || 1) : 1,
+      screenWidth: screen ? Number(screen.width || 0) : 0,
+      screenHeight: screen ? Number(screen.height || 0) : 0,
+      devicePixelRatio: screen ? Number(screen.devicePixelRatio || 1) : 1,
+      cardWidth: Number(card.width || 0),
+      cardHeight: Number(card.height || 0),
+      cardY: Number(card.y || 0),
+      indexSettled: root.indexSettled,
+      warning: root.providerWarning
+    })
+  }
+
   function applyParsedSource(parsed, isDefault) {
     if (parsed.error) {
       var sourceName = isDefault ? root.defaultMenuPath : root.userMenuPath
       console.warn("Omalauncher: menu JSONC parse failed at " + sourceName + ": " + parsed.error)
-      root.sourceError = "Could not parse " + sourceName
-      if (isDefault) root.defaultMenuItems = []
-      else root.userMenuItems = []
+      if (isDefault) {
+        root.defaultSourceSettled = true
+        if (root.defaultSourceLoaded) root.guardEvaluationSettled = true
+        root.defaultSourceError = "Could not parse the Omarchy command menu"
+      } else {
+        root.userSourceError = "Could not parse the custom Omarchy menu"
+      }
+      return
     } else {
       if (isDefault) {
         root.defaultMenuItems = parsed.items
         root.defaultSourceLoaded = true
+        root.defaultSourceSettled = true
+        root.defaultSourceError = ""
       } else {
         root.userMenuItems = parsed.items
+        root.userSourceError = ""
       }
-      root.sourceError = ""
     }
     root.rebuildMenu()
   }
@@ -196,6 +247,7 @@ Item {
     root.menuItems = merged.items
     root.menuOrder = merged.itemOrder
     root.guardsReady = false
+    root.guardEvaluationSettled = false
     root.rebuildCommandRecords()
     root.evaluateGuards()
   }
@@ -419,11 +471,15 @@ Item {
       return
     }
     root.guardsPending = false
+    root.guardEvaluationSettled = false
     var script = MenuIndex.guardScript(root.menuItems)
     if (!script) {
       root.whenResults = ({})
       root.checkedResults = ({})
       root.guardsReady = true
+      root.guardResultsAvailable = true
+      root.guardEvaluationSettled = true
+      root.guardError = ""
       root.rebuildCommandRecords()
       return
     }
@@ -459,8 +515,9 @@ Item {
     printErrors: false
     onLoaded: root.applyParsedSource(MenuIndex.parseMenuJsonc(text()), true)
     onLoadFailed: function(error) {
-      root.defaultSourceLoaded = false
-      root.sourceError = "Could not load the Omarchy menu definition"
+      root.defaultSourceSettled = true
+      if (root.defaultSourceLoaded) root.guardEvaluationSettled = true
+      root.defaultSourceError = "Could not load the Omarchy command menu"
       console.warn("Omalauncher: default menu load failed: " + error)
     }
     onFileChanged: reload()
@@ -474,6 +531,7 @@ Item {
     onLoaded: root.applyParsedSource(MenuIndex.parseMenuJsonc(text()), false)
     onLoadFailed: {
       root.userMenuItems = []
+      root.userSourceError = ""
       root.rebuildMenu()
     }
     onFileChanged: reload()
@@ -491,9 +549,28 @@ Item {
         root.whenResults = parsed.when
         root.checkedResults = parsed.checked
         root.guardsReady = true
+        root.guardResultsAvailable = true
+        root.guardEvaluationSettled = true
+        root.guardError = ""
         root.rebuildCommandRecords()
       } else {
-        console.warn("Omalauncher: menu visibility batch failed; retaining the last complete result")
+        if (!root.guardResultsAvailable) {
+          var fallbackWhen = ({})
+          var ids = Object.keys(root.menuItems)
+          for (var i = 0; i < ids.length; i++) {
+            var entry = root.menuItems[ids[i]]
+            if (entry && entry.when) fallbackWhen[ids[i]] = false
+          }
+          root.whenResults = fallbackWhen
+          root.checkedResults = ({})
+          root.guardError = "Some Omarchy commands were hidden because availability checks failed"
+          root.rebuildCommandRecords()
+        } else {
+          root.guardError = "Command availability could not be refreshed; showing last known results"
+        }
+        root.guardsReady = true
+        root.guardEvaluationSettled = true
+        console.warn("Omalauncher: menu visibility batch failed; unavailable commands remain hidden")
       }
       if (root.guardsPending) Qt.callLater(root.evaluateGuards)
     }
@@ -501,7 +578,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: root.opened && stateStore.loaded && (root.defaultSourceLoaded || root.appsReady)
+    visible: root.opened
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "omalauncher"
@@ -521,12 +598,20 @@ Item {
 
     Rectangle {
       id: card
-      width: Math.min(Style.space(680), panel.width - Style.gapsOut * 2)
-      height: Math.max(
+      readonly property int desiredHeight: Math.max(
         searchBox.height + Style.space(1) + root.listHeight + Style.space(24),
         root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0)
+      readonly property var responsiveGeometry: LayoutModel.cardGeometry(
+        panel.width,
+        panel.height,
+        Style.space(680),
+        desiredHeight,
+        Style.gapsOut,
+        0.18)
+      width: responsiveGeometry.width
+      height: responsiveGeometry.height
       anchors.horizontalCenter: parent.horizontalCenter
-      y: Math.max(Style.gapsOut, Math.round(panel.height * 0.18))
+      y: responsiveGeometry.y
       radius: Style.cornerRadius
       color: root.background
       border.width: Math.max(1, Style.space(1))
@@ -565,10 +650,12 @@ Item {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(16)
+          anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
           visible: !searchInput.text
-          text: root.indexReady ? "Search apps and Omarchy commands…" : "Building unified index…"
+          text: !stateStore.loaded
+            ? "Loading launcher state…"
+            : (root.indexSettled ? "Search apps and Omarchy commands…" : "Building unified index…")
           color: root.selectedText
           opacity: 0.55
           font.family: Style.font.menuFamily
@@ -578,11 +665,11 @@ Item {
 
         TextInput {
           id: searchInput
-          enabled: !root.actionPanelOpen
+          enabled: !root.actionPanelOpen && stateStore.loaded
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(16)
+          anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
           color: root.selectedText
           selectionColor: root.selectedText
@@ -624,6 +711,18 @@ Item {
               event.accepted = true
             }
           }
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(15)
+          anchors.verticalCenter: parent.verticalCenter
+          visible: !!root.providerWarning
+          text: ""
+          color: root.selectedText
+          opacity: 0.7
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.body
         }
       }
 
@@ -787,12 +886,23 @@ Item {
       Column {
         anchors.centerIn: resultList
         spacing: Style.space(8)
-        visible: resultsModel.count === 0
+        width: Math.max(1, Math.min(Style.space(500), resultList.width - Style.space(32)))
+        visible: root.emptyStatus.visible
 
         Text {
-          width: Style.space(500)
+          width: parent.width
           horizontalAlignment: Text.AlignHCenter
-          text: searchInput.text ? "No matching applications or commands" : (root.sourceError || root.appProviderError || "Type to search applications and commands")
+          text: root.emptyStatus.kind === "loading" ? "" : (root.emptyStatus.kind === "error" ? "" : "")
+          color: root.foreground
+          opacity: 0.55
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.iconLarge
+        }
+
+        Text {
+          width: parent.width
+          horizontalAlignment: Text.AlignHCenter
+          text: root.emptyStatus.title
           color: root.foreground
           opacity: 0.68
           font.family: Style.font.menuFamily
@@ -800,14 +910,15 @@ Item {
         }
 
         Text {
-          width: Style.space(500)
+          width: parent.width
           horizontalAlignment: Text.AlignHCenter
-          visible: !searchInput.text && !root.sourceError
-          text: "Enter runs  ·  Ctrl+K actions  ·  Ctrl+F favorites"
+          visible: text.length > 0
+          text: root.emptyStatus.detail
           color: root.foreground
           opacity: 0.42
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.Wrap
         }
       }
 
@@ -815,8 +926,8 @@ Item {
         id: actionPanel
         visible: root.actionPanelOpen
         z: 20
-        width: Math.min(Style.space(420), card.width - Style.space(24))
-        height: root.actionPanelHeight
+        width: Math.max(1, Math.min(Style.space(420), card.width - Style.space(24)))
+        height: Math.max(1, Math.min(root.actionPanelHeight, card.height - Style.space(24)))
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: Style.space(12)
