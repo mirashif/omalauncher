@@ -54,6 +54,11 @@ function measure(iterations, operation) {
 }
 
 const records = applicationRecords(250).concat(readMenuRecords())
+const preparedRecords = records.map(record => SearchEngine.prepareRecord({
+  ...record,
+  aliases: Array.isArray(record.aliases) ? record.aliases.slice() : [],
+  keywords: Array.isArray(record.keywords) ? record.keywords.slice() : []
+}))
 const state = StateModel.emptyState()
 const queries = [
   "benchmark application 249",
@@ -64,13 +69,13 @@ const queries = [
 ]
 
 for (let warmup = 0; warmup < 20; warmup += 1) {
-  SearchEngine.search(records, queries[warmup % queries.length], { limit: 50 })
+  SearchEngine.search(preparedRecords, queries[warmup % queries.length], { limit: 50 })
   StateModel.emptyStateRows(records, state)
 }
 
 const warmOpen = measure(100, () => StateModel.emptyStateRows(records, state))
 const search = measure(200, index => {
-  SearchEngine.search(records, queries[index % queries.length], { limit: 50 })
+  SearchEngine.search(preparedRecords, queries[index % queries.length], { limit: 50 })
 })
 
 const result = {

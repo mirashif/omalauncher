@@ -33,6 +33,10 @@ function containsTokenIndex(term, words) {
 function subsequenceCost(needle, haystack) {
   var n = normalize(needle).replace(/\s+/g, "")
   var h = normalize(haystack).replace(/\s+/g, "")
+  return subsequenceCostNormalized(n, h)
+}
+
+function subsequenceCostNormalized(n, h) {
   if (!n || !h) return -1
   var at = 0
   var first = -1
@@ -62,7 +66,7 @@ function everyTermFuzzyMatches(queryTerms, words) {
   for (var i = 0; i < queryTerms.length; i++) {
     var best = -1
     for (var j = 0; j < words.length; j++) {
-      var cost = subsequenceCost(queryTerms[i], words[j])
+      var cost = subsequenceCostNormalized(queryTerms[i], words[j])
       if (cost >= 0 && (best < 0 || cost < best)) best = cost
     }
     if (best < 0) return -1
@@ -71,24 +75,13 @@ function everyTermFuzzyMatches(queryTerms, words) {
   return quality
 }
 
-function semanticScore(record, query) {
-  var needle = normalize(query)
-  if (!needle) return null
-
-  var title = normalize(record.title)
+function prepareRecord(record) {
+  if (!record || typeof record !== "object") return record
   var aliases = Array.isArray(record.aliases) ? record.aliases : []
-  for (var i = 0; i < aliases.length; i++) {
-    if (normalize(aliases[i]) === needle) return { tier: 1, quality: i }
-  }
-  if (title === needle) return { tier: 2, quality: 0 }
-  if (title.indexOf(needle) === 0) return { tier: 3, quality: title.length - needle.length }
-
-  var queryTerms = tokens(needle)
-  var contextWords = tokens((record.title || "") + " " + (record.breadcrumb || ""))
-  var contextQuality = everyTermMatches(queryTerms, contextWords, prefixTokenIndex)
-  if (contextQuality >= 0) return { tier: 4, quality: contextQuality + Math.max(0, contextWords.length - queryTerms.length) }
-
-  var fullWords = tokens(record.searchText || [
+  record._searchTitle = normalize(record.title)
+  record._searchAliases = aliases.map(function(alias) { return normalize(alias) })
+  record._searchContextWords = tokens((record.title || "") + " " + (record.breadcrumb || ""))
+  record._searchFullWords = tokens(record.searchText || [
     record.title,
     record.breadcrumb,
     record.description,
@@ -96,12 +89,46 @@ function semanticScore(record, query) {
     aliases.join(" "),
     (record.keywords || []).join(" ")
   ].join(" "))
+  return record
+}
+
+function semanticScorePrepared(record, needle, queryTerms) {
+  if (!needle) return null
+
+  var title = record._searchTitle === undefined ? normalize(record.title) : record._searchTitle
+  var aliases = Array.isArray(record.aliases) ? record.aliases : []
+  var normalizedAliases = Array.isArray(record._searchAliases)
+    ? record._searchAliases : aliases.map(function(alias) { return normalize(alias) })
+  for (var i = 0; i < aliases.length; i++) {
+    if (normalizedAliases[i] === needle) return { tier: 1, quality: i }
+  }
+  if (title === needle) return { tier: 2, quality: 0 }
+  if (title.indexOf(needle) === 0) return { tier: 3, quality: title.length - needle.length }
+
+  var contextWords = Array.isArray(record._searchContextWords)
+    ? record._searchContextWords : tokens((record.title || "") + " " + (record.breadcrumb || ""))
+  var contextQuality = everyTermMatches(queryTerms, contextWords, prefixTokenIndex)
+  if (contextQuality >= 0) return { tier: 4, quality: contextQuality + Math.max(0, contextWords.length - queryTerms.length) }
+
+  var fullWords = Array.isArray(record._searchFullWords) ? record._searchFullWords : tokens(record.searchText || [
+      record.title,
+      record.breadcrumb,
+      record.description,
+      record.route,
+      aliases.join(" "),
+      (record.keywords || []).join(" ")
+    ].join(" "))
   var keywordQuality = everyTermMatches(queryTerms, fullWords, containsTokenIndex)
   if (keywordQuality >= 0) return { tier: 5, quality: keywordQuality + Math.max(0, fullWords.length - queryTerms.length) }
 
   var fuzzyQuality = everyTermFuzzyMatches(queryTerms, fullWords)
   if (fuzzyQuality >= 0) return { tier: 6, quality: fuzzyQuality }
   return null
+}
+
+function semanticScore(record, query) {
+  var needle = normalize(query)
+  return semanticScorePrepared(record, needle, needle ? needle.split(" ") : [])
 }
 
 function usageScore(record, usage, now) {
@@ -116,6 +143,7 @@ function usageScore(record, usage, now) {
 function copyRecord(record) {
   var copy = {}
   for (var key in record) {
+    if (key.indexOf("_search") === 0) continue
     if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
   }
   return copy
@@ -127,10 +155,13 @@ function search(records, query, options) {
   var now = Number(opts.now || Date.now())
   var limit = Math.max(1, Number(opts.limit || 50))
   var scored = []
+  var needle = normalize(query)
+  if (!needle) return []
+  var queryTerms = needle.split(" ")
 
   for (var i = 0; i < (records || []).length; i++) {
     var record = records[i]
-    var semantic = semanticScore(record, query)
+    var semantic = semanticScorePrepared(record, needle, queryTerms)
     if (!semantic) continue
     scored.push({
       record: record,
@@ -168,6 +199,7 @@ if (typeof module !== "undefined") {
     normalize: normalize,
     tokens: tokens,
     subsequenceCost: subsequenceCost,
+    prepareRecord: prepareRecord,
     semanticScore: semanticScore,
     usageScore: usageScore,
     search: search

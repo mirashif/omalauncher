@@ -464,7 +464,7 @@ Item {
         if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
       }
       copy.section = record.type === "application" ? "Hidden Applications" : "Hidden Omarchy Commands"
-      output.push(copy)
+      output.push(SearchEngine.prepareRecord(copy))
     }
     return output
   }

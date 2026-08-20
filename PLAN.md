@@ -227,7 +227,7 @@ models, but it is not intended to reproduce Raycast's complete feature set.
 
 ## Current release
 
-Version 0.9.0 is complete in this checkout. The release check covers 86
+Version 0.9.0 is complete in this checkout. The release check covers 87
 automated tests, manifest validation, QML linting, and an isolated
 install/remove cycle.
 
@@ -774,7 +774,7 @@ npm run validate
 npm run spike
 ```
 
-`npm run validate` runs the 86 Node tests, manifest validation, QML linting,
+`npm run validate` runs the 87 Node tests, manifest validation, QML linting,
 the packaging smoke test, and whitespace validation.
 
 Shell verification should also inspect:

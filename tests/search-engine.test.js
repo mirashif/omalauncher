@@ -55,3 +55,17 @@ test("frecency breaks only otherwise equal semantic matches", () => {
   const usage = { recent: { count: 4, lastUsed: now } }
   assert.equal(SearchEngine.search([older, recent], "firefox", { usage, now })[0].id, "recent")
 })
+
+test("prepared records preserve ranking without leaking cache fields", () => {
+  const prepared = SearchEngine.prepareRecord(record({
+    id: "prepared",
+    title: "Hyprland",
+    breadcrumb: "Update › Config",
+    searchText: "hyprland update config"
+  }))
+  const result = SearchEngine.search([prepared], "update hyprland")[0]
+
+  assert.equal(result.id, "prepared")
+  assert.equal(result.semanticTier, 4)
+  assert.equal(Object.keys(result).some(key => key.startsWith("_search")), false)
+})
