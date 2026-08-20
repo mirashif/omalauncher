@@ -16,19 +16,20 @@ The current implementation includes:
 - Breadcrumb-aware command records
 - One batched `when`/`checked` visibility process
 - Deterministic semantic ranking
-- Persistent favorites and usage history
+- Persistent favorites, aliases, hidden results, query history, and usage history
 - Frecency as a tie-breaker within equal semantic matches
 - Favorites and recent items first, followed by the complete visible index
 - Native drill-down navigation for static Omarchy menus and installed apps
-- A searchable, context-aware Action Panel
+- A searchable, structured Action Panel with shallow submenus
+- A stable primary-action footer, persistent badges, and title highlighting
 - Interactive provider warnings with diagnostics and retry
+- Optional Compact Mode and explicit Qt accessibility metadata
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
 
-Press `Ctrl+F` on the selected row to add or remove a favorite. Selecting a
-result updates its usage history; stronger semantic matches always remain
-ahead of frecency. State is written atomically to:
+Selecting a result updates its usage history; stronger semantic matches always
+remain ahead of frecency. Personalization state is written atomically to:
 
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
@@ -38,22 +39,41 @@ With an empty query, every currently available application and Omarchy command
 is shown exactly once. Favorites and recent items remain at the top; all other
 entries follow in Applications and Omarchy Commands sections.
 
+## Keyboard shortcuts
+
+| Shortcut | Behavior |
+| --- | --- |
+| `Enter` | Run the selected command or open the selected app/menu |
+| `Ctrl+Enter` | Open the selected command's parent inside Omalauncher |
+| `Ctrl+K` | Open or close the Action Panel |
+| `Ctrl+F` | Add or remove the selected favorite |
+| `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
+| `Ctrl+Up/Down` | Jump between result or action sections |
+| `Up` at the first row | Cycle backward through successful queries |
+| `Down` while cycling | Return toward the draft query |
+| `Shift+Escape` | Return directly to Root Search |
+| `Ctrl+Shift+C` | Enable or disable Compact Mode |
+| `Ctrl+W` | Close Omalauncher immediately |
+| `Escape` | Close the current layer, clear search, go back, or close |
+
+`Backspace` and `Left` also return from a submenu when its search is empty.
+Right-clicking any result opens its Action Panel.
+
 Press `Ctrl+K` to open the Action Panel for the selected result. Its actions
 can be searched immediately and include:
 
 - Run the command or open the application/menu
 - Open a command's parent in the stock Omarchy menu
 - Add or remove the result from Favorites
+- Reorder a favorite
+- Set or remove a search alias
+- Hide the result from normal search, or restore it from Manage Hidden Results
 - Reset learned ranking when usage history exists
 
-`Escape` closes the Action Panel first, then clears the current query, then
-returns from a submenu, then closes Omalauncher. `Backspace` and `Left` also
-return from an empty submenu search. `Ctrl+Enter` opens a command's parent
-inside Omalauncher; the Action Panel retains an explicit stock-menu fallback.
-`Ctrl+Up` and `Ctrl+Down` jump between result sections, `Shift+Escape` returns
-directly to Root Search, and `Ctrl+W` closes the launcher. Pressing `Up` from
-the first result cycles through previous successful queries; `Down` returns
-toward the query that was being edited.
+Compact Mode persists across sessions and collapses an empty Root Search to the
+search field. Typing, pressing `Down`, opening Actions, or opening provider
+diagnostics reveals the complete launcher. Search for
+`compact` if you prefer to toggle the mode as a normal launcher command.
 
 Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is
@@ -65,6 +85,10 @@ to see the affected source and recovery detail. Press `Enter` or `Ctrl+R` in
 that panel to reload launcher state, menus, command checks, and applications.
 Local state changes and stock-menu handoffs use Omarchy's OSD for brief,
 truthful confirmation.
+
+Search, results, actions, alias editing, provider diagnostics, and retry expose
+Qt accessibility roles, names, descriptions, focus state, and press actions to
+assistive technology.
 
 ## Validate
 

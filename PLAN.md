@@ -1,6 +1,6 @@
 # Omalauncher Product Plan
 
-Status: MVP shipped (v0.7.1); v0.8 interaction completion in progress
+Status: v0.8.0 interaction completion complete; release validation passes
 Last updated: 2026-08-21
 Target platform: Omarchy 4 / Quattro
 
@@ -39,7 +39,7 @@ Implementation rules:
   match highlighting.
 - [x] 8. Make provider warnings interactive with diagnostic detail and retry,
   and use truthful Omarchy OSD feedback for local changes and command handoff.
-- [ ] 9. Add compact mode, explicit accessibility metadata, final documentation,
+- [x] 9. Add compact mode, explicit accessibility metadata, final documentation,
   and full release validation.
 
 ### Deferred beyond v0.8
@@ -64,11 +64,9 @@ models, but it is not intended to reproduce Raycast's complete feature set.
 
 ## Current release
 
-Version 0.7.1 is installed on the development machine and published to the
-private `mirashif/omalauncher` GitHub repository. The current live index
-contains 45 installed applications and 244 conditionally visible Omarchy
-records. The release check currently passes 38 automated tests, manifest
-validation, QML linting, and an isolated install/remove cycle.
+Version 0.8.0 is complete in this checkout. The release check covers 52
+automated tests, manifest validation, QML linting, and an isolated
+install/remove cycle.
 
 The implementation has moved beyond the original MVP in three areas:
 
@@ -407,7 +405,9 @@ omalauncher/
 │   └── MenuIndex.js
 ├── services/
 │   ├── ActionModel.js
+│   ├── HighlightModel.js
 │   ├── LayoutModel.js
+│   ├── NavigationModel.js
 │   ├── StateModel.js
 │   ├── StateStore.qml
 │   └── StatusModel.js
@@ -421,14 +421,14 @@ omalauncher/
 └── assets/preview.png
 ```
 
-The v0.7.1 manifest declares:
+The v0.8.0 manifest declares:
 
 ```json
 {
   "schemaVersion": 1,
   "id": "io.github.omalauncher",
   "name": "Omalauncher",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "author": "Omalauncher contributors",
   "description": "A keyboard-first command palette for Omarchy.",
   "kinds": ["menu"],

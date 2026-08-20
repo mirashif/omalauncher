@@ -13,6 +13,10 @@ test("result card height preserves the complete result viewport and bottom margi
   assert.equal(LayoutModel.resultCardHeight(52, 58, 12, 13, 12), 147)
 })
 
+test("compact card height keeps only the search field and its padding", () => {
+  assert.equal(LayoutModel.compactCardHeight(52, 12), 76)
+})
+
 test("card geometry preserves the preferred size and vertical anchor", () => {
   assert.deepEqual(LayoutModel.cardGeometry(2048, 1152, 680, 296, 12, 0.18), {
     width: 680,

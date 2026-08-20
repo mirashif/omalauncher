@@ -41,6 +41,7 @@ Item {
   property int queryHistoryIndex: -1
   property string queryHistoryDraft: ""
   property bool applyingQueryHistory: false
+  property bool compactExpanded: false
   property bool actionPanelOpen: false
   property var actionTarget: ({})
   property int actionSelectedIndex: 0
@@ -65,6 +66,13 @@ Item {
     && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
   readonly property bool indexSettled: stateStore.loaded && appsReady && commandIndexSettled
   readonly property bool indexReady: indexSettled
+  readonly property bool compactMode: stateStore.preferences.compactMode === true
+  readonly property bool compactCollapsed: compactMode
+    && !compactExpanded
+    && !searchInput.text
+    && activeRoute === "root"
+    && !actionPanelOpen
+    && !warningPanelOpen
   readonly property string providerWarning: StatusModel.warningText([
     stateStore.error,
     defaultSourceError,
@@ -150,6 +158,7 @@ Item {
     if (targetScreen) panel.screen = targetScreen
     root.resetActionPanel()
     root.warningPanelOpen = false
+    root.compactExpanded = false
     root.activeRoute = "root"
     root.navigationStack = []
     root.opened = true
@@ -165,6 +174,7 @@ Item {
   function close() {
     root.resetActionPanel()
     root.warningPanelOpen = false
+    root.compactExpanded = false
     root.opened = false
     root.activeRoute = "root"
     root.navigationStack = []
@@ -397,8 +407,27 @@ Item {
   }
 
   function managementRecords() {
-    if (root.hiddenRecords().length === 0) return []
-    return [{
+    var records = [{
+      id: "omalauncher:toggle-compact",
+      type: "launcher-command",
+      kind: "toggle-compact",
+      title: root.compactMode ? "Disable Compact Mode" : "Enable Compact Mode",
+      breadcrumb: "Omalauncher",
+      description: "Show only the search field until interaction begins",
+      icon: root.compactMode ? "" : "",
+      iconFont: "",
+      appIcon: "",
+      appId: "",
+      aliases: [],
+      keywords: ["compact", "minimal", "collapse", "preference"],
+      route: "",
+      parentRoute: "root",
+      searchText: "compact mode minimal collapse preference omalauncher",
+      providerPriority: -1,
+      order: -2,
+      section: "Launcher"
+    }]
+    if (root.hiddenRecords().length > 0) records.push({
       id: "omalauncher:manage-hidden",
       type: "launcher-command",
       kind: "manage-hidden",
@@ -417,7 +446,8 @@ Item {
       providerPriority: -1,
       order: -1,
       section: "Launcher"
-    }]
+    })
+    return records
   }
 
   function visibleRecords(records) {
@@ -907,6 +937,10 @@ Item {
 
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
+    if (row.resultKind === "toggle-compact") {
+      root.toggleCompactMode()
+      return
+    }
     if (row.resultKind === "manage-hidden") {
       root.setActiveRoute("hidden", true)
       return
@@ -935,6 +969,19 @@ Item {
 
   function runSelected(useParent) {
     root.runResult(root.selectedResultSnapshot(), useParent)
+  }
+
+  function toggleCompactMode() {
+    var enabled = !root.compactMode
+    root.resetActionPanel()
+    root.warningPanelOpen = false
+    stateStore.setCompactMode(enabled)
+    root.compactExpanded = false
+    searchInput.text = ""
+    root.selectedIndex = 0
+    root.showOsd(enabled ? "" : "", enabled ? "Compact Mode enabled" : "Compact Mode disabled")
+    root.rebuildResults()
+    Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
   function toggleSelectedFavorite() {
@@ -975,6 +1022,7 @@ Item {
   function primaryActionLabel() {
     var row = root.selectedResultSnapshot()
     if (!row.resultId) return ""
+    if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultType === "application") return "Open Application"
     if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
@@ -1117,12 +1165,14 @@ Item {
       id: card
       readonly property int desiredHeight: Math.max(
         Math.max(
-          LayoutModel.resultCardHeight(
-            searchBox.height,
-            root.listHeight,
-            root.cardPadding,
-            root.resultsTopOffset,
-            root.footerHeight),
+          root.compactCollapsed
+            ? LayoutModel.compactCardHeight(searchBox.height, root.cardPadding)
+            : LayoutModel.resultCardHeight(
+                searchBox.height,
+                root.listHeight,
+                root.cardPadding,
+                root.resultsTopOffset,
+                root.footerHeight),
           root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0),
         root.warningPanelOpen ? root.warningPanelHeight + Style.space(24) : 0)
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
@@ -1140,6 +1190,8 @@ Item {
       color: root.background
       border.width: Math.max(1, Style.space(1))
       border.color: root.borderColor
+      Accessible.role: Accessible.Dialog
+      Accessible.name: "Omalauncher"
 
       MouseArea {
         anchors.fill: parent
@@ -1169,6 +1221,9 @@ Item {
           color: root.selectedText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.icon
+          Accessible.role: root.activeRoute === "root" ? Accessible.StaticText : Accessible.Button
+          Accessible.name: root.activeRoute === "root" ? "Search" : "Back to previous section"
+          Accessible.onPressAction: if (root.activeRoute !== "root") root.goBack()
 
           MouseArea {
             anchors.fill: parent
@@ -1211,8 +1266,16 @@ Item {
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
           clip: true
+          Accessible.role: Accessible.EditableText
+          Accessible.name: root.activeRoute === "root"
+            ? "Search applications and Omarchy commands"
+            : "Search " + root.activeMenuTitle
+          Accessible.description: "Type to filter results"
+          Accessible.focusable: true
+          Accessible.searchEdit: true
           onTextChanged: {
             if (!root.applyingQueryHistory) root.resetQueryHistoryNavigation()
+            if (!searchInput.text) root.compactExpanded = false
             root.selectedIndex = 0
             root.rebuildResults()
           }
@@ -1221,6 +1284,11 @@ Item {
           Keys.onPressed: function(event) {
             if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
               root.openActionPanel()
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                       && (event.modifiers & Qt.ShiftModifier) !== 0
+                       && event.key === Qt.Key_C) {
+              root.toggleCompactMode()
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
               root.dismiss()
@@ -1261,7 +1329,8 @@ Item {
               else root.moveSelection(-1)
               event.accepted = true
             } else if (event.key === Qt.Key_Down) {
-              if (!root.cycleQueryHistory(false)) root.moveSelection(1)
+              if (root.compactCollapsed) root.compactExpanded = true
+              else if (!root.cycleQueryHistory(false)) root.moveSelection(1)
               event.accepted = true
             } else if (event.key === Qt.Key_PageUp) {
               root.moveSelection(-root.maximumVisibleRows)
@@ -1282,6 +1351,11 @@ Item {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           visible: !!root.providerWarning
+          Accessible.role: Accessible.Button
+          Accessible.name: "Open provider warnings"
+          Accessible.description: root.providerWarning
+          Accessible.focusable: true
+          Accessible.onPressAction: root.openWarningPanel()
 
           Text {
             anchors.centerIn: parent
@@ -1308,12 +1382,14 @@ Item {
         anchors.top: searchBox.bottom
         anchors.topMargin: root.cardPadding
         height: root.dividerHeight
+        visible: !root.compactCollapsed
         color: root.borderColor
         opacity: 0.5
       }
 
       ListView {
         id: resultList
+        visible: !root.compactCollapsed
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: searchBox.bottom
@@ -1326,6 +1402,8 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         section.property: "section"
         section.criteria: ViewSection.FullString
+        Accessible.role: Accessible.List
+        Accessible.name: "Search results"
         section.delegate: Rectangle {
           required property string section
           width: resultList.width
@@ -1372,6 +1450,15 @@ Item {
           height: root.rowHeight
           radius: Math.max(0, Style.cornerRadius - Style.space(3))
           color: selected ? root.selectedBackground : "transparent"
+          Accessible.role: Accessible.ListItem
+          Accessible.name: resultRow.title
+          Accessible.description: resultRow.breadcrumb || resultRow.description
+          Accessible.focusable: true
+          Accessible.focused: resultRow.selected
+          Accessible.onPressAction: {
+            root.selectedIndex = resultRow.index
+            root.runSelected(false)
+          }
 
           Item {
             id: rowIcon
@@ -1492,7 +1579,7 @@ Item {
         anchors.centerIn: resultList
         spacing: Style.space(8)
         width: Math.max(1, Math.min(Style.space(500), resultList.width - Style.space(32)))
-        visible: root.emptyStatus.visible
+        visible: !root.compactCollapsed && root.emptyStatus.visible
 
         Text {
           width: parent.width
@@ -1529,6 +1616,7 @@ Item {
 
       Rectangle {
         id: footer
+        visible: !root.compactCollapsed
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -1580,6 +1668,8 @@ Item {
         color: root.background
         border.width: Math.max(1, Style.space(1))
         border.color: root.borderColor
+        Accessible.role: Accessible.PopupMenu
+        Accessible.name: root.actionRouteTitle + " for " + String(root.actionTarget.title || "")
 
         MouseArea {
           anchors.fill: parent
@@ -1670,6 +1760,10 @@ Item {
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.body
             clip: true
+            Accessible.role: Accessible.EditableText
+            Accessible.name: "Search actions"
+            Accessible.focusable: true
+            Accessible.searchEdit: true
             onTextChanged: {
               root.actionSelectedIndex = 0
               root.rebuildActions()
@@ -1679,6 +1773,11 @@ Item {
             Keys.onPressed: function(event) {
               if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
                 root.dismiss()
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0
+                         && (event.modifiers & Qt.ShiftModifier) !== 0
+                         && event.key === Qt.Key_C) {
+                root.toggleCompactMode()
                 event.accepted = true
               } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
                 root.popToRoot()
@@ -1740,6 +1839,8 @@ Item {
           boundsBehavior: Flickable.StopAtBounds
           section.property: "section"
           section.criteria: ViewSection.FullString
+          Accessible.role: Accessible.List
+          Accessible.name: "Available actions"
           section.delegate: Rectangle {
             required property string section
             width: actionList.width
@@ -1776,6 +1877,15 @@ Item {
             height: root.actionRowHeight
             radius: Math.max(0, Style.cornerRadius - Style.space(4))
             color: selected ? root.selectedBackground : "transparent"
+            Accessible.role: Accessible.MenuItem
+            Accessible.name: actionRow.title
+            Accessible.description: actionRow.description
+            Accessible.focusable: true
+            Accessible.focused: actionRow.selected
+            Accessible.onPressAction: {
+              root.actionSelectedIndex = actionRow.index
+              root.performAction(actionRow.actionId)
+            }
 
             Text {
               width: Style.space(40)
@@ -1864,6 +1974,8 @@ Item {
           color: root.background
           border.width: Math.max(1, Style.space(1))
           border.color: root.borderColor
+          Accessible.role: Accessible.Dialog
+          Accessible.name: "Set alias for " + String(root.actionTarget.title || "")
 
           MouseArea {
             anchors.fill: parent
@@ -1915,6 +2027,10 @@ Item {
                 font.pixelSize: Style.font.body
                 maximumLength: 64
                 clip: true
+                Accessible.role: Accessible.EditableText
+                Accessible.name: "Search alias"
+                Accessible.description: "Use letters, numbers, dots, dashes, or underscores"
+                Accessible.focusable: true
                 onTextChanged: root.aliasEditorError = ""
 
                 Keys.priority: Keys.BeforeItem
@@ -1972,6 +2088,8 @@ Item {
         border.width: Math.max(1, Style.space(1))
         border.color: root.borderColor
         focus: visible
+        Accessible.role: Accessible.Dialog
+        Accessible.name: "Provider warnings"
 
         onVisibleChanged: {
           if (visible) Qt.callLater(function() { warningPanel.forceActiveFocus() })
@@ -2020,11 +2138,16 @@ Item {
           model: root.providerDiagnostics
           clip: true
           boundsBehavior: Flickable.StopAtBounds
+          Accessible.role: Accessible.List
+          Accessible.name: "Provider diagnostics"
 
           delegate: Item {
             required property var modelData
             width: ListView.view.width
             height: Style.space(76)
+            Accessible.role: Accessible.ListItem
+            Accessible.name: modelData.provider + ": " + modelData.error
+            Accessible.description: modelData.detail
 
             Text {
               anchors.left: parent.left
@@ -2068,6 +2191,11 @@ Item {
           height: Style.space(42)
           radius: Math.max(0, Style.cornerRadius - Style.space(4))
           color: root.selectedBackground
+          Accessible.role: Accessible.Button
+          Accessible.name: "Retry providers"
+          Accessible.description: "Reload launcher state, menus, command checks, and applications"
+          Accessible.focusable: true
+          Accessible.onPressAction: root.retryProviders()
 
           Text {
             anchors.centerIn: parent

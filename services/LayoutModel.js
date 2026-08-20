@@ -22,6 +22,11 @@ function resultCardHeight(searchHeight, listHeight, topMargin, resultsOffset, bo
     + Math.max(0, finiteNumber(bottomMargin, 0))
 }
 
+function compactCardHeight(searchHeight, padding) {
+  return Math.max(0, finiteNumber(searchHeight, 0))
+    + Math.max(0, finiteNumber(padding, 0)) * 2
+}
+
 function cardGeometry(panelWidth, panelHeight, desiredWidth, desiredHeight, gap, anchorRatio) {
   var panelW = Math.max(1, finiteNumber(panelWidth, 1))
   var panelH = Math.max(1, finiteNumber(panelHeight, 1))
@@ -41,6 +46,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     screenForMonitor: screenForMonitor,
     resultCardHeight: resultCardHeight,
+    compactCardHeight: compactCardHeight,
     cardGeometry: cardGeometry
   }
 }

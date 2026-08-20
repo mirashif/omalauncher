@@ -106,6 +106,18 @@ test("hidden-result manager exposes only its primary navigation action", () => {
   assert.equal(actions[0].title, "Manage Hidden Results")
 })
 
+test("compact-mode command exposes only its primary toggle action", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "omalauncher:toggle-compact",
+    resultType: "launcher-command",
+    resultKind: "toggle-compact",
+    title: "Enable Compact Mode"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary"])
+  assert.equal(actions[0].title, "Enable Compact Mode")
+})
+
 test("favorite actions expose only valid reorder directions", () => {
   const result = {
     resultId: "application:brave-browser",
