@@ -7,6 +7,7 @@ import qs.Commons
 import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
+import "services/ActionModel.js" as ActionModel
 import "SearchEngine.js" as SearchEngine
 
 Item {
@@ -30,6 +31,9 @@ Item {
   property var allRecords: []
   property int selectedIndex: 0
   property int resultSectionCount: 0
+  property bool actionPanelOpen: false
+  property var actionTarget: ({})
+  property int actionSelectedIndex: 0
   property bool guardsPending: false
   property bool guardsReady: false
   property string sourceError: ""
@@ -53,6 +57,10 @@ Item {
   readonly property int listHeight: Math.max(rowHeight,
     Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight
       + resultSectionCount * sectionHeight)
+  readonly property int actionRowHeight: Math.max(Style.space(50), Style.font.body + Style.font.caption + Style.space(18))
+  readonly property int actionListHeight: Math.max(actionRowHeight,
+    Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight)
+  readonly property int actionPanelHeight: Style.space(48) + Style.space(46) + actionListHeight + Style.space(28)
 
   function focusedScreen() {
     var monitor = Hyprland.focusedMonitor
@@ -69,6 +77,7 @@ Item {
     try { payload = JSON.parse(payloadJson || "{}") } catch (error) { payload = ({}) }
     var targetScreen = root.focusedScreen()
     if (targetScreen) panel.screen = targetScreen
+    root.resetActionPanel()
     root.opened = true
     searchInput.text = String(payload.query || "")
     root.selectedIndex = 0
@@ -79,6 +88,7 @@ Item {
   }
 
   function close() {
+    root.resetActionPanel()
     root.opened = false
     searchInput.text = ""
     root.selectedIndex = 0
@@ -142,6 +152,23 @@ Item {
         tier: row.semanticTier
       }
     }))
+  }
+
+  function actionStats() {
+    var actions = []
+    for (var i = 0; i < actionResultsModel.count; i++) {
+      var action = actionResultsModel.get(i)
+      actions.push({ id: action.actionId, title: action.title })
+    }
+    return JSON.stringify({
+      launcherOpen: root.opened,
+      rootQuery: String(searchInput.text || ""),
+      actionPanelOpen: root.actionPanelOpen,
+      target: String(root.actionTarget.resultId || ""),
+      query: String(actionSearchInput.text || ""),
+      selectedIndex: root.actionSelectedIndex,
+      actions: actions
+    })
   }
 
   function applyParsedSource(parsed, isDefault) {
@@ -230,6 +257,108 @@ Item {
     if (resultsModel.count > 0) resultList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
 
+  function selectedResultSnapshot() {
+    if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return ({})
+    var row = resultsModel.get(root.selectedIndex)
+    return {
+      resultId: String(row.resultId || ""),
+      resultType: String(row.resultType || ""),
+      resultKind: String(row.resultKind || ""),
+      title: String(row.title || ""),
+      breadcrumb: String(row.breadcrumb || ""),
+      description: String(row.description || ""),
+      appId: String(row.appId || ""),
+      route: String(row.route || ""),
+      parentRoute: String(row.parentRoute || "")
+    }
+  }
+
+  function resetActionPanel() {
+    root.actionPanelOpen = false
+    root.actionTarget = ({})
+    root.actionSelectedIndex = 0
+    actionResultsModel.clear()
+    actionSearchInput.text = ""
+  }
+
+  function openActionPanel() {
+    var target = root.selectedResultSnapshot()
+    if (!target.resultId) return
+    root.actionTarget = target
+    root.actionSelectedIndex = 0
+    actionSearchInput.text = ""
+    root.actionPanelOpen = true
+    root.rebuildActions()
+    Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+  }
+
+  function closeActionPanel() {
+    if (!root.actionPanelOpen) return
+    root.resetActionPanel()
+    if (root.opened) Qt.callLater(function() { searchInput.forceActiveFocus() })
+  }
+
+  function rebuildActions() {
+    actionResultsModel.clear()
+    if (!root.actionTarget.resultId) {
+      root.actionSelectedIndex = 0
+      return
+    }
+
+    var actions = ActionModel.actionsForResult(root.actionTarget, {
+      favorite: stateStore.isFavorite(root.actionTarget.resultId),
+      usage: stateStore.usage
+    })
+    var query = String(actionSearchInput.text || "").trim()
+    if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
+    for (var i = 0; i < actions.length; i++) {
+      var action = actions[i]
+      actionResultsModel.append({
+        actionId: String(action.id || ""),
+        title: String(action.title || ""),
+        description: String(action.description || ""),
+        shortcut: String(action.shortcut || ""),
+        icon: String(action.icon || "")
+      })
+    }
+
+    if (actionResultsModel.count === 0) root.actionSelectedIndex = 0
+    else root.actionSelectedIndex = Math.max(0, Math.min(root.actionSelectedIndex, actionResultsModel.count - 1))
+    Qt.callLater(root.revealActionSelection)
+  }
+
+  function moveActionSelection(delta) {
+    if (actionResultsModel.count === 0) return
+    root.actionSelectedIndex = (root.actionSelectedIndex + delta + actionResultsModel.count) % actionResultsModel.count
+    root.revealActionSelection()
+  }
+
+  function revealActionSelection() {
+    if (actionResultsModel.count > 0) actionList.positionViewAtIndex(root.actionSelectedIndex, ListView.Contain)
+  }
+
+  function performAction(actionId) {
+    var selectedActionId = String(actionId || "")
+    if (!selectedActionId) {
+      if (actionResultsModel.count === 0 || root.actionSelectedIndex >= actionResultsModel.count) return
+      selectedActionId = String(actionResultsModel.get(root.actionSelectedIndex).actionId || "")
+    }
+    var target = root.actionTarget
+    if (!target.resultId) return
+
+    if (selectedActionId === "favorite") {
+      stateStore.toggleFavorite(target.resultId)
+      return
+    }
+    if (selectedActionId === "reset-ranking") {
+      stateStore.resetRanking(target.resultId)
+      return
+    }
+    if (selectedActionId === "primary" || selectedActionId === "parent") {
+      root.runResult(target, selectedActionId === "parent")
+    }
+  }
+
   function runRoute(route) {
     var selectedRoute = String(route || "")
     if (!selectedRoute) return
@@ -238,12 +367,15 @@ Item {
     Quickshell.execDetached(["omarchy", "menu", "summon", selectedRoute])
   }
 
-  function runSelected(useParent) {
-    if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
-    var row = resultsModel.get(root.selectedIndex)
+  function runResult(row, useParent) {
+    if (!row || !row.resultId) return
     stateStore.recordSelection(row.resultId)
     if (row.resultType === "application") root.launchApplication(row.appId, row.title)
     else root.runRoute(useParent ? row.parentRoute : row.route)
+  }
+
+  function runSelected(useParent) {
+    root.runResult(root.selectedResultSnapshot(), useParent)
   }
 
   function toggleSelectedFavorite() {
@@ -301,10 +433,14 @@ Item {
   }
 
   ListModel { id: resultsModel }
+  ListModel { id: actionResultsModel }
 
   StateStore {
     id: stateStore
-    onSnapshotChanged: root.rebuildResults()
+    onSnapshotChanged: {
+      root.rebuildResults()
+      if (root.actionPanelOpen) root.rebuildActions()
+    }
   }
 
   AppProvider {
@@ -386,7 +522,9 @@ Item {
     Rectangle {
       id: card
       width: Math.min(Style.space(680), panel.width - Style.gapsOut * 2)
-      height: searchBox.height + Style.space(1) + root.listHeight + Style.space(24)
+      height: Math.max(
+        searchBox.height + Style.space(1) + root.listHeight + Style.space(24),
+        root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0)
       anchors.horizontalCenter: parent.horizontalCenter
       y: Math.max(Style.gapsOut, Math.round(panel.height * 0.18))
       radius: Style.cornerRadius
@@ -394,7 +532,13 @@ Item {
       border.width: Math.max(1, Style.space(1))
       border.color: root.borderColor
 
-      MouseArea { anchors.fill: parent; onClicked: searchInput.forceActiveFocus() }
+      MouseArea {
+        anchors.fill: parent
+        onClicked: {
+          if (root.actionPanelOpen) root.closeActionPanel()
+          else searchInput.forceActiveFocus()
+        }
+      }
 
       Rectangle {
         id: searchBox
@@ -434,6 +578,7 @@ Item {
 
         TextInput {
           id: searchInput
+          enabled: !root.actionPanelOpen
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
@@ -452,7 +597,10 @@ Item {
 
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) {
-            if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
+            if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
+              root.openActionPanel()
+              event.accepted = true
+            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
               root.toggleSelectedFavorite()
               event.accepted = true
             } else if (event.key === Qt.Key_Escape) {
@@ -498,6 +646,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Style.space(12)
         model: resultsModel
+        enabled: !root.actionPanelOpen
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         section.property: "section"
@@ -615,7 +764,7 @@ Item {
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
             visible: resultRow.selected
-            text: "Ctrl+F " + (resultRow.favorite ? "★" : "☆") + "  ·  ↵"
+            text: (resultRow.favorite ? "★  ·  " : "") + "Ctrl+K  ·  ↵"
             color: root.selectedText
             opacity: 0.68
             font.family: Style.font.menuFamily
@@ -654,11 +803,254 @@ Item {
           width: Style.space(500)
           horizontalAlignment: Text.AlignHCenter
           visible: !searchInput.text && !root.sourceError
-          text: "Enter runs  ·  Ctrl+F favorites  ·  Ctrl+Enter opens the parent menu"
+          text: "Enter runs  ·  Ctrl+K actions  ·  Ctrl+F favorites"
           color: root.foreground
           opacity: 0.42
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.bodySmall
+        }
+      }
+
+      Rectangle {
+        id: actionPanel
+        visible: root.actionPanelOpen
+        z: 20
+        width: Math.min(Style.space(420), card.width - Style.space(24))
+        height: root.actionPanelHeight
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: Style.space(12)
+        radius: Math.max(0, Style.cornerRadius - Style.space(2))
+        color: root.background
+        border.width: Math.max(1, Style.space(1))
+        border.color: root.borderColor
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: actionSearchInput.forceActiveFocus()
+        }
+
+        Item {
+          id: actionHeader
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: Style.space(48)
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Actions"
+            color: root.foreground
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.title
+            font.weight: Font.DemiBold
+          }
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(90)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            text: String(root.actionTarget.title || "")
+            color: root.foreground
+            opacity: 0.5
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
+          }
+        }
+
+        Rectangle {
+          id: actionSearchBox
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: actionHeader.bottom
+          anchors.leftMargin: Style.space(12)
+          anchors.rightMargin: Style.space(12)
+          height: Style.space(46)
+          radius: Math.max(0, Style.cornerRadius - Style.space(4))
+          color: root.selectedBackground
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(13)
+            anchors.verticalCenter: parent.verticalCenter
+            text: ""
+            color: root.selectedText
+            opacity: 0.7
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.body
+          }
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(40)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(12)
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !actionSearchInput.text
+            text: "Search actions…"
+            color: root.selectedText
+            opacity: 0.5
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.body
+            elide: Text.ElideRight
+          }
+
+          TextInput {
+            id: actionSearchInput
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(40)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(12)
+            anchors.verticalCenter: parent.verticalCenter
+            color: root.selectedText
+            selectionColor: root.selectedText
+            selectedTextColor: root.selectedBackground
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.body
+            clip: true
+            onTextChanged: {
+              root.actionSelectedIndex = 0
+              root.rebuildActions()
+            }
+
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) {
+              if (event.key === Qt.Key_Escape
+                  || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K)) {
+                root.closeActionPanel()
+                event.accepted = true
+              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
+                root.performAction("favorite")
+                event.accepted = true
+              } else if (event.key === Qt.Key_Up) {
+                root.moveActionSelection(-1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_Down) {
+                root.moveActionSelection(1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_PageUp) {
+                root.moveActionSelection(-5)
+                event.accepted = true
+              } else if (event.key === Qt.Key_PageDown) {
+                root.moveActionSelection(5)
+                event.accepted = true
+              } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                root.performAction("")
+                event.accepted = true
+              }
+            }
+          }
+        }
+
+        ListView {
+          id: actionList
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: actionSearchBox.bottom
+          anchors.bottom: parent.bottom
+          anchors.topMargin: Style.space(8)
+          anchors.bottomMargin: Style.space(12)
+          model: actionResultsModel
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+
+          delegate: Rectangle {
+            id: actionRow
+            required property int index
+            required property string actionId
+            required property string title
+            required property string description
+            required property string shortcut
+            required property string icon
+
+            readonly property bool selected: index === root.actionSelectedIndex
+            width: ListView.view.width
+            height: root.actionRowHeight
+            radius: Math.max(0, Style.cornerRadius - Style.space(4))
+            color: selected ? root.selectedBackground : "transparent"
+
+            Text {
+              width: Style.space(40)
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              text: actionRow.icon
+              color: actionRow.selected ? root.selectedText : root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.icon
+              horizontalAlignment: Text.AlignHCenter
+            }
+
+            Column {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(58)
+              anchors.right: actionShortcut.left
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(2)
+
+              Text {
+                width: parent.width
+                text: actionRow.title
+                color: actionRow.selected ? root.selectedText : root.foreground
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.body
+                font.weight: Font.Medium
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                visible: text.length > 0
+                text: actionRow.description
+                color: actionRow.selected ? root.selectedText : root.foreground
+                opacity: 0.5
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+            }
+
+            Text {
+              id: actionShortcut
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(14)
+              anchors.verticalCenter: parent.verticalCenter
+              visible: actionRow.shortcut.length > 0
+              text: actionRow.shortcut
+              color: actionRow.selected ? root.selectedText : root.foreground
+              opacity: 0.58
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onPositionChanged: root.actionSelectedIndex = actionRow.index
+              onClicked: {
+                root.actionSelectedIndex = actionRow.index
+                root.performAction(actionRow.actionId)
+              }
+            }
+          }
+        }
+
+        Text {
+          anchors.centerIn: actionList
+          visible: actionResultsModel.count === 0
+          text: "No matching actions"
+          color: root.foreground
+          opacity: 0.55
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.body
         }
       }
     }

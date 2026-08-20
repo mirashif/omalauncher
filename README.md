@@ -17,11 +17,10 @@ The current implementation includes:
 - Persistent favorites and usage history
 - Frecency as a tie-breaker within equal semantic matches
 - Favorites and recent applications/commands before typing
+- A searchable, context-aware Action Panel
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
-
-The Action Panel remains planned MVP work.
 
 Press `Ctrl+F` on the selected row to add or remove a favorite. Selecting a
 result updates its usage history; stronger semantic matches always remain
@@ -30,6 +29,18 @@ ahead of frecency. State is written atomically to:
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
 ```
+
+Press `Ctrl+K` to open the Action Panel for the selected result. Its actions
+can be searched immediately and include:
+
+- Run the command or open the application/menu
+- Open a command's parent in the stock Omarchy menu
+- Add or remove the result from Favorites
+- Reset learned ranking when usage history exists
+
+`Escape` closes the Action Panel first, then clears the root query, then
+closes Omalauncher. `Ctrl+Enter` remains a direct shortcut for opening a
+command's parent menu.
 
 ## Validate
 
