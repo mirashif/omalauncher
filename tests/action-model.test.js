@@ -31,10 +31,12 @@ test("commands expose primary, parent, favorite, and learned-ranking actions", (
     usage: { [id]: { count: 3, lastUsed: 1000 } }
   })
 
-  assert.deepEqual(actions.map(action => action.id), ["primary", "parent", "favorite", "reset-ranking"])
+  assert.deepEqual(actions.map(action => action.id), ["primary", "parent", "stock-menu", "favorite", "reset-ranking"])
   assert.equal(actions[0].title, "Run Command")
+  assert.equal(actions[1].title, "Open Parent Menu")
   assert.equal(actions[1].description, "Update › Config")
-  assert.equal(actions[2].title, "Remove from Favorites")
+  assert.equal(actions[2].title, "Open in Default Omarchy Menu")
+  assert.equal(actions[3].title, "Remove from Favorites")
 })
 
 test("submenu primary actions are labelled Open Menu", () => {
@@ -47,6 +49,21 @@ test("submenu primary actions are labelled Open Menu", () => {
   }, { usage: {} })
 
   assert.equal(actions[0].title, "Open Menu")
+  assert.equal(actions[2].title, "Open in Default Omarchy Menu")
+})
+
+test("menu links use navigation actions", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "omarchy:settings",
+    resultType: "omarchy-command",
+    resultKind: "link",
+    title: "Settings",
+    targetRoute: "setup",
+    parentRoute: "root"
+  }, { usage: {} })
+
+  assert.equal(actions[0].title, "Open Menu")
+  assert.equal(actions[2].description, "Settings")
 })
 
 test("action titles and keywords are searchable", () => {
@@ -60,6 +77,7 @@ test("action titles and keywords are searchable", () => {
   }, { usage: { [id]: { count: 1, lastUsed: 1000 } } })
 
   assert.equal(SearchEngine.search(actions, "parent")[0].id, "parent")
+  assert.equal(SearchEngine.search(actions, "stock")[0].id, "stock-menu")
   assert.equal(SearchEngine.search(actions, "star")[0].id, "favorite")
   assert.equal(SearchEngine.search(actions, "frecency")[0].id, "reset-ranking")
 })

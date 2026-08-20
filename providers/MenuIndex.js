@@ -271,7 +271,7 @@ function normalizeSearchText(value) {
     .replace(/\s+/g, " ")
 }
 
-function buildCommandRecords(merged, whenResults) {
+function buildCommandRecords(merged, whenResults, checkedResults) {
   var items = merged && merged.items ? merged.items : {}
   var itemOrder = merged && Array.isArray(merged.itemOrder) ? merged.itemOrder : []
   var records = []
@@ -303,6 +303,9 @@ function buildCommandRecords(merged, whenResults) {
       keywords: keywords,
       route: entry.id,
       parentRoute: entry.parent && entry.parent !== "root" ? entry.parent : "root",
+      targetRoute: entry.target,
+      provider: entry.provider,
+      checked: !!(checkedResults && checkedResults[entry.id]),
       searchText: normalizeSearchText(searchParts.join(" ")),
       providerPriority: 1,
       order: entry.order
@@ -310,6 +313,43 @@ function buildCommandRecords(merged, whenResults) {
   }
 
   return records
+}
+
+function recordsForRoute(records, route, includeDescendants) {
+  var activeRoute = String(route || "root")
+  var source = Array.isArray(records) ? records : []
+  var byRoute = {}
+  var output = []
+
+  for (var i = 0; i < source.length; i++) {
+    var recordRoute = String(source[i] && source[i].route || "")
+    if (recordRoute) byRoute[recordRoute] = source[i]
+  }
+
+  function belongsToRoute(record) {
+    if (!record) return false
+    var parent = String(record.parentRoute || "root")
+    if (parent === activeRoute) return true
+    if (!includeDescendants) return false
+
+    var seen = {}
+    var guard = 0
+    while (parent && parent !== "root" && guard < 32) {
+      if (seen[parent]) return false
+      seen[parent] = true
+      var parentRecord = byRoute[parent]
+      if (!parentRecord) return false
+      parent = String(parentRecord.parentRoute || "root")
+      if (parent === activeRoute) return true
+      guard += 1
+    }
+    return false
+  }
+
+  for (var j = 0; j < source.length; j++) {
+    if (belongsToRoute(source[j])) output.push(source[j])
+  }
+  return output
 }
 
 // These helpers intentionally follow the stock menu's single-process guard
@@ -416,6 +456,7 @@ if (typeof module !== "undefined") {
     isVisible: isVisible,
     normalizeSearchText: normalizeSearchText,
     buildCommandRecords: buildCommandRecords,
+    recordsForRoute: recordsForRoute,
     guardReaders: GUARD_READERS,
     guardScript: guardScript,
     parseGuardResults: parseGuardResults

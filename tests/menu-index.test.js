@@ -60,6 +60,44 @@ test("command records contain route and ancestor breadcrumb metadata", () => {
   assert.match(firefox.searchText, / remove browser firefox$/)
 })
 
+test("command records preserve navigation, provider, and checked metadata", () => {
+  const parsed = MenuIndex.parseMenuJsonc(`{
+    "apps": { "label": "Apps", "provider": "apps" },
+    "setup": { "label": "Setup" },
+    "settings": { "label": "Settings", "target": "setup" },
+    "setup.enabled": { "label": "Enabled", "checked": "is-enabled", "action": "enable" }
+  }`)
+  const merged = MenuIndex.mergeMenuSources(parsed.items, [])
+  const records = MenuIndex.buildCommandRecords(merged, {}, { "setup.enabled": true })
+
+  assert.deepEqual(
+    records.map(record => [record.route, record.targetRoute, record.provider, record.checked]),
+    [
+      ["apps", "", "apps", false],
+      ["setup", "", "", false],
+      ["settings", "setup", "", false],
+      ["setup.enabled", "", "", true]
+    ]
+  )
+})
+
+test("menu routes expose direct children or all descendants in source order", () => {
+  const { records } = fixtureIndex()
+  assert.deepEqual(
+    MenuIndex.recordsForRoute(records, "install", false).map(record => record.route),
+    ["install.browser", "install.development"]
+  )
+  assert.deepEqual(
+    MenuIndex.recordsForRoute(records, "install", true).map(record => record.route),
+    [
+      "install.browser",
+      "install.browser.firefox",
+      "install.development",
+      "install.development.docker-dbs"
+    ]
+  )
+})
+
 test("conditional visibility removes unavailable leaves and empty menus", () => {
   const { records } = fixtureIndex({
     "remove.browser.firefox": false,

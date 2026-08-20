@@ -32,6 +32,8 @@ Item {
   property var commandRecords: []
   property var appRecords: []
   property var allRecords: []
+  property string activeRoute: "root"
+  property var navigationStack: []
   property int selectedIndex: 0
   property int resultSectionCount: 0
   property bool actionPanelOpen: false
@@ -46,6 +48,7 @@ Item {
   property string guardError: ""
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
+  readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
   readonly property bool commandIndexSettled: defaultSourceSettled
     && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
   readonly property bool indexSettled: stateStore.loaded && appsReady && commandIndexSettled
@@ -99,6 +102,8 @@ Item {
     var targetScreen = root.focusedScreen()
     if (targetScreen) panel.screen = targetScreen
     root.resetActionPanel()
+    root.activeRoute = "root"
+    root.navigationStack = []
     root.opened = true
     searchInput.text = String(payload.query || "")
     root.selectedIndex = 0
@@ -111,6 +116,8 @@ Item {
   function close() {
     root.resetActionPanel()
     root.opened = false
+    root.activeRoute = "root"
+    root.navigationStack = []
     searchInput.text = ""
     root.selectedIndex = 0
   }
@@ -156,6 +163,20 @@ Item {
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length
     })
+  }
+
+  function navigationStats() {
+    return JSON.stringify({
+      route: root.activeRoute,
+      title: root.activeMenuTitle,
+      stack: root.navigationStack,
+      query: String(searchInput.text || ""),
+      results: resultsModel.count
+    })
+  }
+
+  function navigate(route) {
+    return root.setActiveRoute(String(route || "root"), true) ? "ok" : "not-found"
   }
 
   function debugEmptyState() {
@@ -271,7 +292,7 @@ Item {
 
   function rebuildCommandRecords() {
     var merged = { items: root.menuItems, itemOrder: root.menuOrder }
-    root.commandRecords = MenuIndex.buildCommandRecords(merged, root.whenResults)
+    root.commandRecords = MenuIndex.buildCommandRecords(merged, root.whenResults, root.checkedResults)
     root.rebuildUnifiedRecords()
   }
 
@@ -283,9 +304,22 @@ Item {
   function rebuildResults() {
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
-    var results = query
-      ? SearchEngine.search(root.allRecords, query, { limit: 50, usage: stateStore.usage })
-      : stateStore.emptyRows(root.allRecords)
+    if (root.activeRoute !== "root" && root.activeRoute !== "apps" && !root.menuItems[root.activeRoute]) {
+      root.activeRoute = "root"
+      root.navigationStack = []
+    }
+
+    var scopedRecords = root.allRecords
+    if (root.activeRoute === "apps") {
+      scopedRecords = root.appRecords
+    } else if (root.activeRoute !== "root") {
+      scopedRecords = MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query)
+    }
+
+    var results
+    if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
+    else if (root.activeRoute === "root") results = stateStore.emptyRows(root.allRecords)
+    else results = scopedRecords
     var sections = {}
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
@@ -304,6 +338,9 @@ Item {
         appId: String(result.appId || ""),
         route: String(result.route || ""),
         parentRoute: String(result.parentRoute || "root"),
+        targetRoute: String(result.targetRoute || ""),
+        provider: String(result.provider || ""),
+        isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
         favorite: stateStore.isFavorite(result.id)
@@ -338,8 +375,64 @@ Item {
       description: String(row.description || ""),
       appId: String(row.appId || ""),
       route: String(row.route || ""),
-      parentRoute: String(row.parentRoute || "")
+      parentRoute: String(row.parentRoute || ""),
+      targetRoute: String(row.targetRoute || ""),
+      provider: String(row.provider || "")
     }
+  }
+
+  function menuTitle(route) {
+    if (route === "root") return "Omalauncher"
+    if (route === "apps") return "Apps"
+    var entry = root.menuItems[route]
+    return entry ? String(entry.title || entry.label || route) : String(route || "Omalauncher")
+  }
+
+  function setActiveRoute(route, pushHistory) {
+    var nextRoute = String(route || "root")
+    if (nextRoute !== "root") {
+      var nextEntry = root.menuItems[nextRoute]
+      if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
+      if (nextEntry.kind === "link" && nextEntry.target) {
+        nextRoute = String(nextEntry.target)
+        nextEntry = root.menuItems[nextRoute]
+      }
+      if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
+      if (nextEntry.provider && nextEntry.provider !== "apps") return false
+    }
+    if (pushHistory && nextRoute !== root.activeRoute) {
+      root.navigationStack = root.navigationStack.concat([root.activeRoute])
+    }
+    root.resetActionPanel()
+    root.activeRoute = nextRoute
+    searchInput.text = ""
+    root.selectedIndex = 0
+    root.rebuildResults()
+    Qt.callLater(function() { searchInput.forceActiveFocus() })
+    return true
+  }
+
+  function goBack() {
+    if (root.activeRoute === "root") return false
+    var previousRoute = "root"
+    if (root.navigationStack.length > 0) {
+      previousRoute = root.navigationStack[root.navigationStack.length - 1]
+      root.navigationStack = root.navigationStack.slice(0, root.navigationStack.length - 1)
+    } else {
+      var current = root.menuItems[root.activeRoute]
+      previousRoute = current && current.parent ? String(current.parent) : "root"
+    }
+    return root.setActiveRoute(previousRoute, false)
+  }
+
+  function openMenu(row) {
+    var provider = String(row.provider || "")
+    var route = String(row.targetRoute || row.route || "")
+    if (provider && provider !== "apps") {
+      root.runStockRoute(route)
+      return
+    }
+    if (!root.setActiveRoute(route, true)) root.runStockRoute(route)
   }
 
   function resetActionPanel() {
@@ -423,12 +516,16 @@ Item {
       stateStore.resetRanking(target.resultId)
       return
     }
+    if (selectedActionId === "stock-menu") {
+      root.openInStockMenu(target)
+      return
+    }
     if (selectedActionId === "primary" || selectedActionId === "parent") {
       root.runResult(target, selectedActionId === "parent")
     }
   }
 
-  function runRoute(route) {
+  function runStockRoute(route) {
     var selectedRoute = String(route || "")
     if (!selectedRoute) return
     root.close()
@@ -439,8 +536,23 @@ Item {
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
     stateStore.recordSelection(row.resultId)
-    if (row.resultType === "application") root.launchApplication(row.appId, row.title)
-    else root.runRoute(useParent ? row.parentRoute : row.route)
+    if (row.resultType === "application") {
+      root.launchApplication(row.appId, row.title)
+    } else if (useParent) {
+      root.setActiveRoute(row.parentRoute || "root", true)
+    } else if (row.resultKind === "menu" || row.resultKind === "link") {
+      root.openMenu(row)
+    } else {
+      root.runStockRoute(row.route)
+    }
+  }
+
+  function openInStockMenu(row) {
+    if (!row || row.resultType === "application") return
+    var route = (row.resultKind === "menu" || row.resultKind === "link")
+      ? String(row.targetRoute || row.route || "root")
+      : String(row.parentRoute || "root")
+    root.runStockRoute(route)
   }
 
   function runSelected(useParent) {
@@ -657,10 +769,17 @@ Item {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
-          text: ""
+          text: root.activeRoute === "root" ? "" : ""
           color: root.selectedText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.icon
+
+          MouseArea {
+            anchors.fill: parent
+            enabled: root.activeRoute !== "root"
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.goBack()
+          }
         }
 
         Text {
@@ -672,7 +791,9 @@ Item {
           visible: !searchInput.text
           text: !stateStore.loaded
             ? "Loading launcher state…"
-            : (root.indexSettled ? "Search apps and Omarchy commands…" : "Building unified index…")
+            : (root.indexSettled
+                ? (root.activeRoute === "root" ? "Search apps and Omarchy commands…" : "Search " + root.activeMenuTitle + "…")
+                : "Building unified index…")
           color: root.selectedText
           opacity: 0.55
           font.family: Style.font.menuFamily
@@ -709,7 +830,12 @@ Item {
               event.accepted = true
             } else if (event.key === Qt.Key_Escape) {
               if (searchInput.text) searchInput.text = ""
+              else if (root.goBack()) { }
               else root.dismiss()
+              event.accepted = true
+            } else if ((event.key === Qt.Key_Backspace || event.key === Qt.Key_Left)
+                       && !searchInput.text && root.activeRoute !== "root") {
+              root.goBack()
               event.accepted = true
             } else if (event.key === Qt.Key_Up) {
               root.moveSelection(-1)
@@ -800,8 +926,11 @@ Item {
           required property string appId
           required property string route
           required property string parentRoute
+          required property string targetRoute
+          required property string provider
           required property string resultKind
           required property bool favorite
+          required property bool isChecked
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
@@ -851,7 +980,7 @@ Item {
 
             Text {
               width: parent.width
-              text: resultRow.title
+              text: resultRow.title + (resultRow.isChecked ? " ✓" : "")
               color: resultRow.selected ? root.selectedText : root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.heading

@@ -30,7 +30,8 @@ function actionsForResult(result, context) {
   var usage = state.usage || {}
   var favorite = !!state.favorite
   var application = text(row.resultType || row.type) === "application"
-  var menu = !application && text(row.resultKind || row.kind) === "menu"
+  var resultKind = text(row.resultKind || row.kind)
+  var menu = !application && (resultKind === "menu" || resultKind === "link")
   var resultTitle = text(row.title)
   var actions = []
 
@@ -47,12 +48,24 @@ function actionsForResult(result, context) {
   if (!application && text(row.parentRoute)) {
     actions.push(action(
       "parent",
-      "Open Parent in Omarchy Menu",
+      "Open Parent Menu",
       text(row.breadcrumb) || "Root menu",
       "Ctrl+Enter",
       "",
-      ["parent", "omarchy", "menu", "breadcrumb"],
+      ["parent", "back", "menu", "breadcrumb"],
       1
+    ))
+  }
+
+  if (!application) {
+    actions.push(action(
+      "stock-menu",
+      "Open in Default Omarchy Menu",
+      menu ? resultTitle : (text(row.breadcrumb) || "Root menu"),
+      "",
+      "󰍉",
+      ["default", "stock", "fallback", "omarchy", "menu"],
+      2
     ))
   }
 
@@ -63,7 +76,7 @@ function actionsForResult(result, context) {
     "Ctrl+F",
     "",
     ["favorite", "favourite", "star", "pin", favorite ? "remove" : "add"],
-    2
+    3
   ))
 
   if (usage[resultId]) {
@@ -74,7 +87,7 @@ function actionsForResult(result, context) {
       "",
       "",
       ["reset", "ranking", "usage", "history", "forget", "frecency"],
-      3
+      4
     ))
   }
 

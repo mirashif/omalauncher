@@ -19,6 +19,7 @@ The current implementation includes:
 - Persistent favorites and usage history
 - Frecency as a tie-breaker within equal semantic matches
 - Favorites and recent items first, followed by the complete visible index
+- Native drill-down navigation for static Omarchy menus and installed apps
 - A searchable, context-aware Action Panel
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
@@ -44,9 +45,15 @@ can be searched immediately and include:
 - Add or remove the result from Favorites
 - Reset learned ranking when usage history exists
 
-`Escape` closes the Action Panel first, then clears the root query, then
-closes Omalauncher. `Ctrl+Enter` remains a direct shortcut for opening a
-command's parent menu.
+`Escape` closes the Action Panel first, then clears the current query, then
+returns from a submenu, then closes Omalauncher. `Backspace` and `Left` also
+return from an empty submenu search. `Ctrl+Enter` opens a command's parent
+inside Omalauncher; the Action Panel retains an explicit stock-menu fallback.
+
+Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
+provider that generates non-routable actions dynamically—currently Fonts—is
+opened in the default Omarchy menu so Omalauncher does not duplicate its
+execution logic.
 
 ## Validate
 

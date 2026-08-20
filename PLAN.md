@@ -1,6 +1,6 @@
 # Omalauncher MVP Plan
 
-Status: MVP complete (v0.6.0)
+Status: MVP complete (v0.7.0)
 Last updated: 2026-08-20
 Target platform: Omarchy 4 / Quattro
 
