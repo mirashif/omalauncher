@@ -39,6 +39,10 @@ Item {
   property bool actionPanelOpen: false
   property var actionTarget: ({})
   property int actionSelectedIndex: 0
+  property string actionRoute: "root"
+  property string actionRouteTitle: "Actions"
+  property var actionNavigationStack: []
+  property int actionSectionCount: 0
   property bool guardsPending: false
   property bool guardsReady: false
   property bool guardEvaluationSettled: false
@@ -90,7 +94,8 @@ Item {
       + resultSectionCount * sectionHeight)
   readonly property int actionRowHeight: Math.max(Style.space(50), Style.font.body + Style.font.caption + Style.space(18))
   readonly property int actionListHeight: Math.max(actionRowHeight,
-    Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight)
+    Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight
+      + actionSectionCount * sectionHeight)
   readonly property int actionPanelHeight: Style.space(48) + Style.space(46) + actionListHeight + Style.space(28)
 
   function focusedScreen() {
@@ -442,6 +447,10 @@ Item {
     root.actionPanelOpen = false
     root.actionTarget = ({})
     root.actionSelectedIndex = 0
+    root.actionRoute = "root"
+    root.actionRouteTitle = "Actions"
+    root.actionNavigationStack = []
+    root.actionSectionCount = 0
     actionResultsModel.clear()
     actionSearchInput.text = ""
   }
@@ -451,6 +460,9 @@ Item {
     if (!target.resultId) return
     root.actionTarget = target
     root.actionSelectedIndex = 0
+    root.actionRoute = "root"
+    root.actionRouteTitle = "Actions"
+    root.actionNavigationStack = []
     actionSearchInput.text = ""
     root.actionPanelOpen = true
     root.rebuildActions()
@@ -473,19 +485,26 @@ Item {
     var actions = ActionModel.actionsForResult(root.actionTarget, {
       favorite: stateStore.isFavorite(root.actionTarget.resultId),
       usage: stateStore.usage
-    })
+    }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
+    var sections = ({})
     for (var i = 0; i < actions.length; i++) {
       var action = actions[i]
+      var section = String(action.section || "")
+      if (section) sections[section] = true
       actionResultsModel.append({
         actionId: String(action.id || ""),
         title: String(action.title || ""),
         description: String(action.description || ""),
         shortcut: String(action.shortcut || ""),
-        icon: String(action.icon || "")
+        icon: String(action.icon || ""),
+        section: section,
+        actionKind: String(action.kind || "command"),
+        targetRoute: String(action.target || "")
       })
     }
+    root.actionSectionCount = Object.keys(sections).length
 
     if (actionResultsModel.count === 0) root.actionSelectedIndex = 0
     else root.actionSelectedIndex = Math.max(0, Math.min(root.actionSelectedIndex, actionResultsModel.count - 1))
@@ -502,6 +521,34 @@ Item {
     if (actionResultsModel.count > 0) actionList.positionViewAtIndex(root.actionSelectedIndex, ListView.Contain)
   }
 
+  function openActionRoute(route, title) {
+    var nextRoute = String(route || "")
+    if (!nextRoute) return
+    root.actionNavigationStack = root.actionNavigationStack.concat([{
+      route: root.actionRoute,
+      title: root.actionRouteTitle
+    }])
+    root.actionRoute = nextRoute
+    root.actionRouteTitle = String(title || "Actions")
+    root.actionSelectedIndex = 0
+    actionSearchInput.text = ""
+    root.rebuildActions()
+    Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+  }
+
+  function goBackActionRoute() {
+    if (root.actionNavigationStack.length === 0) return false
+    var previous = root.actionNavigationStack[root.actionNavigationStack.length - 1]
+    root.actionNavigationStack = root.actionNavigationStack.slice(0, root.actionNavigationStack.length - 1)
+    root.actionRoute = String(previous.route || "root")
+    root.actionRouteTitle = String(previous.title || "Actions")
+    root.actionSelectedIndex = 0
+    actionSearchInput.text = ""
+    root.rebuildActions()
+    Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+    return true
+  }
+
   function performAction(actionId) {
     var selectedActionId = String(actionId || "")
     if (!selectedActionId) {
@@ -510,6 +557,19 @@ Item {
     }
     var target = root.actionTarget
     if (!target.resultId) return
+
+    var selectedAction = ({})
+    for (var actionIndex = 0; actionIndex < actionResultsModel.count; actionIndex++) {
+      var candidate = actionResultsModel.get(actionIndex)
+      if (String(candidate.actionId || "") === selectedActionId) {
+        selectedAction = candidate
+        break
+      }
+    }
+    if (String(selectedAction.actionKind || "") === "submenu") {
+      root.openActionRoute(selectedAction.targetRoute, selectedAction.title)
+      return
+    }
 
     if (selectedActionId === "favorite") {
       stateStore.toggleFavorite(target.resultId)
@@ -1027,11 +1087,13 @@ Item {
           MouseArea {
             anchors.fill: parent
             hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             onPositionChanged: root.selectedIndex = resultRow.index
-            onClicked: {
+            onClicked: function(mouse) {
               root.selectedIndex = resultRow.index
-              root.runSelected(false)
+              if (mouse.button === Qt.RightButton) root.openActionPanel()
+              else root.runSelected(false)
             }
           }
         }
@@ -1106,7 +1168,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: Style.space(16)
             anchors.verticalCenter: parent.verticalCenter
-            text: "Actions"
+            text: root.actionRouteTitle
             color: root.foreground
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.title
@@ -1188,7 +1250,8 @@ Item {
             Keys.onPressed: function(event) {
               if (event.key === Qt.Key_Escape
                   || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K)) {
-                root.closeActionPanel()
+                if (event.key === Qt.Key_Escape && root.goBackActionRoute()) { }
+                else root.closeActionPanel()
                 event.accepted = true
               } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
                 root.performAction("favorite")
@@ -1224,6 +1287,27 @@ Item {
           model: actionResultsModel
           clip: true
           boundsBehavior: Flickable.StopAtBounds
+          section.property: "section"
+          section.criteria: ViewSection.FullString
+          section.delegate: Rectangle {
+            required property string section
+            width: actionList.width
+            height: section ? root.sectionHeight : 0
+            color: "transparent"
+
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(16)
+              anchors.bottom: parent.bottom
+              anchors.bottomMargin: Style.space(4)
+              text: parent.section
+              color: root.foreground
+              opacity: 0.46
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
+            }
+          }
 
           delegate: Rectangle {
             id: actionRow
@@ -1233,6 +1317,8 @@ Item {
             required property string description
             required property string shortcut
             required property string icon
+            required property string actionKind
+            required property string targetRoute
 
             readonly property bool selected: index === root.actionSelectedIndex
             width: ListView.view.width
@@ -1245,7 +1331,7 @@ Item {
               anchors.left: parent.left
               anchors.leftMargin: Style.space(10)
               anchors.verticalCenter: parent.verticalCenter
-              text: actionRow.icon
+              text: actionRow.icon || (actionRow.actionKind === "submenu" ? "" : "")
               color: actionRow.selected ? root.selectedText : root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.icon

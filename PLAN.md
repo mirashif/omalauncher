@@ -25,7 +25,7 @@ Implementation rules:
 
 - [x] 1. Extend persistent state for aliases, hidden results, query history, and
   compact-mode preference, including migration from the v1 state schema.
-- [ ] 2. Introduce structured Action Panel sections and shallow submenu
+- [x] 2. Introduce structured Action Panel sections and shallow submenu
   navigation, and open the panel from a result row's right-click action.
 - [ ] 3. Add editable user aliases with conflict handling, search integration,
   persistent result badges, and remove-alias support.

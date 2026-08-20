@@ -4,7 +4,7 @@ function text(value) {
   return String(value || "")
 }
 
-function action(id, title, description, shortcut, icon, keywords, order) {
+function action(id, title, description, shortcut, icon, keywords, order, section, kind, target) {
   var keywordList = Array.isArray(keywords) ? keywords : []
   return {
     id: id,
@@ -13,6 +13,9 @@ function action(id, title, description, shortcut, icon, keywords, order) {
     description: description,
     shortcut: shortcut,
     icon: icon,
+    section: text(section),
+    kind: text(kind || "command"),
+    target: text(target),
     aliases: [],
     keywords: keywordList,
     searchText: [title, description, keywordList.join(" ")].join(" "),
@@ -21,7 +24,7 @@ function action(id, title, description, shortcut, icon, keywords, order) {
   }
 }
 
-function actionsForResult(result, context) {
+function actionsForResult(result, context, route) {
   var row = result || {}
   var resultId = text(row.resultId || row.id)
   if (!resultId) return []
@@ -34,6 +37,34 @@ function actionsForResult(result, context) {
   var menu = !application && (resultKind === "menu" || resultKind === "link")
   var resultTitle = text(row.title)
   var actions = []
+  var activeRoute = text(route || "root")
+
+  if (activeRoute === "omarchy") {
+    if (application) return []
+    if (text(row.parentRoute)) {
+      actions.push(action(
+        "parent",
+        "Open Parent Menu",
+        text(row.breadcrumb) || "Root menu",
+        "Ctrl+Enter",
+        "",
+        ["parent", "back", "menu", "breadcrumb"],
+        0,
+        "Navigation"
+      ))
+    }
+    actions.push(action(
+      "stock-menu",
+      "Open in Default Omarchy Menu",
+      menu ? resultTitle : (text(row.breadcrumb) || "Root menu"),
+      "",
+      "󰍉",
+      ["default", "stock", "fallback", "omarchy", "menu"],
+      1,
+      "Navigation"
+    ))
+    return actions
+  }
 
   actions.push(action(
     "primary",
@@ -42,30 +73,22 @@ function actionsForResult(result, context) {
     "Enter",
     application ? "" : (menu ? "" : "▶"),
     ["open", "run", "launch", "primary", resultTitle],
-    0
+    0,
+    "Primary"
   ))
-
-  if (!application && text(row.parentRoute)) {
-    actions.push(action(
-      "parent",
-      "Open Parent Menu",
-      text(row.breadcrumb) || "Root menu",
-      "Ctrl+Enter",
-      "",
-      ["parent", "back", "menu", "breadcrumb"],
-      1
-    ))
-  }
 
   if (!application) {
     actions.push(action(
-      "stock-menu",
-      "Open in Default Omarchy Menu",
-      menu ? resultTitle : (text(row.breadcrumb) || "Root menu"),
+      "omarchy-actions",
+      "Open With Omarchy",
+      text(row.breadcrumb) || resultTitle,
       "",
       "󰍉",
-      ["default", "stock", "fallback", "omarchy", "menu"],
-      2
+      ["parent", "default", "stock", "fallback", "omarchy", "menu"],
+      1,
+      "Navigation",
+      "submenu",
+      "omarchy"
     ))
   }
 
@@ -76,7 +99,8 @@ function actionsForResult(result, context) {
     "Ctrl+F",
     "",
     ["favorite", "favourite", "star", "pin", favorite ? "remove" : "add"],
-    3
+    2,
+    "Favorites"
   ))
 
   if (usage[resultId]) {
@@ -87,7 +111,8 @@ function actionsForResult(result, context) {
       "",
       "",
       ["reset", "ranking", "usage", "history", "forget", "frecency"],
-      4
+      3,
+      "Manage"
     ))
   }
 
