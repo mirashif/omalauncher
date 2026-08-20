@@ -2023,16 +2023,16 @@ Item {
               width: quickActivationText.implicitWidth + Style.space(10)
               height: Math.max(Style.space(22), quickActivationText.implicitHeight + Style.space(6))
               radius: height / 2
-              color: resultRow.selected ? root.selectedText : root.selectedBackground
-              opacity: 0.75
+              color: root.foreground
 
               Text {
                 id: quickActivationText
                 anchors.centerIn: parent
                 text: root.quickActivationHint(resultRow.index)
-                color: resultRow.selected ? root.selectedBackground : root.selectedText
+                color: root.background
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.caption
+                font.weight: Font.DemiBold
               }
             }
 
