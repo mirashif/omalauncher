@@ -26,15 +26,29 @@ test("state normalization repairs malformed and duplicate values", () => {
     aliases: { "application:firefox": " ff ", empty: "" },
     hidden: ["omarchy:update", "", "omarchy:update"],
     queryHistory: ["firefox", " Firefox ", "update"],
-    preferences: { compactMode: true }
+    preferences: {
+      compactMode: true,
+      calculatorEnabled: false,
+      fileSearchEnabled: true,
+      quickActivationEnabled: false,
+      fileSearchScopes: ["/home/test/Documents/", "/", "relative", "/home/test/Documents"],
+      fileSearchIgnores: ["node_modules", "", "node_modules", "*.tmp"]
+    }
   }), {
-    version: 2,
+    version: 3,
     favorites: ["application:firefox"],
     usage: { "application:firefox": { count: 3, lastUsed: 1200 } },
     aliases: { "application:firefox": "ff" },
     hidden: ["omarchy:update"],
     queryHistory: ["firefox", "update"],
-    preferences: { compactMode: true }
+    preferences: {
+      compactMode: true,
+      calculatorEnabled: false,
+      fileSearchEnabled: true,
+      quickActivationEnabled: false,
+      fileSearchScopes: ["/home/test/Documents"],
+      fileSearchIgnores: ["node_modules", "*.tmp"]
+    }
   })
 })
 
@@ -46,14 +60,29 @@ test("version 1 state migrates without losing favorites or usage", () => {
   })
 
   assert.deepEqual(migrated, {
-    version: 2,
+    version: 3,
     favorites: ["application:firefox"],
     usage: { "application:firefox": { count: 2, lastUsed: 3000 } },
     aliases: {},
     hidden: [],
     queryHistory: [],
-    preferences: { compactMode: false }
+    preferences: StateModel.emptyPreferences()
   })
+})
+
+test("version 2 state gains provider defaults without losing compact mode", () => {
+  const migrated = StateModel.normalizeState({
+    version: 2,
+    favorites: ["application:firefox"],
+    preferences: { compactMode: true }
+  })
+
+  assert.equal(migrated.version, 3)
+  assert.equal(migrated.preferences.compactMode, true)
+  assert.equal(migrated.preferences.calculatorEnabled, true)
+  assert.equal(migrated.preferences.fileSearchEnabled, false)
+  assert.equal(migrated.preferences.quickActivationEnabled, true)
+  assert.deepEqual(migrated.preferences.fileSearchScopes, [])
 })
 
 test("favorites toggle immutably with newest first", () => {
@@ -101,6 +130,7 @@ test("interaction preferences update without losing unrelated state", () => {
   assert.deepEqual(state.queryHistory, ["firefox", "Update Hyprland"])
   assert.deepEqual(state.favorites, ["application:firefox"])
   assert.equal(state.preferences.compactMode, true)
+  assert.equal(state.preferences.calculatorEnabled, true)
 
   state = StateModel.setAlias(state, "application:firefox", "")
   state = StateModel.setHidden(state, "omarchy:update", false)
@@ -108,6 +138,45 @@ test("interaction preferences update without losing unrelated state", () => {
   assert.equal(StateModel.aliasFor(state, "application:firefox"), "")
   assert.equal(StateModel.isHidden(state, "omarchy:update"), false)
   assert.deepEqual(state.queryHistory, [])
+})
+
+test("provider preferences and scope lists update independently", () => {
+  let state = StateModel.emptyState()
+  state = StateModel.setPreference(state, "calculatorEnabled", false)
+  state = StateModel.setPreference(state, "fileSearchEnabled", true)
+  state = StateModel.addFileScope(state, "/home/test/Documents/")
+  state = StateModel.addFileScope(state, "/home/test/Documents")
+  state = StateModel.addFileScope(state, "/")
+  state = StateModel.addFileIgnore(state, "node_modules")
+  state = StateModel.addFileIgnore(state, "*.tmp")
+  state = StateModel.removeFileIgnore(state, "node_modules")
+
+  assert.equal(state.preferences.calculatorEnabled, false)
+  assert.equal(state.preferences.fileSearchEnabled, true)
+  assert.equal(state.preferences.quickActivationEnabled, true)
+  assert.deepEqual(state.preferences.fileSearchScopes, ["/home/test/Documents"])
+  assert.deepEqual(state.preferences.fileSearchIgnores, ["*.tmp"])
+
+  state = StateModel.removeFileScope(state, "/home/test/Documents/")
+  assert.deepEqual(state.preferences.fileSearchScopes, [])
+})
+
+test("provider and personalization resets preserve unrelated state", () => {
+  let state = StateModel.toggleFavorite(StateModel.emptyState(), "application:firefox")
+  state = StateModel.setCompactMode(state, true)
+  state = StateModel.setPreference(state, "fileSearchEnabled", true)
+  state = StateModel.addFileScope(state, "/home/test/Documents")
+
+  const providersReset = StateModel.resetProviderSettings(state)
+  assert.deepEqual(providersReset.favorites, ["application:firefox"])
+  assert.equal(providersReset.preferences.compactMode, true)
+  assert.equal(providersReset.preferences.fileSearchEnabled, false)
+  assert.deepEqual(providersReset.preferences.fileSearchScopes, [])
+
+  const personalizationReset = StateModel.resetPersonalization(state)
+  assert.deepEqual(personalizationReset.favorites, [])
+  assert.equal(personalizationReset.preferences.fileSearchEnabled, true)
+  assert.deepEqual(personalizationReset.preferences.fileSearchScopes, ["/home/test/Documents"])
 })
 
 test("empty state groups favorites and recent records without duplicates", () => {

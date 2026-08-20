@@ -75,6 +75,12 @@ search field. Typing, pressing `Down`, opening Actions, or opening provider
 diagnostics reveals the complete launcher. Search for
 `compact` if you prefer to toggle the mode as a normal launcher command.
 
+Search for `Omalauncher Settings` to configure Compact Mode, numbered result
+shortcuts, calculator and file-search providers, file-search scopes, and ignore
+patterns without leaving the launcher. Scope paths are canonicalized and must
+name an existing directory; `/` is never accepted. Provider and personalization
+resets open a separate confirmation route before applying.
+
 Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is
 opened in the default Omarchy menu so Omalauncher does not duplicate its

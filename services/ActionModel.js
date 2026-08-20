@@ -37,6 +37,7 @@ function actionsForResult(result, context, route) {
   var menu = !application && (resultKind === "menu" || resultKind === "link")
   var hiddenManager = resultKind === "manage-hidden"
   var compactToggle = resultKind === "toggle-compact"
+  var settingsCommand = resultKind === "open-settings" || resultKind.indexOf("settings-") === 0
   var resultTitle = text(row.title)
   var actions = []
   var activeRoute = text(route || "root")
@@ -111,7 +112,8 @@ function actionsForResult(result, context, route) {
     "primary",
     hiddenManager ? "Manage Hidden Results"
       : (compactToggle ? resultTitle
-        : (application ? "Open Application" : (menu ? "Open Menu" : "Run Command"))),
+        : (settingsCommand ? resultTitle
+          : (application ? "Open Application" : (menu ? "Open Menu" : "Run Command")))),
     resultTitle,
     "Enter",
     hiddenManager ? "" : (compactToggle ? "" : (application ? "" : (menu ? "" : "▶"))),
@@ -120,7 +122,7 @@ function actionsForResult(result, context, route) {
     "Primary"
   ))
 
-  if (hiddenManager || compactToggle) return actions
+  if (hiddenManager || compactToggle || settingsCommand) return actions
 
   if (!application) {
     actions.push(action(

@@ -1,10 +1,17 @@
 // Pure persistent-state helpers shared by QML and Node tests.
 
-var STATE_VERSION = 2
+var STATE_VERSION = 3
 var QUERY_HISTORY_LIMIT = 50
 
 function emptyPreferences() {
-  return { compactMode: false }
+  return {
+    compactMode: false,
+    calculatorEnabled: true,
+    fileSearchEnabled: false,
+    quickActivationEnabled: true,
+    fileSearchScopes: [],
+    fileSearchIgnores: []
+  }
 }
 
 function emptyState() {
@@ -25,6 +32,31 @@ function validId(value) {
 
 function validText(value) {
   return String(value || "").trim()
+}
+
+function normalizeScope(value) {
+  var scope = validText(value).replace(/\/+$/g, "")
+  if (!scope || scope.charAt(0) !== "/" || scope === "/") return ""
+  return scope.slice(0, 4096)
+}
+
+function normalizeIgnore(value) {
+  var pattern = validText(value)
+  if (!pattern || /[\r\n\0]/.test(pattern)) return ""
+  return pattern.slice(0, 256)
+}
+
+function uniqueList(values, normalizer, limit) {
+  var input = Array.isArray(values) ? values : []
+  var output = []
+  var seen = {}
+  for (var i = 0; i < input.length && output.length < limit; i++) {
+    var value = normalizer(input[i])
+    if (!value || seen[value]) continue
+    seen[value] = true
+    output.push(value)
+  }
+  return output
 }
 
 function stateWith(state, changes) {
@@ -107,7 +139,17 @@ function normalizeState(value) {
 
   var sourcePreferences = source.preferences && typeof source.preferences === "object"
     ? source.preferences : {}
-  var preferences = { compactMode: sourcePreferences.compactMode === true }
+  var defaults = emptyPreferences()
+  var preferences = {
+    compactMode: sourcePreferences.compactMode === true,
+    calculatorEnabled: sourcePreferences.calculatorEnabled === undefined
+      ? defaults.calculatorEnabled : sourcePreferences.calculatorEnabled === true,
+    fileSearchEnabled: sourcePreferences.fileSearchEnabled === true,
+    quickActivationEnabled: sourcePreferences.quickActivationEnabled === undefined
+      ? defaults.quickActivationEnabled : sourcePreferences.quickActivationEnabled === true,
+    fileSearchScopes: uniqueList(sourcePreferences.fileSearchScopes, normalizeScope, 32),
+    fileSearchIgnores: uniqueList(sourcePreferences.fileSearchIgnores, normalizeIgnore, 64)
+  }
 
   return {
     version: STATE_VERSION,
@@ -256,7 +298,74 @@ function clearQueryHistory(state) {
 }
 
 function setCompactMode(state, enabled) {
-  return stateWith(state, { preferences: { compactMode: enabled === true } })
+  return setPreference(state, "compactMode", enabled)
+}
+
+function setPreference(state, key, enabled) {
+  var current = normalizeState(state)
+  var allowed = {
+    compactMode: true,
+    calculatorEnabled: true,
+    fileSearchEnabled: true,
+    quickActivationEnabled: true
+  }
+  if (!allowed[key]) return current
+  var preferences = {}
+  for (var name in current.preferences) {
+    if (Object.prototype.hasOwnProperty.call(current.preferences, name)) preferences[name] = current.preferences[name]
+  }
+  preferences[key] = enabled === true
+  return stateWith(current, { preferences: preferences })
+}
+
+function updatePreferenceList(state, key, value, add, normalizer, limit) {
+  var current = normalizeState(state)
+  var normalized = normalizer(value)
+  if (!normalized) return current
+  var values = current.preferences[key].slice()
+  var index = values.indexOf(normalized)
+  if (add && index < 0 && values.length < limit) values.push(normalized)
+  if (!add && index >= 0) values.splice(index, 1)
+  var preferences = {}
+  for (var name in current.preferences) {
+    if (Object.prototype.hasOwnProperty.call(current.preferences, name)) preferences[name] = current.preferences[name]
+  }
+  preferences[key] = values
+  return stateWith(current, { preferences: preferences })
+}
+
+function addFileScope(state, value) {
+  return updatePreferenceList(state, "fileSearchScopes", value, true, normalizeScope, 32)
+}
+
+function removeFileScope(state, value) {
+  return updatePreferenceList(state, "fileSearchScopes", value, false, normalizeScope, 32)
+}
+
+function addFileIgnore(state, value) {
+  return updatePreferenceList(state, "fileSearchIgnores", value, true, normalizeIgnore, 64)
+}
+
+function removeFileIgnore(state, value) {
+  return updatePreferenceList(state, "fileSearchIgnores", value, false, normalizeIgnore, 64)
+}
+
+function resetProviderSettings(state) {
+  var current = normalizeState(state)
+  var defaults = emptyPreferences()
+  defaults.compactMode = current.preferences.compactMode
+  return stateWith(current, { preferences: defaults })
+}
+
+function resetPersonalization(state) {
+  var current = normalizeState(state)
+  return stateWith(current, {
+    favorites: [],
+    usage: {},
+    aliases: {},
+    hidden: [],
+    queryHistory: []
+  })
 }
 
 function copyRecord(record, section, favorite) {
@@ -338,6 +447,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     STATE_VERSION: STATE_VERSION,
     QUERY_HISTORY_LIMIT: QUERY_HISTORY_LIMIT,
+    emptyPreferences: emptyPreferences,
     emptyState: emptyState,
     normalizeState: normalizeState,
     parseState: parseState,
@@ -355,6 +465,13 @@ if (typeof module !== "undefined") {
     recordQuery: recordQuery,
     clearQueryHistory: clearQueryHistory,
     setCompactMode: setCompactMode,
+    setPreference: setPreference,
+    addFileScope: addFileScope,
+    removeFileScope: removeFileScope,
+    addFileIgnore: addFileIgnore,
+    removeFileIgnore: removeFileIgnore,
+    resetProviderSettings: resetProviderSettings,
+    resetPersonalization: resetPersonalization,
     emptyStateRows: emptyStateRows
   }
 }

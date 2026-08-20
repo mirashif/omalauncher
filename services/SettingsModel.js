@@ -1,0 +1,181 @@
+// Pure Settings route records shared by QML and Node tests.
+
+var ROUTES = {
+  settings: true,
+  "settings-scope": true,
+  "settings-ignore": true,
+  "settings-reset-providers": true,
+  "settings-reset-personalization": true
+}
+
+function text(value) {
+  return String(value || "")
+}
+
+function record(id, kind, title, description, icon, order, section, key, value) {
+  return {
+    id: id,
+    type: "launcher-command",
+    kind: kind,
+    title: title,
+    breadcrumb: "Omalauncher Settings",
+    description: description,
+    icon: icon,
+    iconFont: "",
+    appIcon: "",
+    appId: "",
+    aliases: [],
+    keywords: ["omalauncher", "settings", key, value],
+    route: "",
+    parentRoute: "settings",
+    searchText: [title, description, "omalauncher settings", key, value].join(" "),
+    providerPriority: -2,
+    order: order,
+    section: section,
+    settingKey: text(key),
+    settingValue: text(value)
+  }
+}
+
+function enabledLabel(enabled) {
+  return enabled === true ? "Enabled" : "Disabled"
+}
+
+function settingsRecords(preferences) {
+  var values = preferences || {}
+  var records = [
+    record("omalauncher:setting-compact", "settings-toggle", "Compact Mode",
+      enabledLabel(values.compactMode), "", 0, "Behavior", "compactMode", ""),
+    record("omalauncher:setting-quick-activation", "settings-toggle", "Numbered Quick Activation",
+      enabledLabel(values.quickActivationEnabled), "󰎠", 1, "Behavior", "quickActivationEnabled", ""),
+    record("omalauncher:setting-calculator", "settings-toggle", "Calculator Results",
+      enabledLabel(values.calculatorEnabled), "", 2, "Providers", "calculatorEnabled", ""),
+    record("omalauncher:setting-file-search", "settings-toggle", "Scoped File Search",
+      enabledLabel(values.fileSearchEnabled), "󰈞", 3, "Providers", "fileSearchEnabled", ""),
+    record("omalauncher:setting-add-scope", "settings-open-scope", "Add File Search Scope",
+      "Choose an existing directory", "", 4, "File Search", "", "")
+  ]
+
+  var scopes = Array.isArray(values.fileSearchScopes) ? values.fileSearchScopes : []
+  for (var scopeIndex = 0; scopeIndex < scopes.length; scopeIndex++) {
+    records.push(record(
+      "omalauncher:setting-scope:" + scopeIndex,
+      "settings-remove-scope",
+      "Remove Scope",
+      text(scopes[scopeIndex]),
+      "",
+      5 + scopeIndex,
+      "File Search Scopes",
+      "fileSearchScopes",
+      scopes[scopeIndex]
+    ))
+  }
+
+  var ignoreOrder = 40
+  records.push(record("omalauncher:setting-add-ignore", "settings-open-ignore", "Add File Ignore Pattern",
+    "For example node_modules or *.tmp", "", ignoreOrder, "File Search", "", ""))
+  var ignores = Array.isArray(values.fileSearchIgnores) ? values.fileSearchIgnores : []
+  for (var ignoreIndex = 0; ignoreIndex < ignores.length; ignoreIndex++) {
+    records.push(record(
+      "omalauncher:setting-ignore:" + ignoreIndex,
+      "settings-remove-ignore",
+      "Remove Ignore Pattern",
+      text(ignores[ignoreIndex]),
+      "",
+      ignoreOrder + 1 + ignoreIndex,
+      "File Search Ignores",
+      "fileSearchIgnores",
+      ignores[ignoreIndex]
+    ))
+  }
+
+  records.push(record("omalauncher:setting-reset-providers", "settings-open-reset-providers",
+    "Reset Provider Settings", "Restore provider defaults and clear scopes", "󰑐", 80, "Reset", "", ""))
+  records.push(record("omalauncher:setting-reset-personalization", "settings-open-reset-personalization",
+    "Reset Personalization", "Clear favorites, aliases, hidden results, history, and ranking", "", 81, "Reset", "", ""))
+  return records
+}
+
+function inputRecords(route, query, error, busy) {
+  var value = text(query).trim()
+  if (route === "settings-scope") {
+    return [record(
+      "omalauncher:setting-save-scope",
+      "settings-save-scope",
+      busy ? "Validating Directory…" : (value ? "Add Directory" : "Enter a Directory Path"),
+      text(error) || value || "Type an absolute path, then press Enter",
+      busy ? "" : "",
+      0,
+      "File Search Scope",
+      "fileSearchScopes",
+      value
+    )]
+  }
+  return [record(
+    "omalauncher:setting-save-ignore",
+    "settings-save-ignore",
+    value ? "Add Ignore Pattern" : "Enter an Ignore Pattern",
+    text(error) || value || "Type a fixed name or glob, then press Enter",
+    "",
+    0,
+    "File Search Ignore",
+    "fileSearchIgnores",
+    value
+  )]
+}
+
+function confirmationRecords(route) {
+  var providers = route === "settings-reset-providers"
+  return [
+    record(
+      providers ? "omalauncher:confirm-reset-providers" : "omalauncher:confirm-reset-personalization",
+      providers ? "settings-confirm-reset-providers" : "settings-confirm-reset-personalization",
+      providers ? "Confirm Provider Settings Reset" : "Confirm Personalization Reset",
+      providers
+        ? "Restore provider defaults and remove configured scopes and ignores"
+        : "Clear favorites, aliases, hidden results, history, and learned ranking",
+      "",
+      0,
+      "Confirmation",
+      "",
+      ""
+    ),
+    record("omalauncher:cancel-reset", "settings-cancel", "Cancel", "Keep current settings", "", 1,
+      "Confirmation", "", "")
+  ]
+}
+
+function isRoute(route) {
+  return ROUTES[text(route)] === true
+}
+
+function isInputRoute(route) {
+  return route === "settings-scope" || route === "settings-ignore"
+}
+
+function isConfirmationRoute(route) {
+  return route === "settings-reset-providers" || route === "settings-reset-personalization"
+}
+
+function routeTitle(route) {
+  var titles = {
+    settings: "Omalauncher Settings",
+    "settings-scope": "Add File Search Scope",
+    "settings-ignore": "Add File Ignore Pattern",
+    "settings-reset-providers": "Reset Provider Settings",
+    "settings-reset-personalization": "Reset Personalization"
+  }
+  return titles[text(route)] || "Omalauncher Settings"
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    settingsRecords: settingsRecords,
+    inputRecords: inputRecords,
+    confirmationRecords: confirmationRecords,
+    isRoute: isRoute,
+    isInputRoute: isInputRoute,
+    isConfirmationRoute: isConfirmationRoute,
+    routeTitle: routeTitle
+  }
+}

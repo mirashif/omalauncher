@@ -118,6 +118,18 @@ test("compact-mode command exposes only its primary toggle action", () => {
   assert.equal(actions[0].title, "Enable Compact Mode")
 })
 
+test("settings commands expose only their launcher-owned primary action", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "omalauncher:setting-file-search",
+    resultType: "launcher-command",
+    resultKind: "settings-toggle",
+    title: "Scoped File Search"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary"])
+  assert.equal(actions[0].title, "Scoped File Search")
+})
+
 test("favorite actions expose only valid reorder directions", () => {
   const result = {
     resultId: "application:brave-browser",

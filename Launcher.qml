@@ -12,6 +12,7 @@ import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
 import "services/LayoutModel.js" as LayoutModel
 import "services/NavigationModel.js" as NavigationModel
+import "services/SettingsModel.js" as SettingsModel
 import "services/StatusModel.js" as StatusModel
 import "SearchEngine.js" as SearchEngine
 
@@ -61,6 +62,8 @@ Item {
   property string defaultSourceError: ""
   property string userSourceError: ""
   property string guardError: ""
+  property string settingsInputError: ""
+  property bool settingsInputBusy: false
   property double openMeasurementStartedAt: 0
   property double lastWarmOpenMs: 0
   property double lastSearchUpdateMs: 0
@@ -437,6 +440,25 @@ Item {
 
   function managementRecords() {
     var records = [{
+      id: "omalauncher:settings",
+      type: "launcher-command",
+      kind: "open-settings",
+      title: "Omalauncher Settings",
+      breadcrumb: "Omalauncher",
+      description: "Configure launcher behavior and providers",
+      icon: "",
+      iconFont: "",
+      appIcon: "",
+      appId: "",
+      aliases: [],
+      keywords: ["settings", "preferences", "configure", "providers"],
+      route: "settings",
+      parentRoute: "root",
+      searchText: "omalauncher settings preferences configure providers",
+      providerPriority: -1,
+      order: -3,
+      section: "Launcher"
+    }, {
       id: "omalauncher:toggle-compact",
       type: "launcher-command",
       kind: "toggle-compact",
@@ -516,7 +538,8 @@ Item {
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
     if (root.activeRoute !== "root" && root.activeRoute !== "apps"
-        && root.activeRoute !== "hidden" && !root.menuItems[root.activeRoute]) {
+        && root.activeRoute !== "hidden" && !SettingsModel.isRoute(root.activeRoute)
+        && !root.menuItems[root.activeRoute]) {
       root.activeRoute = "root"
       root.navigationStack = []
     }
@@ -526,13 +549,22 @@ Item {
       scopedRecords = root.visibleRecords(root.appRecords)
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
+    } else if (root.activeRoute === "settings") {
+      scopedRecords = SettingsModel.settingsRecords(stateStore.preferences)
+    } else if (SettingsModel.isInputRoute(root.activeRoute)) {
+      scopedRecords = SettingsModel.inputRecords(
+        root.activeRoute, query, root.settingsInputError, root.settingsInputBusy)
+    } else if (SettingsModel.isConfirmationRoute(root.activeRoute)) {
+      scopedRecords = SettingsModel.confirmationRecords(root.activeRoute)
     } else if (root.activeRoute !== "root") {
       scopedRecords = root.visibleRecords(MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query))
     }
 
     scopedRecords = root.personalizedRecords(scopedRecords)
     var results
-    if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
+    if (SettingsModel.isInputRoute(root.activeRoute)
+        || SettingsModel.isConfirmationRoute(root.activeRoute)) results = scopedRecords
+    else if (query) results = SearchEngine.search(scopedRecords, query, { limit: 50, usage: stateStore.usage })
     else if (root.activeRoute === "root") results = stateStore.emptyRows(root.allRecords)
     else results = scopedRecords
     var sections = {}
@@ -555,6 +587,8 @@ Item {
         parentRoute: String(result.parentRoute || "root"),
         targetRoute: String(result.targetRoute || ""),
         provider: String(result.provider || ""),
+        settingKey: String(result.settingKey || ""),
+        settingValue: String(result.settingValue || ""),
         isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
@@ -664,6 +698,8 @@ Item {
       parentRoute: String(row.parentRoute || ""),
       targetRoute: String(row.targetRoute || ""),
       provider: String(row.provider || ""),
+      settingKey: String(row.settingKey || ""),
+      settingValue: String(row.settingValue || ""),
       userAlias: String(row.userAlias || "")
     }
   }
@@ -672,13 +708,14 @@ Item {
     if (route === "root") return "Omalauncher"
     if (route === "apps") return "Apps"
     if (route === "hidden") return "Hidden Results"
+    if (SettingsModel.isRoute(route)) return SettingsModel.routeTitle(route)
     var entry = root.menuItems[route]
     return entry ? String(entry.title || entry.label || route) : String(route || "Omalauncher")
   }
 
   function setActiveRoute(route, pushHistory) {
     var nextRoute = String(route || "root")
-    if (nextRoute !== "root" && nextRoute !== "hidden") {
+    if (nextRoute !== "root" && nextRoute !== "hidden" && !SettingsModel.isRoute(nextRoute)) {
       var nextEntry = root.menuItems[nextRoute]
       if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
       if (nextEntry.kind === "link" && nextEntry.target) {
@@ -692,6 +729,12 @@ Item {
       root.navigationStack = root.navigationStack.concat([root.activeRoute])
     }
     root.resetActionPanel()
+    root.settingsInputError = ""
+    if (root.settingsInputBusy && nextRoute !== root.activeRoute) {
+      if (scopeRealpathProc.running) scopeRealpathProc.signal(15)
+      if (scopeTypeProc.running) scopeTypeProc.signal(15)
+      root.settingsInputBusy = false
+    }
     root.activeRoute = nextRoute
     searchInput.text = ""
     root.selectedIndex = 0
@@ -970,6 +1013,75 @@ Item {
 
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
+    if (row.resultKind === "open-settings") {
+      root.setActiveRoute("settings", true)
+      return
+    }
+    if (row.resultKind === "settings-toggle") {
+      var settingKey = String(row.settingKey || "")
+      if (settingKey === "compactMode") {
+        root.toggleCompactMode()
+        if (root.activeRoute !== "settings") root.setActiveRoute("settings", true)
+      } else {
+        var nextSettingValue = stateStore.preferences[settingKey] !== true
+        stateStore.setPreference(settingKey, nextSettingValue)
+        root.showOsd("", row.title + " " + (nextSettingValue ? "enabled" : "disabled"))
+        root.rebuildResults()
+      }
+      return
+    }
+    if (row.resultKind === "settings-open-scope") {
+      root.setActiveRoute("settings-scope", true)
+      return
+    }
+    if (row.resultKind === "settings-open-ignore") {
+      root.setActiveRoute("settings-ignore", true)
+      return
+    }
+    if (row.resultKind === "settings-save-scope") {
+      root.validateSettingsScope(row.settingValue)
+      return
+    }
+    if (row.resultKind === "settings-save-ignore") {
+      root.saveSettingsIgnore(row.settingValue)
+      return
+    }
+    if (row.resultKind === "settings-remove-scope") {
+      stateStore.removeFileScope(row.settingValue)
+      root.showOsd("󰈞", "Removed file search scope")
+      root.rebuildResults()
+      return
+    }
+    if (row.resultKind === "settings-remove-ignore") {
+      stateStore.removeFileIgnore(row.settingValue)
+      root.showOsd("󰈞", "Removed file ignore pattern")
+      root.rebuildResults()
+      return
+    }
+    if (row.resultKind === "settings-open-reset-providers") {
+      root.setActiveRoute("settings-reset-providers", true)
+      return
+    }
+    if (row.resultKind === "settings-open-reset-personalization") {
+      root.setActiveRoute("settings-reset-personalization", true)
+      return
+    }
+    if (row.resultKind === "settings-confirm-reset-providers") {
+      stateStore.resetProviderSettings()
+      root.showOsd("󰑐", "Provider settings reset")
+      root.goBack()
+      return
+    }
+    if (row.resultKind === "settings-confirm-reset-personalization") {
+      stateStore.resetPersonalization()
+      root.showOsd("", "Personalization reset")
+      root.goBack()
+      return
+    }
+    if (row.resultKind === "settings-cancel") {
+      root.goBack()
+      return
+    }
     if (row.resultKind === "toggle-compact") {
       root.toggleCompactMode()
       return
@@ -1017,6 +1129,40 @@ Item {
     Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
+  function validateSettingsScope(value) {
+    if (root.settingsInputBusy) return
+    var candidate = String(value || "").trim()
+    if (!candidate || candidate.charAt(0) !== "/") {
+      root.settingsInputError = "Enter an absolute directory path"
+      root.rebuildResults()
+      return
+    }
+    if (candidate === "/") {
+      root.settingsInputError = "The filesystem root cannot be a search scope"
+      root.rebuildResults()
+      return
+    }
+    root.settingsInputBusy = true
+    root.settingsInputError = ""
+    scopeRealpathProc.output = ""
+    scopeRealpathProc.command = ["realpath", "-e", "--", candidate]
+    scopeRealpathProc.running = true
+    root.rebuildResults()
+  }
+
+  function saveSettingsIgnore(value) {
+    var pattern = String(value || "").trim()
+    if (!pattern || /[\r\n\0]/.test(pattern)) {
+      root.settingsInputError = "Enter one file name or glob pattern"
+      root.rebuildResults()
+      return
+    }
+    var existed = stateStore.preferences.fileSearchIgnores.indexOf(pattern) >= 0
+    stateStore.addFileIgnore(pattern)
+    root.showOsd("󰈞", existed ? "Ignore pattern already configured" : "Added file ignore pattern")
+    root.goBack()
+  }
+
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
@@ -1057,6 +1203,8 @@ Item {
     if (!row.resultId) return ""
     if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
+    if (row.resultKind === "open-settings") return "Open Settings"
+    if (String(row.resultKind || "").indexOf("settings-") === 0) return "Apply"
     if (row.resultType === "application") return "Open Application"
     if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
     return "Run Command"
@@ -1085,6 +1233,53 @@ Item {
     guardProc.generation = root.menuRevision
     guardProc.command = ["bash", "-lc", script]
     guardProc.running = true
+  }
+
+  Process {
+    id: scopeRealpathProc
+    property string output: ""
+    stdout: SplitParser {
+      onRead: function(data) { scopeRealpathProc.output += data }
+    }
+    onExited: function(exitCode, exitStatus) {
+      if (root.activeRoute !== "settings-scope") return
+      var canonical = String(scopeRealpathProc.output || "").trim()
+      if (exitCode !== 0 || exitStatus !== 0 || !canonical || canonical === "/") {
+        root.settingsInputBusy = false
+        root.settingsInputError = canonical === "/"
+          ? "The filesystem root cannot be a search scope"
+          : "Directory does not exist"
+        root.rebuildResults()
+        return
+      }
+      scopeTypeProc.canonical = canonical
+      scopeTypeProc.output = ""
+      scopeTypeProc.command = ["stat", "-c", "%F", "--", canonical]
+      scopeTypeProc.running = true
+    }
+  }
+
+  Process {
+    id: scopeTypeProc
+    property string canonical: ""
+    property string output: ""
+    stdout: SplitParser {
+      onRead: function(data) { scopeTypeProc.output += data }
+    }
+    onExited: function(exitCode, exitStatus) {
+      if (root.activeRoute !== "settings-scope") return
+      root.settingsInputBusy = false
+      if (exitCode !== 0 || exitStatus !== 0 || String(scopeTypeProc.output || "").trim() !== "directory") {
+        root.settingsInputError = "Search scopes must be existing directories"
+        root.rebuildResults()
+        return
+      }
+      var canonical = String(scopeTypeProc.canonical || "")
+      var existed = stateStore.preferences.fileSearchScopes.indexOf(canonical) >= 0
+      stateStore.addFileScope(canonical)
+      root.showOsd("󰈞", existed ? "Search scope already configured" : "Added file search scope")
+      root.goBack()
+    }
   }
 
   ListModel { id: resultsModel }
@@ -1314,6 +1509,7 @@ Item {
           Accessible.searchEdit: true
           onTextChanged: {
             if (!root.applyingQueryHistory) root.resetQueryHistoryNavigation()
+            if (SettingsModel.isInputRoute(root.activeRoute)) root.settingsInputError = ""
             if (!searchInput.text) root.compactExpanded = false
             root.selectedIndex = 0
             root.rebuildResults()

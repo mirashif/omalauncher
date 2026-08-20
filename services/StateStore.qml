@@ -19,7 +19,7 @@ Item {
   readonly property var aliases: snapshot.aliases || ({})
   readonly property var hidden: snapshot.hidden || []
   readonly property var queryHistory: snapshot.queryHistory || []
-  readonly property var preferences: snapshot.preferences || ({ compactMode: false })
+  readonly property var preferences: snapshot.preferences || StateModel.emptyPreferences()
 
   function hydrate(raw) {
     var parsed = StateModel.parseStateResult(raw)
@@ -97,6 +97,41 @@ Item {
 
   function setCompactMode(enabled) {
     root.snapshot = StateModel.setCompactMode(root.snapshot, enabled)
+    root.scheduleSave()
+  }
+
+  function setPreference(key, enabled) {
+    root.snapshot = StateModel.setPreference(root.snapshot, key, enabled)
+    root.scheduleSave()
+  }
+
+  function addFileScope(value) {
+    root.snapshot = StateModel.addFileScope(root.snapshot, value)
+    root.scheduleSave()
+  }
+
+  function removeFileScope(value) {
+    root.snapshot = StateModel.removeFileScope(root.snapshot, value)
+    root.scheduleSave()
+  }
+
+  function addFileIgnore(value) {
+    root.snapshot = StateModel.addFileIgnore(root.snapshot, value)
+    root.scheduleSave()
+  }
+
+  function removeFileIgnore(value) {
+    root.snapshot = StateModel.removeFileIgnore(root.snapshot, value)
+    root.scheduleSave()
+  }
+
+  function resetProviderSettings() {
+    root.snapshot = StateModel.resetProviderSettings(root.snapshot)
+    root.scheduleSave()
+  }
+
+  function resetPersonalization() {
+    root.snapshot = StateModel.resetPersonalization(root.snapshot)
     root.scheduleSave()
   }
 
