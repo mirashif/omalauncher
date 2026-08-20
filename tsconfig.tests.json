@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "providers/**/*.js",
+    "services/**/*.js",
+    "tests/**/*.js",
+    "types/**/*.d.ts"
+  ]
+}

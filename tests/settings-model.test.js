@@ -14,13 +14,19 @@ test("settings expose provider toggles and configured file rules", () => {
     fileSearchAvailable: false,
     commonScopes: ["/home/test/Documents", "/home/test/Downloads"]
   })
+  const fileToggle = rows.find(row => row.settingKey === "fileSearchEnabled")
+  const scope = rows.find(row => row.kind === "settings-remove-scope")
+  const ignore = rows.find(row => row.kind === "settings-remove-ignore")
+  const suggested = rows.find(row => row.kind === "settings-add-suggested-scope")
+  assert.ok(fileToggle)
+  assert.ok(scope)
+  assert.ok(ignore)
+  assert.ok(suggested)
 
-  assert.equal(rows.find(row => row.settingKey === "fileSearchEnabled").description,
-    "Enabled · 1 scope · fd unavailable")
-  assert.equal(rows.find(row => row.kind === "settings-remove-scope").settingValue, "/home/test/Documents")
-  assert.equal(rows.find(row => row.kind === "settings-remove-ignore").settingValue, "node_modules")
-  assert.equal(rows.find(row => row.kind === "settings-add-suggested-scope").settingValue,
-    "/home/test/Downloads")
+  assert.equal(fileToggle.description, "Enabled · 1 scope · fd unavailable")
+  assert.equal(scope.settingValue, "/home/test/Documents")
+  assert.equal(ignore.settingValue, "node_modules")
+  assert.equal(suggested.settingValue, "/home/test/Downloads")
   assert.equal(rows.some(row => row.kind === "settings-open-reset-personalization"), true)
 })
 

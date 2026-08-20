@@ -1,19 +1,41 @@
 // Pure monitor selection and responsive card geometry helpers.
 
+/** @typedef {import("../types/models").ScreenLike} ScreenLike */
+/** @typedef {import("../types/models").CardGeometry} CardGeometry */
+
+/**
+ * @param {unknown} value
+ * @param {number} fallback
+ * @returns {number}
+ */
 function finiteNumber(value, fallback) {
   var number = Number(value)
   return isFinite(number) ? number : fallback
 }
 
+/**
+ * @param {readonly ScreenLike[] | null | undefined} screens
+ * @param {unknown} monitorName
+ * @returns {ScreenLike | null}
+ */
 function screenForMonitor(screens, monitorName) {
   var name = String(monitorName || "")
   var values = screens || []
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i] && values[i].name || "") === name) return values[i]
+    var screen = values[i]
+    if (screen && String(screen.name || "") === name) return screen
   }
   return null
 }
 
+/**
+ * @param {unknown} searchHeight
+ * @param {unknown} listHeight
+ * @param {unknown} topMargin
+ * @param {unknown} resultsOffset
+ * @param {unknown} bottomMargin
+ * @returns {number}
+ */
 function resultCardHeight(searchHeight, listHeight, topMargin, resultsOffset, bottomMargin) {
   return Math.max(0, finiteNumber(searchHeight, 0))
     + Math.max(0, finiteNumber(listHeight, 0))
@@ -22,11 +44,25 @@ function resultCardHeight(searchHeight, listHeight, topMargin, resultsOffset, bo
     + Math.max(0, finiteNumber(bottomMargin, 0))
 }
 
+/**
+ * @param {unknown} searchHeight
+ * @param {unknown} padding
+ * @returns {number}
+ */
 function compactCardHeight(searchHeight, padding) {
   return Math.max(0, finiteNumber(searchHeight, 0))
     + Math.max(0, finiteNumber(padding, 0)) * 2
 }
 
+/**
+ * @param {unknown} panelWidth
+ * @param {unknown} panelHeight
+ * @param {unknown} desiredWidth
+ * @param {unknown} desiredHeight
+ * @param {unknown} gap
+ * @param {unknown} anchorRatio
+ * @returns {CardGeometry}
+ */
 function cardGeometry(panelWidth, panelHeight, desiredWidth, desiredHeight, gap, anchorRatio) {
   var panelW = Math.max(1, finiteNumber(panelWidth, 1))
   var panelH = Math.max(1, finiteNumber(panelHeight, 1))

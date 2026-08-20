@@ -1,5 +1,12 @@
 // Pure Settings route records shared by QML and Node tests.
 
+/** @typedef {import("../types/models").BooleanMap} BooleanMap */
+/** @typedef {import("../types/models").StringMap} StringMap */
+/** @typedef {import("../types/models").Preferences} Preferences */
+/** @typedef {import("../types/models").SettingsContext} SettingsContext */
+/** @typedef {import("../types/models").SettingRecord} SettingRecord */
+
+/** @type {BooleanMap} */
 var ROUTES = {
   settings: true,
   "settings-scope": true,
@@ -8,11 +15,26 @@ var ROUTES = {
   "settings-reset-personalization": true
 }
 
+/** @param {unknown} value @returns {string} */
 function text(value) {
   return String(value || "")
 }
 
+/**
+ * @param {string} id
+ * @param {string} kind
+ * @param {string} title
+ * @param {string} description
+ * @param {string} icon
+ * @param {number} order
+ * @param {string} section
+ * @param {unknown} key
+ * @param {unknown} value
+ * @returns {SettingRecord}
+ */
 function record(id, kind, title, description, icon, order, section, key, value) {
+  var settingKey = text(key)
+  var settingValue = text(value)
   return {
     id: id,
     type: "launcher-command",
@@ -25,27 +47,34 @@ function record(id, kind, title, description, icon, order, section, key, value) 
     appIcon: "",
     appId: "",
     aliases: [],
-    keywords: ["omalauncher", "settings", key, value],
+    keywords: ["omalauncher", "settings", settingKey, settingValue],
     route: "",
     parentRoute: "settings",
-    searchText: [title, description, "omalauncher settings", key, value].join(" "),
+    searchText: [title, description, "omalauncher settings", settingKey, settingValue].join(" "),
     providerPriority: -2,
     order: order,
     section: section,
-    settingKey: text(key),
-    settingValue: text(value)
+    settingKey: settingKey,
+    settingValue: settingValue
   }
 }
 
+/** @param {unknown} enabled @returns {string} */
 function enabledLabel(enabled) {
   return enabled === true ? "Enabled" : "Disabled"
 }
 
+/** @param {unknown} value @returns {string} */
 function pathName(value) {
   var path = text(value).replace(/\/+$/g, "")
   return path.slice(path.lastIndexOf("/") + 1) || path
 }
 
+/**
+ * @param {Partial<Preferences> | null | undefined} preferences
+ * @param {SettingsContext | null | undefined} context
+ * @returns {SettingRecord[]}
+ */
 function settingsRecords(preferences, context) {
   var values = preferences || {}
   var status = context || {}
@@ -61,6 +90,7 @@ function settingsRecords(preferences, context) {
   if (status.fileSearchSettled === true && status.fileSearchAvailable !== true) {
     fileDescription += " · fd unavailable"
   }
+  /** @type {SettingRecord[]} */
   var records = [
     record("omalauncher:setting-compact", "settings-toggle", "Compact Mode",
       enabledLabel(values.compactMode), "", 0, "Behavior", "compactMode", ""),
@@ -130,6 +160,13 @@ function settingsRecords(preferences, context) {
   return records
 }
 
+/**
+ * @param {unknown} route
+ * @param {unknown} query
+ * @param {unknown} error
+ * @param {unknown} busy
+ * @returns {SettingRecord[]}
+ */
 function inputRecords(route, query, error, busy) {
   var value = text(query).trim()
   if (route === "settings-scope") {
@@ -158,6 +195,7 @@ function inputRecords(route, query, error, busy) {
   )]
 }
 
+/** @param {unknown} route @returns {SettingRecord[]} */
 function confirmationRecords(route) {
   var providers = route === "settings-reset-providers"
   return [
@@ -179,19 +217,26 @@ function confirmationRecords(route) {
   ]
 }
 
+/** @param {unknown} route @returns {boolean} */
 function isRoute(route) {
   return ROUTES[text(route)] === true
 }
 
+/** @param {unknown} route @returns {boolean} */
 function isInputRoute(route) {
-  return route === "settings-scope" || route === "settings-ignore"
+  var value = text(route)
+  return value === "settings-scope" || value === "settings-ignore"
 }
 
+/** @param {unknown} route @returns {boolean} */
 function isConfirmationRoute(route) {
-  return route === "settings-reset-providers" || route === "settings-reset-personalization"
+  var value = text(route)
+  return value === "settings-reset-providers" || value === "settings-reset-personalization"
 }
 
+/** @param {unknown} route @returns {string} */
 function routeTitle(route) {
+  /** @type {StringMap} */
   var titles = {
     settings: "Omalauncher Settings",
     "settings-scope": "Add File Search Scope",

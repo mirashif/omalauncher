@@ -3,10 +3,12 @@ const assert = require("node:assert/strict")
 
 const StateModel = require("../services/StateModel.js")
 
+/** @param {string} id @param {string} title @returns {import("../types/models").SearchableRecord} */
 function app(id, title) {
   return { id, type: "application", title }
 }
 
+/** @param {string} id @param {string} title @returns {import("../types/models").SearchableRecord} */
 function command(id, title) {
   return { id, type: "command", title }
 }
@@ -253,6 +255,28 @@ test("empty state preserves explicit sections for launcher-owned records", () =>
   }], StateModel.emptyState())
 
   assert.equal(rows[0].section, "Launcher")
+})
+
+test("search-only records stay out of the empty view until favorited or recently used", () => {
+  const records = [
+    app("application:firefox", "Firefox"),
+    { id: "omarchy-cli:doctor", type: "omarchy-cli", title: "Doctor", emptyVisible: false }
+  ]
+
+  assert.deepEqual(
+    StateModel.emptyStateRows(records, StateModel.emptyState()).map(row => row.id),
+    ["application:firefox"]
+  )
+
+  const favoriteRows = StateModel.emptyStateRows(records, {
+    favorites: ["omarchy-cli:doctor"]
+  })
+  assert.deepEqual(favoriteRows.map(row => row.id), ["omarchy-cli:doctor", "application:firefox"])
+
+  const recentRows = StateModel.emptyStateRows(records, {
+    usage: { "omarchy-cli:doctor": { count: 1, lastUsed: 1000 } }
+  })
+  assert.deepEqual(recentRows.map(row => row.id), ["omarchy-cli:doctor", "application:firefox"])
 })
 
 test("reset ranking can clear one result or all usage", () => {

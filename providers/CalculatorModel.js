@@ -1,9 +1,21 @@
 // Pure calculator query and output normalization shared by QML and Node tests.
 
+/** @typedef {import("../types/models").CalculatorRequest} CalculatorRequest */
+/** @typedef {import("../types/models").CalculatorRecord} CalculatorRecord */
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function text(value) {
   return String(value || "").trim()
 }
 
+/**
+ * @param {unknown} query
+ * @param {unknown} strongLauncherMatch
+ * @returns {CalculatorRequest}
+ */
 function queryRequest(query, strongLauncherMatch) {
   var raw = text(query)
   if (!raw) return { active: false, explicit: false, expression: "", key: "" }
@@ -27,6 +39,10 @@ function queryRequest(query, strongLauncherMatch) {
   }
 }
 
+/**
+ * @param {unknown} output
+ * @returns {string}
+ */
 function normalizedResult(output) {
   var lines = String(output || "").split(/\r?\n/)
   for (var index = 0; index < lines.length; index++) {
@@ -38,6 +54,11 @@ function normalizedResult(output) {
   return ""
 }
 
+/**
+ * @param {unknown} expression
+ * @param {unknown} output
+ * @returns {CalculatorRecord | null}
+ */
 function resultRecord(expression, output) {
   var result = normalizedResult(output)
   if (!result) return null
@@ -66,6 +87,10 @@ function resultRecord(expression, output) {
   }
 }
 
+/**
+ * @param {unknown} expression
+ * @returns {CalculatorRecord}
+ */
 function unavailableRecord(expression) {
   var source = text(expression)
   return {
@@ -92,6 +117,14 @@ function unavailableRecord(expression) {
   }
 }
 
+/**
+ * @param {unknown} expression
+ * @param {string} kind
+ * @param {string} title
+ * @param {string} description
+ * @param {string} icon
+ * @returns {CalculatorRecord}
+ */
 function statusRecord(expression, kind, title, description, icon) {
   var record = unavailableRecord(expression)
   record.id = "calculator:" + kind
@@ -103,10 +136,19 @@ function statusRecord(expression, kind, title, description, icon) {
   return record
 }
 
+/**
+ * @param {unknown} expression
+ * @returns {CalculatorRecord}
+ */
 function loadingRecord(expression) {
   return statusRecord(expression, "calculator-loading", "Calculating…", "Waiting for qalc", "")
 }
 
+/**
+ * @param {unknown} expression
+ * @param {unknown} message
+ * @returns {CalculatorRecord}
+ */
 function errorRecord(expression, message) {
   return statusRecord(expression, "calculator-error", "Could Not Calculate", text(message), "")
 }

@@ -1,5 +1,13 @@
 // Pure numbered-result activation helpers shared by QML and Node tests.
 
+/**
+ * @param {unknown} ordinal
+ * @param {unknown} resultCount
+ * @param {unknown} maximumVisibleRows
+ * @param {unknown} enabled
+ * @param {unknown} eligible
+ * @returns {number}
+ */
 function resultIndex(ordinal, resultCount, maximumVisibleRows, enabled, eligible) {
   if (enabled !== true || eligible !== true) return -1
   var number = Math.floor(Number(ordinal || 0))
@@ -9,6 +17,14 @@ function resultIndex(ordinal, resultCount, maximumVisibleRows, enabled, eligible
   return number - 1
 }
 
+/**
+ * @param {unknown} index
+ * @param {unknown} resultCount
+ * @param {unknown} maximumVisibleRows
+ * @param {unknown} enabled
+ * @param {unknown} eligible
+ * @returns {string}
+ */
 function hintForIndex(index, resultCount, maximumVisibleRows, enabled, eligible) {
   var ordinal = Math.floor(Number(index)) + 1
   return resultIndex(ordinal, resultCount, maximumVisibleRows, enabled, eligible) >= 0

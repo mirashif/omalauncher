@@ -1,32 +1,58 @@
 // Converts Quickshell DesktopEntry objects (or plain test fixtures) into the
-// provider-neutral records consumed by SearchEngine.js.
+// provider-neutral records consumed by services/SearchEngine.js.
 
+/** @typedef {import("../types/models").DesktopEntryInput} DesktopEntryInput */
+/** @typedef {import("../types/models").ApplicationBuildOptions} ApplicationBuildOptions */
+/** @typedef {import("../types/models").ApplicationRecord} ApplicationRecord */
+
+/**
+ * @param {unknown} value
+ * @returns {value is ArrayLike<unknown>}
+ */
+function isArrayLike(value) {
+  if (value === null || typeof value !== "object") return false
+  return "length" in value && typeof value.length === "number"
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
 function stringList(value) {
+  /** @type {string[]} */
   var out = []
   if (!value) return out
   if (typeof value === "string") {
     var parts = value.split(/[;,]/)
     for (var p = 0; p < parts.length; p++) {
-      var part = parts[p].trim()
+      var part = String(parts[p] || "").trim()
       if (part) out.push(part)
     }
     return out
   }
 
-  try {
+  if (isArrayLike(value)) {
     for (var i = 0; i < value.length; i++) {
       var entry = String(value[i] || "").trim()
       if (entry) out.push(entry)
     }
-  } catch (error) { }
+  }
   return out
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalizeDesktopId(value) {
   var id = String(value || "").trim()
   return id.slice(-8) === ".desktop" ? id.slice(0, -8) : id
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalizeSearchText(value) {
   var text = String(value || "")
   try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "") } catch (error) { }
@@ -39,15 +65,23 @@ function normalizeSearchText(value) {
     .replace(/\s+/g, " ")
 }
 
+/**
+ * @param {readonly DesktopEntryInput[] | null | undefined} entries
+ * @param {ApplicationBuildOptions | null} [options]
+ * @returns {ApplicationRecord[]}
+ */
 function buildApplicationRecords(entries, options) {
   var opts = options || {}
+  /** @type {ApplicationRecord[]} */
   var records = []
+  /** @type {Record<string, boolean>} */
   var seen = {}
   var values = entries || []
 
   for (var i = 0; i < values.length; i++) {
     var entry = values[i]
-    if (!entry || entry.noDisplay === true || entry.hidden === true) continue
+    if (!entry) continue
+    if (entry.noDisplay === true || entry.hidden === true) continue
     var appId = normalizeDesktopId(entry.id)
     var title = String(entry.name || appId).trim()
     if (!appId || !title || seen[appId]) continue
@@ -88,7 +122,10 @@ function buildApplicationRecords(entries, options) {
     if (byTitle !== 0) return byTitle
     return left.appId.localeCompare(right.appId)
   })
-  for (var j = 0; j < records.length; j++) records[j].order = j
+  for (var j = 0; j < records.length; j++) {
+    var record = records[j]
+    if (record) record.order = j
+  }
   return records
 }
 

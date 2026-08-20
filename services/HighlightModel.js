@@ -1,5 +1,9 @@
 // Safe rich-text highlighting shared by QML and Node tests.
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -7,13 +11,24 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function escapeRegex(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+/**
+ * @param {unknown} value
+ * @param {readonly unknown[] | null | undefined} queryTerms
+ * @returns {string}
+ */
 function highlight(value, queryTerms) {
   var source = String(value || "")
+  /** @type {string[]} */
   var terms = []
+  /** @type {Record<string, boolean>} */
   var seen = {}
   var values = Array.isArray(queryTerms) ? queryTerms : []
   for (var i = 0; i < values.length; i++) {
@@ -31,9 +46,10 @@ function highlight(value, queryTerms) {
   var match
   while ((match = matcher.exec(source)) !== null) {
     output += escapeHtml(source.slice(last, match.index))
-    output += "<b>" + escapeHtml(match[0]) + "</b>"
-    last = match.index + match[0].length
-    if (match[0].length === 0) matcher.lastIndex += 1
+    var matchedText = match[0] || ""
+    output += "<b>" + escapeHtml(matchedText) + "</b>"
+    last = match.index + matchedText.length
+    if (matchedText.length === 0) matcher.lastIndex += 1
   }
   return output + escapeHtml(source.slice(last))
 }

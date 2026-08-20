@@ -1,14 +1,33 @@
 // Pure scoped file-query helpers shared by QML and Node tests.
 
+/** @typedef {import("../types/models").QueryRequest} QueryRequest */
+/** @typedef {import("../types/models").FileRank} FileRank */
+/** @typedef {import("../types/models").FileRecord} FileRecord */
+/** @typedef {import("../types/models").SearchableRecord} SearchableRecord */
+/** @typedef {import("../types/models").DescribedRecord} DescribedRecord */
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function text(value) {
   return String(value || "").trim()
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalizePath(value) {
   var path = String(value === undefined || value === null ? "" : value).replace(/\/+$/g, "")
   return path && path.charAt(0) === "/" ? path : ""
 }
 
+/**
+ * @param {unknown} rawQuery
+ * @param {unknown} routeActive
+ * @returns {QueryRequest}
+ */
 function queryRequest(rawQuery, routeActive) {
   var raw = String(rawQuery || "")
   if (routeActive === true) return { active: true, query: raw.trim(), explicit: false }
@@ -18,6 +37,14 @@ function queryRequest(rawQuery, routeActive) {
     : { active: false, query: "", explicit: false }
 }
 
+/**
+ * @param {unknown} fdPath
+ * @param {unknown} query
+ * @param {readonly unknown[] | null | undefined} scopes
+ * @param {readonly unknown[] | null | undefined} ignores
+ * @param {unknown} limit
+ * @returns {string[]}
+ */
 function commandArguments(fdPath, query, scopes, ignores, limit) {
   var executable = text(fdPath) || "fd"
   var maximum = Math.max(1, Math.min(500, Math.floor(Number(limit || 100))))
@@ -44,6 +71,12 @@ function commandArguments(fdPath, query, scopes, ignores, limit) {
   return args
 }
 
+/**
+ * @param {unknown} realpathPath
+ * @param {readonly unknown[] | null | undefined} paths
+ * @param {unknown} limit
+ * @returns {string[]}
+ */
 function canonicalizeArguments(realpathPath, paths, limit) {
   var executable = text(realpathPath) || "realpath"
   var maximum = Math.max(1, Math.min(500, Math.floor(Number(limit || 100))))
@@ -56,6 +89,11 @@ function canonicalizeArguments(realpathPath, paths, limit) {
   return args
 }
 
+/**
+ * @param {unknown} pathValue
+ * @param {readonly unknown[] | null | undefined} scopes
+ * @returns {string}
+ */
 function scopeForPath(pathValue, scopes) {
   var path = normalizePath(pathValue)
   var values = Array.isArray(scopes) ? scopes : []
@@ -69,11 +107,19 @@ function scopeForPath(pathValue, scopes) {
   return best
 }
 
+/**
+ * @param {unknown} pathValue
+ * @returns {string}
+ */
 function basename(pathValue) {
   var path = normalizePath(pathValue)
   return path ? path.slice(path.lastIndexOf("/") + 1) : ""
 }
 
+/**
+ * @param {unknown} pathValue
+ * @returns {string}
+ */
 function parentPath(pathValue) {
   var path = normalizePath(pathValue)
   if (!path) return ""
@@ -81,12 +127,22 @@ function parentPath(pathValue) {
   return slash <= 0 ? "/" : path.slice(0, slash)
 }
 
+/**
+ * @param {unknown} pathValue
+ * @param {unknown} scopeValue
+ * @returns {string}
+ */
 function relativePath(pathValue, scopeValue) {
   var path = normalizePath(pathValue)
   var scope = normalizePath(scopeValue)
   return path.indexOf(scope + "/") === 0 ? path.slice(scope.length + 1) : path
 }
 
+/**
+ * @param {unknown} pathValue
+ * @param {unknown} scopeValue
+ * @returns {string}
+ */
 function breadcrumbForPath(pathValue, scopeValue) {
   var relative = relativePath(pathValue, scopeValue)
   var slash = relative.lastIndexOf("/")
@@ -95,6 +151,10 @@ function breadcrumbForPath(pathValue, scopeValue) {
   return scopeName + (parent ? " › " + parent.replace(/\//g, " › ") : "")
 }
 
+/**
+ * @param {unknown} pathValue
+ * @returns {string}
+ */
 function iconForPath(pathValue) {
   var name = basename(pathValue).toLowerCase()
   if (/\.(png|jpe?g|gif|webp|svg|avif)$/.test(name)) return ""
@@ -106,6 +166,12 @@ function iconForPath(pathValue) {
   return ""
 }
 
+/**
+ * @param {unknown} pathValue
+ * @param {unknown} scope
+ * @param {unknown} query
+ * @returns {number}
+ */
 function matchTier(pathValue, scope, query) {
   var needle = text(query).toLowerCase()
   var name = basename(pathValue).toLowerCase()
@@ -117,10 +183,19 @@ function matchTier(pathValue, scope, query) {
   return 4
 }
 
+/**
+ * @param {readonly unknown[] | null | undefined} paths
+ * @param {unknown} query
+ * @param {readonly unknown[] | null | undefined} scopes
+ * @param {unknown} limit
+ * @returns {FileRecord[]}
+ */
 function recordsForPaths(paths, query, scopes, limit) {
   var values = Array.isArray(paths) ? paths : []
   var maximum = Math.max(1, Math.min(500, Math.floor(Number(limit || 100))))
+  /** @type {Record<string, boolean>} */
   var seen = {}
+  /** @type {FileRank[]} */
   var ranked = []
   for (var index = 0; index < values.length; index++) {
     var path = normalizePath(values[index])
@@ -142,9 +217,11 @@ function recordsForPaths(paths, query, scopes, limit) {
     return left.relative.toLowerCase().localeCompare(right.relative.toLowerCase())
   })
 
+  /** @type {FileRecord[]} */
   var records = []
   for (var resultIndex = 0; resultIndex < ranked.length && records.length < maximum; resultIndex++) {
     var result = ranked[resultIndex]
+    if (!result) continue
     var name = basename(result.path)
     records.push({
       id: "file:" + result.scope + ":" + result.relative,
@@ -172,6 +249,13 @@ function recordsForPaths(paths, query, scopes, limit) {
   return records
 }
 
+/**
+ * @param {string} kind
+ * @param {string} title
+ * @param {string} description
+ * @param {string} route
+ * @returns {DescribedRecord}
+ */
 function statusRecord(kind, title, description, route) {
   return {
     id: "file-search:" + kind,
@@ -197,6 +281,11 @@ function statusRecord(kind, title, description, route) {
   }
 }
 
+/**
+ * @param {unknown} enabled
+ * @param {unknown} scopeCount
+ * @returns {DescribedRecord}
+ */
 function managementRecord(enabled, scopeCount) {
   return {
     id: "omalauncher:search-files",

@@ -6,9 +6,21 @@
   "scripts": {
     "benchmark": "node scripts/performance-benchmark.js",
     "benchmark:runtime": "bash scripts/runtime-performance-check.sh",
+    "typecheck": "npm run typecheck:runtime && npm run typecheck:tests",
+    "typecheck:runtime": "tsc --project tsconfig.json",
+    "typecheck:tests": "tsc --project tsconfig.tests.json",
+    "lint:types": "eslint '**/*.js' 'types/**/*.d.ts'",
     "test": "node --test tests/*.test.js",
     "spike": "node scripts/index-spike.js",
     "validate": "bash scripts/release-check.sh",
     "package:smoke": "bash scripts/package-smoke-test.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0"
   }
 }

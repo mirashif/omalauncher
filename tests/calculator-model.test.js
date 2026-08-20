@@ -21,6 +21,7 @@ test("arithmetic heuristics yield to strong launcher matches", () => {
 
 test("qalc output becomes an ephemeral calculator record", () => {
   const record = CalculatorModel.resultRecord("2 + 2", "4\n")
+  assert.ok(record)
   assert.equal(record.type, "calculator")
   assert.equal(record.title, "4")
   assert.equal(record.calculatorExpression, "2 + 2")

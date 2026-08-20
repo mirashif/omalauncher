@@ -4,8 +4,19 @@ set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 omarchy_path="${OMARCHY_PATH:-/usr/share/omarchy}"
+validation_root=$(mktemp -d "${TMPDIR:-/tmp}/omalauncher-validate.XXXXXX")
+
+cleanup() {
+  case "${validation_root:-}" in
+    */omalauncher-validate.*) rm -rf -- "$validation_root" ;;
+  esac
+}
+trap cleanup EXIT
 
 cd "$project_dir"
+
+npm run typecheck
+npm run lint:types
 
 manifest_version=$(jq -r '.version' manifest.json)
 package_version=$(jq -r '.version' package.json)
@@ -15,7 +26,8 @@ if [[ $manifest_version != "$package_version" ]]; then
 fi
 
 node --test tests/*.test.js
-omarchy plugin validate "$project_dir"
+rsync -a --exclude=.git --exclude=node_modules "$project_dir/" "$validation_root/"
+omarchy plugin validate "$validation_root"
 
 if command -v qmllint >/dev/null 2>&1; then
   qml_lint=$(command -v qmllint)

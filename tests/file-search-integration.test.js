@@ -7,11 +7,13 @@ const { spawnSync } = require("node:child_process")
 
 const FileSearchModel = require("../providers/FileSearchModel.js")
 
+/** @param {string} name @returns {string} */
 function executable(name) {
   const result = spawnSync("which", [name], { encoding: "utf8" })
   return result.status === 0 ? String(result.stdout || "").trim() : ""
 }
 
+/** @param {string[]} command @returns {string[]} */
 function runNul(command) {
   const result = spawnSync(command[0], command.slice(1), {
     encoding: "utf8",
