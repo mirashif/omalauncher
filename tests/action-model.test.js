@@ -160,18 +160,25 @@ test("menu links use navigation actions", () => {
   assert.equal(actions[1].description, "Settings")
 })
 
-test("configure submenu exposes alias editing and removal", () => {
+test("configure submenu exposes alias and application hotkey editing", () => {
   const result = {
     resultId: "application:brave-browser",
     resultType: "application",
     title: "Brave"
   }
-  const empty = ActionModel.actionsForResult(result, { alias: "", hidden: false }, "configure")
-  const configured = ActionModel.actionsForResult(result, { alias: "bb", hidden: true }, "configure")
+  const empty = ActionModel.actionsForResult(result, {
+    alias: "", hidden: false, canConfigureHotkeys: true, hotkey: ""
+  }, "configure")
+  const configured = ActionModel.actionsForResult(result, {
+    alias: "bb", hidden: true, canConfigureHotkeys: true, hotkey: "SUPER + B"
+  }, "configure")
 
-  assert.deepEqual(empty.map(action => action.id), ["set-alias"])
+  assert.deepEqual(empty.map(action => action.id), ["set-alias", "set-hotkey"])
   assert.equal(empty[0].kind, "editor")
-  assert.deepEqual(configured.map(action => action.id), ["set-alias", "remove-alias"])
+  assert.equal(empty[1].target, "hotkey")
+  assert.deepEqual(configured.map(action => action.id), [
+    "set-alias", "remove-alias", "set-hotkey", "remove-hotkey"
+  ])
   assert.equal(configured[0].description, "bb")
   const main = ActionModel.actionsForResult(result, { hidden: true })
   const visibilityAction = main.find(action => action.id === "toggle-hidden")

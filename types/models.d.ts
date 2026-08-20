@@ -139,6 +139,19 @@ export interface DesktopEntryResolutionRequest {
   command: string[];
 }
 
+export interface AppHotkeyEntry {
+  appId: string;
+  title: string;
+  hotkey: string;
+}
+
+export type AppHotkeyMap = Record<string, AppHotkeyEntry>;
+
+export interface HotkeyMutationRequest {
+  active: boolean;
+  command: string[];
+}
+
 export interface CatalogCommandInput {
   route: string;
   binary: string;
@@ -348,6 +361,8 @@ export interface ActionContext {
   hidden?: boolean;
   canUninstall?: boolean;
   canResolveDesktopEntry?: boolean;
+  canConfigureHotkeys?: boolean;
+  hotkey?: string;
 }
 
 export interface ActionRecord extends SearchableRecord {

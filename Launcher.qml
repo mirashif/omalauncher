@@ -4,7 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import qs.Commons
-import qs.Ui
+import qs.Ui as Ui
 import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
@@ -63,6 +63,9 @@ Item {
   property int actionSectionCount: 0
   property bool aliasEditorOpen: false
   property string aliasEditorError: ""
+  property bool hotkeyEditorOpen: false
+  property string hotkeyEditorError: ""
+  property string recordedHotkey: ""
   property bool actionConfirmationOpen: false
   property string pendingConfirmationAction: ""
   property var pendingConfirmationTarget: ({})
@@ -114,6 +117,7 @@ Item {
     userSourceError,
     guardError,
     appProviderError,
+    appHotkeyProvider.error,
     shellFeaturesError,
     cliCatalogError
   ])
@@ -142,6 +146,11 @@ Item {
       provider: "Applications",
       error: appProviderError,
       detail: appProviderError ? "Retry rebuilds the desktop application index." : ""
+    },
+    {
+      provider: "Application hotkeys",
+      error: appHotkeyProvider.error,
+      detail: appHotkeyProvider.error ? "Bindings: " + appHotkeyProvider.bindingsPath : ""
     },
     {
       provider: "Shell features",
@@ -987,6 +996,7 @@ Item {
   }
 
   function resetActionPanel() {
+    if (root.pendingConfirmationAction === "replace-hotkey") appHotkeyProvider.cancelPending()
     root.actionPanelOpen = false
     root.actionTarget = ({})
     root.actionSelectedIndex = 0
@@ -996,6 +1006,9 @@ Item {
     root.actionSectionCount = 0
     root.aliasEditorOpen = false
     root.aliasEditorError = ""
+    root.hotkeyEditorOpen = false
+    root.hotkeyEditorError = ""
+    root.recordedHotkey = ""
     root.actionConfirmationOpen = false
     root.pendingConfirmationAction = ""
     root.pendingConfirmationTarget = ({})
@@ -1043,7 +1056,11 @@ Item {
       canUninstall: root.actionTarget.resultType === "application"
         && appProvider.canRemoveApplications,
       canResolveDesktopEntry: root.actionTarget.resultType === "application"
-        && appProvider.canResolveDesktopEntries
+        && appProvider.canResolveDesktopEntries,
+      canConfigureHotkeys: root.actionTarget.resultType === "application"
+        && appHotkeyProvider.ready && !appHotkeyProvider.error,
+      hotkey: root.actionTarget.resultType === "application"
+        ? appHotkeyProvider.hotkeyFor(root.actionTarget.appId) : ""
     }, root.actionRoute)
     var query = String(actionSearchInput.text || "").trim()
     if (query) actions = SearchEngine.search(actions, query, { limit: 10 })
@@ -1169,6 +1186,111 @@ Item {
     root.rebuildActions()
   }
 
+  function hotkeyKeyName(event) {
+    var key = Number(event.key || 0)
+    if (key >= Qt.Key_A && key <= Qt.Key_Z) return String.fromCharCode(key)
+    if (key >= Qt.Key_0 && key <= Qt.Key_9) return String.fromCharCode(key)
+    if (key >= Qt.Key_F1 && key <= Qt.Key_F24) return "F" + String(key - Qt.Key_F1 + 1)
+    switch (key) {
+    case Qt.Key_Return: return "RETURN"
+    case Qt.Key_Tab: return "TAB"
+    case Qt.Key_Backspace: return "BACKSPACE"
+    case Qt.Key_Delete: return "DELETE"
+    case Qt.Key_Insert: return "INSERT"
+    case Qt.Key_Home: return "HOME"
+    case Qt.Key_End: return "END"
+    case Qt.Key_PageUp: return "PAGE_UP"
+    case Qt.Key_PageDown: return "PAGE_DOWN"
+    case Qt.Key_Left: return "LEFT"
+    case Qt.Key_Right: return "RIGHT"
+    case Qt.Key_Up: return "UP"
+    case Qt.Key_Down: return "DOWN"
+    case Qt.Key_Space: return "SPACE"
+    case Qt.Key_Comma: return "COMMA"
+    case Qt.Key_Minus: return "MINUS"
+    case Qt.Key_Period: return "PERIOD"
+    case Qt.Key_Slash: return "SLASH"
+    case Qt.Key_Semicolon: return "SEMICOLON"
+    case Qt.Key_Equal: return "EQUAL"
+    case Qt.Key_Apostrophe: return "APOSTROPHE"
+    case Qt.Key_BracketLeft: return "BRACKETLEFT"
+    case Qt.Key_Backslash: return "BACKSLASH"
+    case Qt.Key_BracketRight: return "BRACKETRIGHT"
+    case Qt.Key_QuoteLeft: return "GRAVE"
+    }
+    return ""
+  }
+
+  function hotkeyFromEvent(event) {
+    var key = root.hotkeyKeyName(event)
+    if (!key) return ""
+    var parts = []
+    if ((event.modifiers & Qt.MetaModifier) !== 0) parts.push("SUPER")
+    if ((event.modifiers & Qt.ControlModifier) !== 0) parts.push("CTRL")
+    if ((event.modifiers & Qt.AltModifier) !== 0) parts.push("ALT")
+    if ((event.modifiers & Qt.ShiftModifier) !== 0) parts.push("SHIFT")
+    parts.push(key)
+    return parts.join(" + ")
+  }
+
+  function openHotkeyEditor() {
+    root.hotkeyEditorError = ""
+    root.recordedHotkey = appHotkeyProvider.hotkeyFor(root.actionTarget.appId)
+    root.hotkeyEditorOpen = true
+    Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
+  }
+
+  function closeHotkeyEditor() {
+    root.hotkeyEditorOpen = false
+    root.hotkeyEditorError = ""
+    root.recordedHotkey = ""
+    if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+  }
+
+  function saveHotkeyEditor() {
+    if (!root.recordedHotkey) {
+      root.hotkeyEditorError = "Press the hotkey you want to assign"
+      return
+    }
+    if (appHotkeyProvider.busy) {
+      root.hotkeyEditorError = "Another hotkey change is still running"
+      return
+    }
+    root.hotkeyEditorError = "Checking current Hyprland bindings…"
+    if (!appHotkeyProvider.requestSet(
+        root.actionTarget.appId, root.actionTarget.title, root.recordedHotkey)) {
+      if (!root.hotkeyEditorError) root.hotkeyEditorError = "Could not assign this hotkey"
+    }
+  }
+
+  function recordHotkey(event) {
+    if (event.isAutoRepeat) return
+    var noGlobalModifier = (event.modifiers & (Qt.MetaModifier | Qt.ControlModifier | Qt.AltModifier)) === 0
+    if (event.key === Qt.Key_Escape && noGlobalModifier) {
+      root.closeHotkeyEditor()
+      event.accepted = true
+      return
+    }
+    if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && noGlobalModifier) {
+      root.saveHotkeyEditor()
+      event.accepted = true
+      return
+    }
+    var chord = root.hotkeyFromEvent(event)
+    if (!chord) {
+      event.accepted = true
+      return
+    }
+    if (noGlobalModifier) {
+      root.hotkeyEditorError = "Include Super, Ctrl, or Alt to avoid a bare global key"
+      event.accepted = true
+      return
+    }
+    root.recordedHotkey = chord
+    root.hotkeyEditorError = ""
+    event.accepted = true
+  }
+
   function requestActionConfirmation(actionId, target) {
     var selectedActionId = String(actionId || "")
     if (selectedActionId !== "uninstall-application"
@@ -1182,19 +1304,31 @@ Item {
     return true
   }
 
-  function cancelActionConfirmation() {
+  function cancelActionConfirmation(preserveProviderPending) {
+    var canceledAction = root.pendingConfirmationAction
     root.actionConfirmationOpen = false
     root.pendingConfirmationAction = ""
     root.pendingConfirmationTarget = ({})
     root.actionConfirmationMessage = ""
     root.actionConfirmationConfirmText = "Confirm"
-    if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+    if (canceledAction === "replace-hotkey" && preserveProviderPending !== true) {
+      appHotkeyProvider.cancelPending()
+    }
+    if (root.hotkeyEditorOpen) Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
+    else if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
   }
 
   function confirmActionConfirmation() {
     var actionId = root.pendingConfirmationAction
     var target = root.pendingConfirmationTarget
-    root.cancelActionConfirmation()
+    root.cancelActionConfirmation(true)
+    if (actionId === "replace-hotkey") {
+      root.hotkeyEditorError = "Applying hotkey…"
+      if (!appHotkeyProvider.confirmPendingConflict()) {
+        root.hotkeyEditorError = "Could not replace the existing binding"
+      }
+      return
+    }
     if (actionId !== "uninstall-application" || !target || target.resultType !== "application") return
     if (!appProvider.remove(target.appId, target.title)) {
       root.showOsd("", "Uninstall is unavailable for " + String(target.title || "this application"))
@@ -1231,6 +1365,11 @@ Item {
       root.openAliasEditor()
       return
     }
+    if (String(selectedAction.actionKind || "") === "editor"
+        && String(selectedAction.targetRoute || "") === "hotkey") {
+      root.openHotkeyEditor()
+      return
+    }
 
     if (selectedActionId === "uninstall-application") {
       root.requestActionConfirmation(selectedActionId, target)
@@ -1239,6 +1378,12 @@ Item {
 
     if (selectedActionId === "copy-application-id") {
       root.copyText(target.appId, "Copied application ID")
+      return
+    }
+    if (selectedActionId === "remove-hotkey") {
+      if (!appHotkeyProvider.requestRemove(target.appId)) {
+        root.showOsd("", "Could not remove this application hotkey")
+      }
       return
     }
     if (selectedActionId === "reveal-application"
@@ -1761,6 +1906,37 @@ Item {
     onDesktopEntryResolutionFailed: function(operation, appId) {
       root.showOsd("", "Could not find the desktop entry")
       if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
+    }
+  }
+
+  AppHotkeyProvider {
+    id: appHotkeyProvider
+    onEntriesChanged: if (root.actionPanelOpen) root.rebuildActions()
+    onConflictDetected: function(appId, title, hotkey, existingDescription) {
+      root.pendingConfirmationAction = "replace-hotkey"
+      root.pendingConfirmationTarget = root.actionTarget
+      root.actionConfirmationMessage = hotkey + " is currently assigned to “"
+        + existingDescription + "”. Replace it with “" + title + "”?"
+      root.actionConfirmationConfirmText = "Replace"
+      actionConfirmationDialog.selectedIndex = 0
+      root.actionConfirmationOpen = true
+    }
+    onHotkeyApplied: function(appId, hotkey, replacedDescription) {
+      root.closeHotkeyEditor()
+      root.showOsd("󰌌", "Hotkey set: " + hotkey)
+      if (root.actionPanelOpen) root.rebuildActions()
+    }
+    onHotkeyRemoved: function(appId) {
+      root.showOsd("󰌌", "Application hotkey removed")
+      if (root.actionPanelOpen) root.rebuildActions()
+    }
+    onMutationFailed: function(message) {
+      if (root.hotkeyEditorOpen) {
+        root.hotkeyEditorError = message
+        Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
+      } else {
+        root.showOsd("", message)
+      }
     }
   }
 
@@ -2723,7 +2899,7 @@ Item {
 
         Text {
           anchors.centerIn: actionList
-          visible: actionResultsModel.count === 0 && !root.aliasEditorOpen
+          visible: actionResultsModel.count === 0 && !root.aliasEditorOpen && !root.hotkeyEditorOpen
           text: "No matching actions"
           color: root.foreground
           opacity: 0.55
@@ -2823,6 +2999,92 @@ Item {
               text: root.aliasEditorError || "A short keyword without spaces"
               color: root.aliasEditorError ? Color.urgent : root.foreground
               opacity: root.aliasEditorError ? 0.9 : 0.5
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.Wrap
+            }
+
+            Text {
+              width: parent.width
+              text: "Enter  Save  ·  Esc  Cancel"
+              color: root.foreground
+              opacity: 0.48
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+        }
+
+        Rectangle {
+          id: hotkeyRecorder
+          anchors.fill: parent
+          visible: root.hotkeyEditorOpen
+          z: 32
+          radius: actionPanel.radius
+          color: root.background
+          border.width: Math.max(1, Style.space(1))
+          border.color: root.borderColor
+          focus: visible
+          Accessible.role: Accessible.Dialog
+          Accessible.name: "Set hotkey for " + String(root.actionTarget.title || "")
+          Accessible.description: "Press a global hotkey, then Enter to save"
+          Keys.priority: Keys.BeforeItem
+          Keys.onPressed: function(event) { root.recordHotkey(event) }
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: hotkeyRecorder.forceActiveFocus()
+          }
+
+          Column {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Style.space(18)
+            spacing: Style.space(12)
+
+            Text {
+              width: parent.width
+              text: appHotkeyProvider.hotkeyFor(root.actionTarget.appId) ? "Change Hotkey" : "Set Hotkey"
+              color: root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.title
+              font.weight: Font.DemiBold
+            }
+
+            Text {
+              width: parent.width
+              text: String(root.actionTarget.title || "")
+              color: root.foreground
+              opacity: 0.55
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+            }
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(56)
+              radius: Math.max(0, Style.cornerRadius - Style.space(4))
+              color: root.selectedBackground
+
+              Text {
+                anchors.centerIn: parent
+                text: root.recordedHotkey || "Press your hotkey"
+                color: root.selectedText
+                opacity: root.recordedHotkey ? 1 : 0.62
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.body
+                font.weight: Font.Medium
+              }
+            }
+
+            Text {
+              width: parent.width
+              text: root.hotkeyEditorError
+                || "Use Super, Ctrl, or Alt plus one key. Existing bindings require confirmation."
+              color: root.hotkeyEditorError ? Color.urgent : root.foreground
+              opacity: root.hotkeyEditorError ? 0.9 : 0.5
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.Wrap
@@ -2982,9 +3244,13 @@ Item {
       }
 
 
-      ConfirmDialog {
+      Ui.ConfirmDialog {
         id: actionConfirmationDialog
+        // Static analysis cannot resolve the inherited Item API through the
+        // external qs.Ui module, but ConfirmDialog is an Item at runtime.
+        // qmllint disable unresolved-type
         anchors.fill: parent
+        // qmllint enable unresolved-type
         opened: root.actionConfirmationOpen
         z: 60
         message: root.actionConfirmationMessage

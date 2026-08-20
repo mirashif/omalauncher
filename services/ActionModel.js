@@ -135,6 +135,7 @@ function actionsForResult(result, context, route) {
 
   if (activeRoute === "configure") {
     var currentAlias = text(state.alias)
+    var currentHotkey = application ? text(state.hotkey) : ""
     actions.push(action(
       "set-alias",
       currentAlias ? "Change Alias" : "Set Alias",
@@ -158,6 +159,32 @@ function actionsForResult(result, context, route) {
         1,
         "Alias"
       ))
+    }
+    if (application && state.canConfigureHotkeys === true) {
+      actions.push(action(
+        "set-hotkey",
+        currentHotkey ? "Change Hotkey" : "Set Hotkey",
+        currentHotkey || "Launch this application from anywhere",
+        "",
+        "󰌌",
+        ["hotkey", "shortcut", "keyboard", "binding", "configure"],
+        actions.length,
+        "Hotkey",
+        "editor",
+        "hotkey"
+      ))
+      if (currentHotkey) {
+        actions.push(action(
+          "remove-hotkey",
+          "Remove Hotkey",
+          currentHotkey,
+          "",
+          "",
+          ["hotkey", "shortcut", "remove", "delete", "clear"],
+          actions.length,
+          "Hotkey"
+        ))
+      }
     }
     return actions
   }
@@ -262,10 +289,11 @@ function actionsForResult(result, context, route) {
     "configure-actions",
     application ? "Configure Application"
       : ((stockCommand || cliCommand) ? "Configure Command" : "Configure Result"),
-    state.alias ? "Alias: " + text(state.alias) : "Set a search alias",
+    state.alias ? "Alias: " + text(state.alias)
+      : (application && state.hotkey ? "Hotkey: " + text(state.hotkey) : "Set a search alias"),
     "",
     "",
-    ["configure", "alias", "keyword", "settings"],
+    ["configure", "alias", "keyword", "hotkey", "shortcut", "settings"],
     actions.length,
     "Configure",
     "submenu",
