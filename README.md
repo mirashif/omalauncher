@@ -24,12 +24,18 @@ The current implementation includes:
 - A stable primary-action footer, persistent badges, and title highlighting
 - Interactive provider warnings with diagnostics and retry
 - Optional Compact Mode and explicit Qt accessibility metadata
+- In-launcher settings with versioned provider preferences
+- Numbered `Ctrl+1`…`Ctrl+8` result activation
+- Optional `qalc` calculator results
+- Opt-in, scoped file-name search backed by `fd`
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
 
-Selecting a result updates its usage history; stronger semantic matches always
-remain ahead of frecency. Personalization state is written atomically to:
+Selecting an application or Omarchy result updates its usage history; stronger
+semantic matches always remain ahead of frecency. Ephemeral calculator and file
+results are intentionally excluded. Personalization state is written atomically
+to:
 
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
@@ -70,6 +76,7 @@ can be searched immediately and include:
 - Set or remove a search alias
 - Hide the result from normal search, or restore it from Manage Hidden Results
 - Reset learned ranking when usage history exists
+- Open or reveal a file, or copy its absolute path
 
 Compact Mode persists across sessions and collapses an empty Root Search to the
 search field. Typing, pressing `Down`, opening Actions, or opening provider
@@ -88,6 +95,17 @@ an expression with `=` for explicit calculation, for example `= 12 * 8` or
 when they do not compete with a strong application or command match. Enter
 copies the result; the Action Panel can copy the original expression. Missing
 or invalid calculator backends never affect application or command search.
+
+Scoped file search is disabled and unconfigured by default. Enable it in
+`Omalauncher Settings`, then add an existing directory manually or choose one
+of the detected common-directory suggestions. Open the `Search Files` result
+for a dedicated route, or type an explicit root query such as `f report`.
+Searches require a non-empty term, use fixed-string `fd` matching, respect
+hidden/ignore behavior plus configured ignore patterns, and cap and time out
+each request. Every result is canonicalized and checked against its configured
+scope before display. Enter opens a file; its Action Panel can reveal the
+parent directory or copy the absolute path. Install `fd` if the Settings status
+reports that its backend is unavailable.
 
 Static JSONC menus and the Apps provider are rendered inside Omalauncher. A
 provider that generates non-routable actions dynamically—currently Fonts—is
@@ -204,7 +222,7 @@ separately if a complete data reset is desired. No packaged file below
 
 ## Troubleshooting
 
-Check that the plugin is loaded and both providers have settled:
+Check that the plugin is loaded and its providers have settled:
 
 ```bash
 omarchy-shell shell call io.github.omalauncher ping ''

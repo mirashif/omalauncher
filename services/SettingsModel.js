@@ -41,12 +41,25 @@ function enabledLabel(enabled) {
   return enabled === true ? "Enabled" : "Disabled"
 }
 
+function pathName(value) {
+  var path = text(value).replace(/\/+$/g, "")
+  return path.slice(path.lastIndexOf("/") + 1) || path
+}
+
 function settingsRecords(preferences, context) {
   var values = preferences || {}
   var status = context || {}
   var calculatorDescription = enabledLabel(values.calculatorEnabled)
   if (status.calculatorSettled === true && status.calculatorAvailable !== true) {
     calculatorDescription += " · qalc unavailable"
+  }
+  var scopes = Array.isArray(values.fileSearchScopes) ? values.fileSearchScopes : []
+  var fileDescription = enabledLabel(values.fileSearchEnabled)
+  if (scopes.length > 0) {
+    fileDescription += " · " + scopes.length + " scope" + (scopes.length === 1 ? "" : "s")
+  }
+  if (status.fileSearchSettled === true && status.fileSearchAvailable !== true) {
+    fileDescription += " · fd unavailable"
   }
   var records = [
     record("omalauncher:setting-compact", "settings-toggle", "Compact Mode",
@@ -56,12 +69,28 @@ function settingsRecords(preferences, context) {
     record("omalauncher:setting-calculator", "settings-toggle", "Calculator Results",
       calculatorDescription, "", 2, "Providers", "calculatorEnabled", ""),
     record("omalauncher:setting-file-search", "settings-toggle", "Scoped File Search",
-      enabledLabel(values.fileSearchEnabled), "󰈞", 3, "Providers", "fileSearchEnabled", ""),
+      fileDescription, "󰈞", 3, "Providers", "fileSearchEnabled", ""),
     record("omalauncher:setting-add-scope", "settings-open-scope", "Add File Search Scope",
       "Choose an existing directory", "", 4, "File Search", "", "")
   ]
 
-  var scopes = Array.isArray(values.fileSearchScopes) ? values.fileSearchScopes : []
+  var suggestions = Array.isArray(status.commonScopes) ? status.commonScopes : []
+  for (var suggestionIndex = 0; suggestionIndex < suggestions.length; suggestionIndex++) {
+    var suggestion = text(suggestions[suggestionIndex])
+    if (!suggestion || scopes.indexOf(suggestion) >= 0) continue
+    records.push(record(
+      "omalauncher:setting-suggested-scope:" + suggestionIndex,
+      "settings-add-suggested-scope",
+      "Add " + pathName(suggestion),
+      suggestion,
+      "󰈞",
+      5 + suggestionIndex,
+      "Suggested Scopes",
+      "fileSearchScopes",
+      suggestion
+    ))
+  }
+
   for (var scopeIndex = 0; scopeIndex < scopes.length; scopeIndex++) {
     records.push(record(
       "omalauncher:setting-scope:" + scopeIndex,
@@ -69,7 +98,7 @@ function settingsRecords(preferences, context) {
       "Remove Scope",
       text(scopes[scopeIndex]),
       "",
-      5 + scopeIndex,
+      20 + scopeIndex,
       "File Search Scopes",
       "fileSearchScopes",
       scopes[scopeIndex]

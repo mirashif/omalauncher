@@ -145,6 +145,38 @@ test("calculator results expose copy actions without launcher personalization", 
   assert.equal(actions[1].description, "2 + 2")
 })
 
+test("file results expose literal open, reveal, and copy-path actions", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "file:/home/test/Documents:report.md",
+    resultType: "file",
+    resultKind: "file",
+    title: "report.md",
+    filePath: "/home/test/Documents/report.md"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary", "reveal-file", "copy-path"])
+  assert.equal(actions[0].title, "Open File")
+  assert.equal(actions[1].description, "/home/test/Documents/report.md")
+})
+
+test("file-search management and status rows expose only their primary action", () => {
+  const management = ActionModel.actionsForResult({
+    resultId: "omalauncher:search-files",
+    resultType: "launcher-command",
+    resultKind: "open-files",
+    title: "Search Files"
+  }, {})
+  const status = ActionModel.actionsForResult({
+    resultId: "file-search:unavailable",
+    resultType: "file-status",
+    resultKind: "file-search-unavailable",
+    title: "File Search Unavailable"
+  }, {})
+
+  assert.deepEqual(management.map(action => action.id), ["primary"])
+  assert.deepEqual(status.map(action => action.id), ["primary"])
+})
+
 test("favorite actions expose only valid reorder directions", () => {
   const result = {
     resultId: "application:brave-browser",

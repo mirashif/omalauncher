@@ -9,11 +9,18 @@ test("settings expose provider toggles and configured file rules", () => {
   state = StateModel.setPreference(state, "fileSearchEnabled", true)
   state = StateModel.addFileScope(state, "/home/test/Documents")
   state = StateModel.addFileIgnore(state, "node_modules")
-  const rows = SettingsModel.settingsRecords(state.preferences)
+  const rows = SettingsModel.settingsRecords(state.preferences, {
+    fileSearchSettled: true,
+    fileSearchAvailable: false,
+    commonScopes: ["/home/test/Documents", "/home/test/Downloads"]
+  })
 
-  assert.equal(rows.find(row => row.settingKey === "fileSearchEnabled").description, "Enabled")
+  assert.equal(rows.find(row => row.settingKey === "fileSearchEnabled").description,
+    "Enabled · 1 scope · fd unavailable")
   assert.equal(rows.find(row => row.kind === "settings-remove-scope").settingValue, "/home/test/Documents")
   assert.equal(rows.find(row => row.kind === "settings-remove-ignore").settingValue, "node_modules")
+  assert.equal(rows.find(row => row.kind === "settings-add-suggested-scope").settingValue,
+    "/home/test/Downloads")
   assert.equal(rows.some(row => row.kind === "settings-open-reset-personalization"), true)
 })
 

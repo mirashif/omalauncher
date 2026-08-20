@@ -7,6 +7,7 @@ import qs.Commons
 import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
+import "providers/FileSearchModel.js" as FileSearchModel
 import "services/ActionModel.js" as ActionModel
 import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
@@ -65,6 +66,7 @@ Item {
   property string guardError: ""
   property string settingsInputError: ""
   property bool settingsInputBusy: false
+  property bool settingsScopeSuggested: false
   property double openMeasurementStartedAt: 0
   property double lastWarmOpenMs: 0
   property double lastSearchUpdateMs: 0
@@ -260,7 +262,10 @@ Item {
       usageEntries: Object.keys(stateStore.usage).length,
       stateReady: stateStore.loaded,
       warmOpenMs: root.lastWarmOpenMs,
-      maxSearchUpdateMs: root.maxSearchUpdateMs
+      maxSearchUpdateMs: root.maxSearchUpdateMs,
+      calculatorBackendAvailable: calculatorProvider.backendAvailable,
+      fileSearchBackendAvailable: fileSearchProvider.backendAvailable,
+      fileSearchScopes: stateStore.preferences.fileSearchScopes.length
     })
   }
 
@@ -479,6 +484,9 @@ Item {
       order: -2,
       section: "Launcher"
     }]
+    records.push(FileSearchModel.managementRecord(
+      stateStore.preferences.fileSearchEnabled === true,
+      stateStore.preferences.fileSearchScopes.length))
     if (root.hiddenRecords().length > 0) records.push({
       id: "omalauncher:manage-hidden",
       type: "launcher-command",
@@ -537,9 +545,11 @@ Item {
   function rebuildResults() {
     var rebuildStartedAt = Date.now()
     resultsModel.clear()
-    var query = String(searchInput.text || "").trim()
+    var rawQuery = String(searchInput.text || "")
+    var query = rawQuery.trim()
     if (root.activeRoute !== "root" && root.activeRoute !== "apps"
-        && root.activeRoute !== "hidden" && !SettingsModel.isRoute(root.activeRoute)
+        && root.activeRoute !== "hidden" && root.activeRoute !== "files"
+        && !SettingsModel.isRoute(root.activeRoute)
         && !root.menuItems[root.activeRoute]) {
       root.activeRoute = "root"
       root.navigationStack = []
@@ -553,7 +563,10 @@ Item {
     } else if (root.activeRoute === "settings") {
       scopedRecords = SettingsModel.settingsRecords(stateStore.preferences, {
         calculatorSettled: calculatorProvider.backendSettled,
-        calculatorAvailable: calculatorProvider.backendAvailable
+        calculatorAvailable: calculatorProvider.backendAvailable,
+        fileSearchSettled: fileSearchProvider.backendSettled,
+        fileSearchAvailable: fileSearchProvider.backendAvailable,
+        commonScopes: fileSearchProvider.commonScopes
       })
     } else if (SettingsModel.isInputRoute(root.activeRoute)) {
       scopedRecords = SettingsModel.inputRecords(
@@ -579,8 +592,17 @@ Item {
         break
       }
     }
-    calculatorProvider.request(root.activeRoute === "root" ? query : "", strongLauncherMatch)
-    if (root.activeRoute === "root" && query && calculatorProvider.records.length > 0) {
+    var fileRequest = FileSearchModel.queryRequest(rawQuery, root.activeRoute === "files")
+    fileSearchProvider.request(
+      fileRequest.query,
+      stateStore.preferences.fileSearchScopes,
+      stateStore.preferences.fileSearchIgnores,
+      fileRequest.active)
+    calculatorProvider.request(
+      !fileRequest.active && root.activeRoute === "root" ? query : "", strongLauncherMatch)
+    if (fileRequest.active) {
+      results = fileSearchProvider.records
+    } else if (root.activeRoute === "root" && query && calculatorProvider.records.length > 0) {
       results = calculatorProvider.records.concat(results).slice(0, 50)
     }
     var sections = {}
@@ -607,6 +629,8 @@ Item {
         settingValue: String(result.settingValue || ""),
         calculatorExpression: String(result.calculatorExpression || ""),
         calculatorResult: String(result.calculatorResult || ""),
+        filePath: String(result.filePath || ""),
+        fileScope: String(result.fileScope || ""),
         isChecked: !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
@@ -721,6 +745,8 @@ Item {
       settingValue: String(row.settingValue || ""),
       calculatorExpression: String(row.calculatorExpression || ""),
       calculatorResult: String(row.calculatorResult || ""),
+      filePath: String(row.filePath || ""),
+      fileScope: String(row.fileScope || ""),
       userAlias: String(row.userAlias || "")
     }
   }
@@ -770,6 +796,7 @@ Item {
   function menuTitle(route) {
     if (route === "root") return "Omalauncher"
     if (route === "apps") return "Apps"
+    if (route === "files") return "Files"
     if (route === "hidden") return "Hidden Results"
     if (SettingsModel.isRoute(route)) return SettingsModel.routeTitle(route)
     var entry = root.menuItems[route]
@@ -778,7 +805,8 @@ Item {
 
   function setActiveRoute(route, pushHistory) {
     var nextRoute = String(route || "root")
-    if (nextRoute !== "root" && nextRoute !== "hidden" && !SettingsModel.isRoute(nextRoute)) {
+    if (nextRoute !== "root" && nextRoute !== "hidden" && nextRoute !== "files"
+        && !SettingsModel.isRoute(nextRoute)) {
       var nextEntry = root.menuItems[nextRoute]
       if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
       if (nextEntry.kind === "link" && nextEntry.target) {
@@ -797,6 +825,7 @@ Item {
       if (scopeRealpathProc.running) scopeRealpathProc.signal(15)
       if (scopeTypeProc.running) scopeTypeProc.signal(15)
       root.settingsInputBusy = false
+      root.settingsScopeSuggested = false
     }
     root.activeRoute = nextRoute
     searchInput.text = ""
@@ -1064,6 +1093,14 @@ Item {
       root.copyText(target.calculatorExpression, "Copied calculator expression")
       return
     }
+    if (selectedActionId === "copy-path") {
+      root.copyText(target.filePath, "Copied file path")
+      return
+    }
+    if (selectedActionId === "reveal-file") {
+      root.revealFile(target.filePath)
+      return
+    }
     if (selectedActionId === "primary" || selectedActionId === "parent") {
       root.runResult(target, selectedActionId === "parent")
     }
@@ -1099,6 +1136,10 @@ Item {
     }
     if (row.resultKind === "settings-open-scope") {
       root.setActiveRoute("settings-scope", true)
+      return
+    }
+    if (row.resultKind === "settings-add-suggested-scope") {
+      root.validateSettingsScope(row.settingValue)
       return
     }
     if (row.resultKind === "settings-open-ignore") {
@@ -1158,6 +1199,21 @@ Item {
       return
     }
     if (row.resultKind === "calculator-loading" || row.resultKind === "calculator-error") return
+    if (row.resultKind === "open-files") {
+      root.setActiveRoute(
+        stateStore.preferences.fileSearchEnabled === true ? "files" : "settings", true)
+      return
+    }
+    if (row.resultType === "file-status") {
+      if (row.route === "settings") root.setActiveRoute("settings", true)
+      return
+    }
+    if (row.resultType === "file") {
+      var fileQuery = String(searchInput.text || "").trim()
+      if (fileQuery) stateStore.recordQuery(fileQuery)
+      root.openFile(row.filePath)
+      return
+    }
     if (row.resultKind === "toggle-compact") {
       root.toggleCompactMode()
       return
@@ -1207,6 +1263,7 @@ Item {
 
   function validateSettingsScope(value) {
     if (root.settingsInputBusy) return
+    root.settingsScopeSuggested = root.activeRoute === "settings"
     var candidate = String(value || "").trim()
     if (!candidate || candidate.charAt(0) !== "/") {
       root.settingsInputError = "Enter an absolute directory path"
@@ -1247,6 +1304,20 @@ Item {
     root.dismiss()
   }
 
+  function openFile(value) {
+    var path = String(value || "")
+    if (!path || path.charAt(0) !== "/") return
+    root.dismiss()
+    Quickshell.execDetached(["xdg-open", path])
+  }
+
+  function revealFile(value) {
+    var parent = FileSearchModel.parentPath(value)
+    if (!parent || parent.charAt(0) !== "/") return
+    root.dismiss()
+    Quickshell.execDetached(["xdg-open", parent])
+  }
+
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
@@ -1279,7 +1350,10 @@ Item {
   }
 
   function highlightedText(value) {
-    return HighlightModel.highlight(value, SearchEngine.tokens(searchInput.text))
+    var fileRequest = FileSearchModel.queryRequest(
+      searchInput.text, root.activeRoute === "files")
+    return HighlightModel.highlight(
+      value, SearchEngine.tokens(fileRequest.active ? fileRequest.query : searchInput.text))
   }
 
   function primaryActionLabel() {
@@ -1288,9 +1362,12 @@ Item {
     if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultKind === "open-settings") return "Open Settings"
+    if (row.resultKind === "open-files") return "Open File Search"
     if (String(row.resultKind || "").indexOf("settings-") === 0) return "Apply"
     if (row.resultKind === "calculator") return "Copy Result"
     if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
+    if (row.resultType === "file") return "Open File"
+    if (row.resultType === "file-status") return row.route === "settings" ? "Open Settings" : ""
     if (row.resultType === "application") return "Open Application"
     if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
     return "Run Command"
@@ -1328,13 +1405,14 @@ Item {
       onRead: function(data) { scopeRealpathProc.output += data }
     }
     onExited: function(exitCode, exitStatus) {
-      if (root.activeRoute !== "settings-scope") return
+      if (root.activeRoute !== "settings-scope" && root.activeRoute !== "settings") return
       var canonical = String(scopeRealpathProc.output || "").trim()
       if (exitCode !== 0 || exitStatus !== 0 || !canonical || canonical === "/") {
         root.settingsInputBusy = false
         root.settingsInputError = canonical === "/"
           ? "The filesystem root cannot be a search scope"
           : "Directory does not exist"
+        if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
         root.rebuildResults()
         return
       }
@@ -1353,10 +1431,11 @@ Item {
       onRead: function(data) { scopeTypeProc.output += data }
     }
     onExited: function(exitCode, exitStatus) {
-      if (root.activeRoute !== "settings-scope") return
+      if (root.activeRoute !== "settings-scope" && root.activeRoute !== "settings") return
       root.settingsInputBusy = false
       if (exitCode !== 0 || exitStatus !== 0 || String(scopeTypeProc.output || "").trim() !== "directory") {
         root.settingsInputError = "Search scopes must be existing directories"
+        if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
         root.rebuildResults()
         return
       }
@@ -1364,7 +1443,14 @@ Item {
       var existed = stateStore.preferences.fileSearchScopes.indexOf(canonical) >= 0
       stateStore.addFileScope(canonical)
       root.showOsd("󰈞", existed ? "Search scope already configured" : "Added file search scope")
-      root.goBack()
+      if (root.settingsScopeSuggested) {
+        root.settingsScopeSuggested = false
+        root.settingsInputError = ""
+        root.rebuildResults()
+        Qt.callLater(function() { searchInput.forceActiveFocus() })
+      } else {
+        root.goBack()
+      }
     }
   }
 
@@ -1393,6 +1479,14 @@ Item {
     providerEnabled: stateStore.preferences.calculatorEnabled === true
     onRecordsChanged: root.rebuildResults()
     onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
+  }
+
+  FileSearchProvider {
+    id: fileSearchProvider
+    providerEnabled: stateStore.preferences.fileSearchEnabled === true
+    onRecordsChanged: root.rebuildResults()
+    onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
+    onCommonScopesChanged: if (root.activeRoute === "settings") root.rebuildResults()
   }
 
   FileView {

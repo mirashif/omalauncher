@@ -37,11 +37,27 @@ function actionsForResult(result, context, route) {
   var menu = !application && (resultKind === "menu" || resultKind === "link")
   var hiddenManager = resultKind === "manage-hidden"
   var compactToggle = resultKind === "toggle-compact"
-  var settingsCommand = resultKind === "open-settings" || resultKind.indexOf("settings-") === 0
+  var settingsCommand = resultKind === "open-settings" || resultKind === "open-files"
+    || resultKind.indexOf("settings-") === 0
   var calculator = text(row.resultType || row.type) === "calculator"
+  var file = text(row.resultType || row.type) === "file"
+  var fileStatus = text(row.resultType || row.type) === "file-status"
   var resultTitle = text(row.title)
   var actions = []
   var activeRoute = text(route || "root")
+
+  if (file || fileStatus) {
+    actions.push(action("primary", file ? "Open File" : resultTitle,
+      file ? text(row.filePath || row.description) : text(row.description),
+      "Enter", file ? "󰁞" : "", ["file", "open", "primary"], 0, "File"))
+    if (file) {
+      actions.push(action("reveal-file", "Reveal in File Manager", text(row.filePath || row.description),
+        "", "󰗃", ["file", "reveal", "folder", "manager"], 1, "File"))
+      actions.push(action("copy-path", "Copy Path", text(row.filePath || row.description),
+        "", "", ["file", "copy", "path"], 2, "File"))
+    }
+    return actions
+  }
 
   if (calculator) {
     if (resultKind !== "calculator") {
