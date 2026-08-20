@@ -1,6 +1,6 @@
 # Omalauncher MVP Plan
 
-Status: Proposed
+Status: In progress
 Last updated: 2026-08-20
 Target platform: Omarchy 4 / Quattro
 

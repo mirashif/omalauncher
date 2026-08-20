@@ -297,11 +297,14 @@ function buildCommandRecords(merged, whenResults) {
       description: entry.description,
       icon: entry.icon,
       iconFont: entry.iconFont,
+      appIcon: "",
+      appId: "",
       aliases: aliases,
       keywords: keywords,
       route: entry.id,
       parentRoute: entry.parent && entry.parent !== "root" ? entry.parent : "root",
       searchText: normalizeSearchText(searchParts.join(" ")),
+      providerPriority: 1,
       order: entry.order
     })
   }

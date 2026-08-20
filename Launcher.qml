@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import qs.Commons
+import "providers"
 import "providers/MenuIndex.js" as MenuIndex
 import "SearchEngine.js" as SearchEngine
 
@@ -24,10 +25,15 @@ Item {
   property var whenResults: ({})
   property var checkedResults: ({})
   property var commandRecords: []
+  property var appRecords: []
+  property var allRecords: []
   property int selectedIndex: 0
   property bool guardsPending: false
   property bool guardsReady: false
   property string sourceError: ""
+  readonly property bool appsReady: appProvider.ready
+  readonly property string appProviderError: appProvider.error
+  readonly property bool indexReady: guardsReady && appsReady
 
   readonly property string pluginId: manifest && manifest.id
     ? String(manifest.id) : "io.github.omalauncher"
@@ -63,6 +69,7 @@ Item {
     root.selectedIndex = 0
     root.rebuildResults()
     root.evaluateGuards()
+    appProvider.refreshIcons()
     Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
@@ -82,10 +89,34 @@ Item {
   function refresh() {
     defaultMenuFile.reload()
     userMenuFile.reload()
+    appProvider.refresh()
     return "ok"
   }
 
   function ping() { return "ok" }
+
+  function stats() {
+    return JSON.stringify({
+      applications: root.appRecords.length,
+      commands: root.commandRecords.length,
+      total: root.allRecords.length,
+      ready: root.indexReady,
+      sharedAppLibrary: appProvider.usingSharedLibrary
+    })
+  }
+
+  function debugSearch(query) {
+    var rows = SearchEngine.search(root.allRecords, String(query || ""), { limit: 5 })
+    return JSON.stringify(rows.map(function(row) {
+      return {
+        id: row.id,
+        type: row.type,
+        title: row.title,
+        context: row.breadcrumb || row.description,
+        tier: row.semanticTier
+      }
+    }))
+  }
 
   function applyParsedSource(parsed, isDefault) {
     if (parsed.error) {
@@ -119,6 +150,11 @@ Item {
   function rebuildCommandRecords() {
     var merged = { items: root.menuItems, itemOrder: root.menuOrder }
     root.commandRecords = MenuIndex.buildCommandRecords(merged, root.whenResults)
+    root.rebuildUnifiedRecords()
+  }
+
+  function rebuildUnifiedRecords() {
+    root.allRecords = root.appRecords.concat(root.commandRecords)
     root.rebuildResults()
   }
 
@@ -130,17 +166,20 @@ Item {
       return
     }
 
-    var results = SearchEngine.search(root.commandRecords, query, { limit: 50 })
+    var results = SearchEngine.search(root.allRecords, query, { limit: 50 })
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
       resultsModel.append({
         resultId: String(result.id || ""),
+        resultType: String(result.type || ""),
         resultKind: String(result.kind || ""),
         title: String(result.title || ""),
         breadcrumb: String(result.breadcrumb || ""),
         description: String(result.description || ""),
         icon: String(result.icon || ""),
         iconFont: String(result.iconFont || ""),
+        appIcon: String(result.appIcon || ""),
+        appId: String(result.appId || ""),
         route: String(result.route || ""),
         parentRoute: String(result.parentRoute || "root"),
         semanticTier: Number(result.semanticTier || 0)
@@ -173,7 +212,15 @@ Item {
   function runSelected(useParent) {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
-    root.runRoute(useParent ? row.parentRoute : row.route)
+    if (row.resultType === "application") root.launchApplication(row.appId, row.title)
+    else root.runRoute(useParent ? row.parentRoute : row.route)
+  }
+
+  function launchApplication(appId, title) {
+    if (!appId) return
+    root.close()
+    if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pluginId)
+    appProvider.launch(appId, title)
   }
 
   function escapeHtml(value) {
@@ -219,6 +266,15 @@ Item {
   }
 
   ListModel { id: resultsModel }
+
+  AppProvider {
+    id: appProvider
+    appLibrary: root.shell ? root.shell.appLibrary : null
+    onRecordsChanged: {
+      root.appRecords = appProvider.records
+      root.rebuildUnifiedRecords()
+    }
+  }
 
   FileView {
     id: defaultMenuFile
@@ -269,7 +325,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: root.opened && root.defaultSourceLoaded
+    visible: root.opened && (root.defaultSourceLoaded || root.appsReady)
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "omalauncher"
@@ -328,7 +384,7 @@ Item {
           anchors.rightMargin: Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
           visible: !searchInput.text
-          text: root.guardsReady ? "Search apps and Omarchy commands…" : "Building command index…"
+          text: root.indexReady ? "Search apps and Omarchy commands…" : "Building unified index…"
           color: root.selectedText
           opacity: 0.55
           font.family: Style.font.menuFamily
@@ -405,32 +461,54 @@ Item {
         delegate: Rectangle {
           id: resultRow
           required property int index
+          required property string resultType
           required property string title
           required property string breadcrumb
           required property string description
           required property string icon
           required property string iconFont
+          required property string appIcon
+          required property string appId
           required property string route
           required property string parentRoute
           required property string resultKind
 
           readonly property bool selected: index === root.selectedIndex
+          readonly property bool isApplication: resultType === "application"
           width: ListView.view.width
           height: root.rowHeight
           radius: Math.max(0, Style.cornerRadius - Style.space(3))
           color: selected ? root.selectedBackground : "transparent"
 
-          Text {
+          Item {
             id: rowIcon
             width: Style.space(48)
+            height: parent.height
             anchors.left: parent.left
             anchors.leftMargin: Style.space(12)
-            anchors.verticalCenter: parent.verticalCenter
-            text: resultRow.icon || (resultRow.resultKind === "menu" ? "" : "")
-            color: resultRow.selected ? root.selectedText : root.foreground
-            font.family: resultRow.iconFont || Style.font.menuFamily
-            font.pixelSize: Style.font.iconLarge
-            horizontalAlignment: Text.AlignHCenter
+
+            Text {
+              anchors.fill: parent
+              visible: !resultRow.isApplication
+              text: resultRow.icon || (resultRow.resultKind === "menu" ? "" : "")
+              color: resultRow.selected ? root.selectedText : root.foreground
+              font.family: resultRow.iconFont || Style.font.menuFamily
+              font.pixelSize: Style.font.iconLarge
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+            }
+
+            Image {
+              width: Style.font.iconLarge
+              height: Style.font.iconLarge
+              anchors.centerIn: parent
+              visible: resultRow.isApplication
+              source: resultRow.isApplication ? appProvider.iconSource(resultRow.appIcon) : ""
+              sourceSize.width: width * Screen.devicePixelRatio
+              sourceSize.height: height * Screen.devicePixelRatio
+              fillMode: Image.PreserveAspectFit
+              asynchronous: true
+            }
           }
 
           Column {
@@ -455,7 +533,7 @@ Item {
               width: parent.width
               text: resultRow.breadcrumb
                 ? root.highlightedBreadcrumb(resultRow.breadcrumb)
-                : resultRow.description
+                : root.escapeHtml(resultRow.description)
               visible: text.length > 0
               textFormat: Text.RichText
               color: resultRow.selected ? root.selectedText : root.foreground
@@ -500,7 +578,7 @@ Item {
         Text {
           width: Style.space(500)
           horizontalAlignment: Text.AlignHCenter
-          text: searchInput.text ? "No matching commands" : (root.sourceError || "Type to search Omarchy commands")
+          text: searchInput.text ? "No matching applications or commands" : (root.sourceError || root.appProviderError || "Type to search applications and commands")
           color: root.foreground
           opacity: 0.68
           font.family: Style.font.menuFamily

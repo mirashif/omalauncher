@@ -113,6 +113,14 @@ function usageScore(record, usage, now) {
   return Math.log(count + 1) * 10 + 10 / (1 + ageHours / 24)
 }
 
+function copyRecord(record) {
+  var copy = {}
+  for (var key in record) {
+    if (Object.prototype.hasOwnProperty.call(record, key)) copy[key] = record[key]
+  }
+  return copy
+}
+
 function search(records, query, options) {
   var opts = options || {}
   var usage = opts.usage || {}
@@ -136,6 +144,9 @@ function search(records, query, options) {
     if (left.tier !== right.tier) return left.tier - right.tier
     if (left.quality !== right.quality) return left.quality - right.quality
     if (left.usage !== right.usage) return right.usage - left.usage
+    var leftProvider = Number(left.record.providerPriority || 0)
+    var rightProvider = Number(right.record.providerPriority || 0)
+    if (leftProvider !== rightProvider) return leftProvider - rightProvider
     var leftOrder = Number(left.record.order || 0)
     var rightOrder = Number(right.record.order || 0)
     if (leftOrder !== rightOrder) return leftOrder - rightOrder
@@ -144,7 +155,7 @@ function search(records, query, options) {
 
   var results = []
   for (var j = 0; j < scored.length && j < limit; j++) {
-    var result = scored[j].record
+    var result = copyRecord(scored[j].record)
     result.semanticTier = scored[j].tier
     result.semanticQuality = scored[j].quality
     results.push(result)

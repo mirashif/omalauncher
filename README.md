@@ -1,22 +1,26 @@
 # Omalauncher
 
-Omalauncher is a keyboard-first command palette for Omarchy 4. It flattens the
-stock JSONC menu into a searchable command index while keeping each command's
-ancestor path as context.
+Omalauncher is a keyboard-first command palette for Omarchy 4. It searches
+installed applications and flattens the stock JSONC menu into a unified index,
+while keeping each command's ancestor path as context.
 
-This repository currently contains the command-index spike:
+The current implementation includes:
 
+- Installed applications from Omarchy's shared application library
+- A `DesktopEntries` fallback isolated behind the application adapter
+- Application names, generic names, comments, keywords, categories, and IDs
 - Stock and user menu JSONC parsing with hot reload
 - Per-field user overrides
 - Breadcrumb-aware command records
 - One batched `when`/`checked` visibility process
 - Deterministic semantic ranking
 - A minimal focused Quickshell menu surface
+- Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
 
-Applications, favorites, history, and the Action Panel remain planned MVP work.
+Favorites, history, and the Action Panel remain planned MVP work.
 
-## Validate the spike
+## Validate
 
 ```bash
 npm test
@@ -40,7 +44,8 @@ Copy this checkout there, rescan the shell plugins, and enable it:
 
 ```bash
 mkdir -p ~/.config/omarchy/plugins/io.github.omalauncher
-cp -a ./. ~/.config/omarchy/plugins/io.github.omalauncher/
+rsync -a --exclude=.git --exclude=node_modules \
+  ./ ~/.config/omarchy/plugins/io.github.omalauncher/
 omarchy-shell shell rescanPlugins
 omarchy plugin enable io.github.omalauncher
 ```
