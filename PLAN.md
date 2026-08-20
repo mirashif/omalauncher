@@ -35,7 +35,7 @@ Implementation rules:
   keyboard shortcuts.
 - [x] 6. Add query-history cycling, section jumps, pop-to-root, and immediate
   close shortcuts without breaking normal text editing.
-- [ ] 7. Add a stable footer, persistent favorite/alias badges, and safe title
+- [x] 7. Add a stable footer, persistent favorite/alias badges, and safe title
   match highlighting.
 - [ ] 8. Make provider warnings interactive with diagnostic detail and retry,
   and use truthful Omarchy OSD feedback for local changes and command handoff.

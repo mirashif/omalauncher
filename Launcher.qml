@@ -8,6 +8,7 @@ import "providers"
 import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "services/ActionModel.js" as ActionModel
+import "services/HighlightModel.js" as HighlightModel
 import "services/LayoutModel.js" as LayoutModel
 import "services/NavigationModel.js" as NavigationModel
 import "services/StatusModel.js" as StatusModel
@@ -92,6 +93,7 @@ Item {
   readonly property int cardPadding: Style.space(12)
   readonly property int dividerHeight: Math.max(1, Style.space(1))
   readonly property int resultsTopOffset: cardPadding + dividerHeight
+  readonly property int footerHeight: Style.space(38)
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
   readonly property int sectionHeight: Style.space(28)
   readonly property int maximumVisibleRows: 8
@@ -890,26 +892,17 @@ Item {
     appProvider.launch(appId, title)
   }
 
-  function escapeHtml(value) {
-    return String(value || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
+  function highlightedText(value) {
+    return HighlightModel.highlight(value, SearchEngine.tokens(searchInput.text))
   }
 
-  function escapeRegex(value) {
-    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  }
-
-  function highlightedBreadcrumb(value) {
-    var output = root.escapeHtml(value)
-    var queryTerms = SearchEngine.tokens(searchInput.text)
-    for (var i = 0; i < queryTerms.length; i++) {
-      var term = queryTerms[i]
-      if (!term) continue
-      output = output.replace(new RegExp("(" + root.escapeRegex(term) + "[a-z0-9]*)", "ig"), "<b>$1</b>")
-    }
-    return output
+  function primaryActionLabel() {
+    var row = root.selectedResultSnapshot()
+    if (!row.resultId) return ""
+    if (row.resultKind === "manage-hidden") return "Manage"
+    if (row.resultType === "application") return "Open Application"
+    if (row.resultKind === "menu" || row.resultKind === "link") return "Open Menu"
+    return "Run Command"
   }
 
   function evaluateGuards() {
@@ -1052,7 +1045,7 @@ Item {
           root.listHeight,
           root.cardPadding,
           root.resultsTopOffset,
-          root.cardPadding),
+          root.footerHeight),
         root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0)
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
         panel.width,
@@ -1234,7 +1227,7 @@ Item {
         anchors.top: searchBox.bottom
         anchors.topMargin: root.resultsTopOffset
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.cardPadding
+        anchors.bottomMargin: root.footerHeight
         model: resultsModel
         enabled: !root.actionPanelOpen
         clip: true
@@ -1322,14 +1315,15 @@ Item {
           Column {
             anchors.left: rowIcon.right
             anchors.leftMargin: Style.space(6)
-            anchors.right: shortcut.left
+            anchors.right: rowBadges.left
             anchors.rightMargin: Style.space(12)
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(3)
 
             Text {
               width: parent.width
-              text: resultRow.title + (resultRow.isChecked ? " ✓" : "")
+              text: root.highlightedText(resultRow.title) + (resultRow.isChecked ? " ✓" : "")
+              textFormat: Text.RichText
               color: resultRow.selected ? root.selectedText : root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.heading
@@ -1340,8 +1334,8 @@ Item {
             Text {
               width: parent.width
               text: resultRow.breadcrumb
-                ? root.highlightedBreadcrumb(resultRow.breadcrumb)
-                : root.escapeHtml(resultRow.description)
+                ? root.highlightedText(resultRow.breadcrumb)
+                : HighlightModel.escapeHtml(resultRow.description)
               visible: text.length > 0
               textFormat: Text.RichText
               color: resultRow.selected ? root.selectedText : root.foreground
@@ -1352,21 +1346,39 @@ Item {
             }
           }
 
-          Text {
-            id: shortcut
+          Row {
+            id: rowBadges
             anchors.right: parent.right
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
-            visible: resultRow.selected || resultRow.userAlias.length > 0
-            text: resultRow.selected
-              ? (resultRow.favorite ? "★  ·  " : "")
-                + (resultRow.userAlias ? resultRow.userAlias + "  ·  " : "")
-                + "Ctrl+K  ·  ↵"
-              : resultRow.userAlias
-            color: root.selectedText
-            opacity: 0.68
-            font.family: Style.font.menuFamily
-            font.pixelSize: Style.font.body
+            spacing: Style.space(8)
+
+            Text {
+              visible: resultRow.favorite
+              text: "★"
+              color: resultRow.selected ? root.selectedText : root.foreground
+              opacity: 0.7
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.body
+            }
+
+            Rectangle {
+              visible: resultRow.userAlias.length > 0
+              width: aliasBadgeText.implicitWidth + Style.space(12)
+              height: Math.max(Style.space(22), aliasBadgeText.implicitHeight + Style.space(6))
+              radius: height / 2
+              color: resultRow.selected ? root.selectedText : root.selectedBackground
+              opacity: 0.82
+
+              Text {
+                id: aliasBadgeText
+                anchors.centerIn: parent
+                text: resultRow.userAlias
+                color: resultRow.selected ? root.selectedBackground : root.selectedText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+              }
+            }
           }
 
           MouseArea {
@@ -1420,6 +1432,46 @@ Item {
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.Wrap
+        }
+      }
+
+      Rectangle {
+        id: footer
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: root.footerHeight
+        color: "transparent"
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: root.dividerHeight
+          color: root.borderColor
+          opacity: 0.45
+        }
+
+        Text {
+          anchors.left: parent.left
+          anchors.leftMargin: Style.space(18)
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.primaryActionLabel() ? "↵  " + root.primaryActionLabel() : ""
+          color: root.foreground
+          opacity: 0.58
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(18)
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Ctrl+K  Actions"
+          color: root.foreground
+          opacity: 0.58
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.caption
         }
       }
 
