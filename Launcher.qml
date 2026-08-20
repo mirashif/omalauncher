@@ -76,6 +76,8 @@ Item {
   property double maxSearchUpdateMs: 0
   property int resultRebuilds: 0
   property int searchMeasurements: 0
+  property bool rebuildingResults: false
+  property bool rebuildRequested: false
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
   readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
@@ -571,6 +573,11 @@ Item {
   }
 
   function rebuildResults() {
+    if (root.rebuildingResults) {
+      root.rebuildRequested = true
+      return
+    }
+    root.rebuildingResults = true
     var rebuildStartedAt = Date.now()
     resultsModel.clear()
     var rawQuery = String(searchInput.text || "")
@@ -686,6 +693,11 @@ Item {
     }
     root.resultRebuilds += 1
     Qt.callLater(root.revealSelection)
+    root.rebuildingResults = false
+    if (root.rebuildRequested) {
+      root.rebuildRequested = false
+      Qt.callLater(root.rebuildResults)
+    }
   }
 
   function moveSelection(delta) {
