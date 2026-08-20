@@ -14,11 +14,22 @@ The current implementation includes:
 - Breadcrumb-aware command records
 - One batched `when`/`checked` visibility process
 - Deterministic semantic ranking
+- Persistent favorites and usage history
+- Frecency as a tie-breaker within equal semantic matches
+- Favorites and recent applications/commands before typing
 - A minimal focused Quickshell menu surface
 - Native application icons and launch feedback
 - Delegated execution through `omarchy menu summon <route>`
 
-Favorites, history, and the Action Panel remain planned MVP work.
+The Action Panel remains planned MVP work.
+
+Press `Ctrl+F` on the selected row to add or remove a favorite. Selecting a
+result updates its usage history; stronger semantic matches always remain
+ahead of frecency. State is written atomically to:
+
+```text
+${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
+```
 
 ## Validate
 

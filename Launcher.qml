@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import QtQuick
 import qs.Commons
 import "providers"
+import "services"
 import "providers/MenuIndex.js" as MenuIndex
 import "SearchEngine.js" as SearchEngine
 
@@ -28,12 +29,13 @@ Item {
   property var appRecords: []
   property var allRecords: []
   property int selectedIndex: 0
+  property int resultSectionCount: 0
   property bool guardsPending: false
   property bool guardsReady: false
   property string sourceError: ""
   readonly property bool appsReady: appProvider.ready
   readonly property string appProviderError: appProvider.error
-  readonly property bool indexReady: guardsReady && appsReady
+  readonly property bool indexReady: guardsReady && appsReady && stateStore.loaded
 
   readonly property string pluginId: manifest && manifest.id
     ? String(manifest.id) : "io.github.omalauncher"
@@ -46,8 +48,11 @@ Item {
   readonly property color selectedBackground: Color.menu.selectedBackground
   readonly property color selectedText: Color.menu.selectedText
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
+  readonly property int sectionHeight: Style.space(28)
   readonly property int maximumVisibleRows: 8
-  readonly property int listHeight: Math.max(rowHeight, Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight)
+  readonly property int listHeight: Math.max(rowHeight,
+    Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight
+      + resultSectionCount * sectionHeight)
 
   function focusedScreen() {
     var monitor = Hyprland.focusedMonitor
@@ -101,12 +106,33 @@ Item {
       commands: root.commandRecords.length,
       total: root.allRecords.length,
       ready: root.indexReady,
-      sharedAppLibrary: appProvider.usingSharedLibrary
+      sharedAppLibrary: appProvider.usingSharedLibrary,
+      favorites: stateStore.favorites.length,
+      usageEntries: Object.keys(stateStore.usage).length,
+      stateReady: stateStore.loaded
     })
   }
 
+  function stateStats() {
+    return JSON.stringify({
+      path: stateStore.statePath,
+      loaded: stateStore.loaded,
+      favorites: stateStore.favorites.length,
+      usageEntries: Object.keys(stateStore.usage).length
+    })
+  }
+
+  function debugEmptyState() {
+    return JSON.stringify(stateStore.emptyRows(root.allRecords).map(function(row) {
+      return { id: row.id, type: row.type, title: row.title, section: row.section }
+    }))
+  }
+
   function debugSearch(query) {
-    var rows = SearchEngine.search(root.allRecords, String(query || ""), { limit: 5 })
+    var rows = SearchEngine.search(root.allRecords, String(query || ""), {
+      limit: 5,
+      usage: stateStore.usage
+    })
     return JSON.stringify(rows.map(function(row) {
       return {
         id: row.id,
@@ -161,14 +187,14 @@ Item {
   function rebuildResults() {
     resultsModel.clear()
     var query = String(searchInput.text || "").trim()
-    if (!query) {
-      root.selectedIndex = 0
-      return
-    }
-
-    var results = SearchEngine.search(root.allRecords, query, { limit: 50 })
+    var results = query
+      ? SearchEngine.search(root.allRecords, query, { limit: 50, usage: stateStore.usage })
+      : stateStore.emptyRows(root.allRecords)
+    var sections = {}
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
+      var section = String(result.section || "")
+      if (section) sections[section] = true
       resultsModel.append({
         resultId: String(result.id || ""),
         resultType: String(result.type || ""),
@@ -182,9 +208,12 @@ Item {
         appId: String(result.appId || ""),
         route: String(result.route || ""),
         parentRoute: String(result.parentRoute || "root"),
-        semanticTier: Number(result.semanticTier || 0)
+        semanticTier: Number(result.semanticTier || 0),
+        section: section,
+        favorite: stateStore.isFavorite(result.id)
       })
     }
+    root.resultSectionCount = Object.keys(sections).length
 
     if (resultsModel.count === 0) root.selectedIndex = 0
     else root.selectedIndex = Math.max(0, Math.min(root.selectedIndex, resultsModel.count - 1))
@@ -212,8 +241,14 @@ Item {
   function runSelected(useParent) {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
+    stateStore.recordSelection(row.resultId)
     if (row.resultType === "application") root.launchApplication(row.appId, row.title)
     else root.runRoute(useParent ? row.parentRoute : row.route)
+  }
+
+  function toggleSelectedFavorite() {
+    if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
+    stateStore.toggleFavorite(resultsModel.get(root.selectedIndex).resultId)
   }
 
   function launchApplication(appId, title) {
@@ -266,6 +301,11 @@ Item {
   }
 
   ListModel { id: resultsModel }
+
+  StateStore {
+    id: stateStore
+    onSnapshotChanged: root.rebuildResults()
+  }
 
   AppProvider {
     id: appProvider
@@ -325,7 +365,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: root.opened && (root.defaultSourceLoaded || root.appsReady)
+    visible: root.opened && stateStore.loaded && (root.defaultSourceLoaded || root.appsReady)
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "omalauncher"
@@ -412,7 +452,10 @@ Item {
 
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Escape) {
+            if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
+              root.toggleSelectedFavorite()
+              event.accepted = true
+            } else if (event.key === Qt.Key_Escape) {
               if (searchInput.text) searchInput.text = ""
               else root.dismiss()
               event.accepted = true
@@ -457,6 +500,27 @@ Item {
         model: resultsModel
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        section.property: "section"
+        section.criteria: ViewSection.FullString
+        section.delegate: Rectangle {
+          required property string section
+          width: resultList.width
+          height: section ? root.sectionHeight : 0
+          color: "transparent"
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(22)
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Style.space(4)
+            text: parent.section
+            color: root.foreground
+            opacity: 0.48
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.caption
+            font.weight: Font.DemiBold
+          }
+        }
 
         delegate: Rectangle {
           id: resultRow
@@ -472,6 +536,7 @@ Item {
           required property string route
           required property string parentRoute
           required property string resultKind
+          required property bool favorite
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
@@ -550,7 +615,7 @@ Item {
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
             visible: resultRow.selected
-            text: "↵"
+            text: "Ctrl+F " + (resultRow.favorite ? "★" : "☆") + "  ·  ↵"
             color: root.selectedText
             opacity: 0.68
             font.family: Style.font.menuFamily
@@ -589,7 +654,7 @@ Item {
           width: Style.space(500)
           horizontalAlignment: Text.AlignHCenter
           visible: !searchInput.text && !root.sourceError
-          text: "Enter runs  ·  Ctrl+Enter opens the parent menu"
+          text: "Enter runs  ·  Ctrl+F favorites  ·  Ctrl+Enter opens the parent menu"
           color: root.foreground
           opacity: 0.42
           font.family: Style.font.menuFamily
