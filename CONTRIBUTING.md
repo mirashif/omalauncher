@@ -44,13 +44,31 @@ npm run validate
 ```
 
 It runs both JavaScript checks, the Node test suite, plugin-manifest validation,
-`qmllint`, and an isolated clean install/remove cycle through the Omarchy plugin
-CLI.
+`qmllint`, the real onboarding journey in an isolated nested compositor when a
+Wayland session is available, and an isolated clean install/enable/remove cycle
+through the Omarchy plugin CLI.
 Run only the packaging smoke test with:
 
 ```bash
 npm run package:smoke
 ```
+
+Run the onboarding journey by itself without showing a test window:
+
+```bash
+npm run test:onboarding
+```
+
+To watch the test choose the recommended shortcut, replace Omarchy Menu, close,
+and reopen the launcher, run:
+
+```bash
+npm run test:onboarding:visible
+```
+
+Both modes use temporary config and state directories. A failed onboarding run
+keeps that directory and prints its path; it contains the Quickshell and
+Hyprland logs plus a screenshot of the failing stage.
 
 Inspect static application and menu discovery with:
 

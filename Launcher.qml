@@ -519,6 +519,7 @@ Item {
       ready: root.indexSettled,
       healthy: !root.providerWarning,
       warning: root.providerWarning,
+      launcherOpen: root.opened,
       sharedAppLibrary: appProvider.usingSharedLibrary,
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length,
@@ -527,7 +528,20 @@ Item {
       maxSearchUpdateMs: root.maxSearchUpdateMs,
       calculatorBackendAvailable: calculatorProvider.backendAvailable,
       fileSearchBackendAvailable: fileSearchProvider.backendAvailable,
-      fileSearchScopes: stateStore.preferences.fileSearchScopes.length
+      fileSearchScopes: stateStore.preferences.fileSearchScopes.length,
+      onboarding: {
+        visible: root.onboardingOpen && onboardingView.visible,
+        stage: root.onboardingStage,
+        status: String(stateStore.onboarding.status || "pending"),
+        hotkey: root.onboardingHotkey,
+        accessibleName: String(onboardingView.Accessible.name || ""),
+        busy: appHotkeyProvider.busy || root.onboardingInspectionPending,
+        statusText: root.onboardingStatusText,
+        replacesMenu: root.onboardingReplacesMenu,
+        replacementPending: root.onboardingReplacementPending,
+        replacementBlocked: root.onboardingReplacementBlocked,
+        primaryAction: onboardingView.primaryActionText
+      }
     })
   }
 

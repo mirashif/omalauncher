@@ -23,6 +23,7 @@ FocusScope {
   property bool replacementPending: false
   property bool replacesMenu: false
   property bool replacementBlocked: false
+  readonly property string primaryActionText: primaryButton.text
 
   signal recordRequested()
   signal applyRequested()

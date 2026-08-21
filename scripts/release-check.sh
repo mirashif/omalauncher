@@ -53,6 +53,15 @@ mapfile -t qml_files < <(find "$project_dir" -type f -name '*.qml' \
   -I /usr/lib/qt6/qml \
   "${qml_files[@]}"
 
+if [[ -n ${WAYLAND_DISPLAY:-} ]] \
+    && command -v Hyprland >/dev/null \
+    && command -v quickshell >/dev/null \
+    && command -v wtype >/dev/null; then
+  bash "$project_dir/scripts/onboarding-runtime-test.sh"
+else
+  echo "release-check: skipping onboarding runtime test outside a Wayland session"
+fi
+
 bash "$project_dir/scripts/package-smoke-test.sh"
 
 if git -C "$project_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
