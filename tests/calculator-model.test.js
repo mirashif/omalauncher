@@ -10,6 +10,12 @@ test("explicit calculator queries preserve expressions without evaluation", () =
     expression: "2 + 2",
     key: "explicit:2 + 2"
   })
+  assert.deepEqual(CalculatorModel.queryRequest("= ", true), {
+    active: true,
+    explicit: true,
+    expression: "",
+    key: "explicit:"
+  })
 })
 
 test("arithmetic heuristics yield to strong launcher matches", () => {
@@ -35,4 +41,7 @@ test("missing qalc produces an actionable explicit-query row", () => {
   assert.match(record.description, /libqalculate/)
   assert.equal(CalculatorModel.loadingRecord("2 + 2").kind, "calculator-loading")
   assert.equal(CalculatorModel.errorRecord("2 + 2", "Invalid expression").description, "Invalid expression")
+  assert.equal(CalculatorModel.readyRecord().title, "Type a Calculation")
+  assert.equal(CalculatorModel.readyRecord().description, "Example: = 12 * 8")
+  assert.equal(CalculatorModel.disabledRecord().kind, "calculator-unavailable")
 })

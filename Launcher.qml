@@ -771,7 +771,9 @@ Item {
       kind: "open-calculator",
       title: "Calculate",
       breadcrumb: "",
-      description: "Start with = · Example: = 12 * 8",
+      description: preferences.calculatorEnabled === true
+        ? "Start with = · Example: = 12 * 8"
+        : "Enable in Settings · Syntax: = 12 * 8",
       icon: "",
       iconFont: "",
       appIcon: "",
@@ -1958,7 +1960,8 @@ Item {
       root.setActiveRoute("settings", true)
       return
     }
-    if (row.resultKind === "calculator-loading" || row.resultKind === "calculator-error") return
+    if (row.resultKind === "calculator-ready"
+        || row.resultKind === "calculator-loading" || row.resultKind === "calculator-error") return
     if (row.resultKind === "open-files") {
       root.setActiveRoute(
         stateStore.preferences.fileSearchEnabled === true ? "files" : "settings", true)

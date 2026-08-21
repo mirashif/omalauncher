@@ -22,7 +22,12 @@ function queryRequest(query, strongLauncherMatch) {
 
   var explicit = raw.charAt(0) === "="
   var expression = explicit ? text(raw.slice(1)) : raw
-  if (!expression || expression.length > 512) {
+  if (!expression) {
+    return explicit
+      ? { active: true, explicit: true, expression: "", key: "explicit:" }
+      : { active: false, explicit: false, expression: "", key: "" }
+  }
+  if (expression.length > 512) {
     return { active: false, explicit: explicit, expression: "", key: "" }
   }
 
@@ -145,6 +150,21 @@ function loadingRecord(expression) {
 }
 
 /**
+ * @returns {CalculatorRecord}
+ */
+function readyRecord() {
+  return statusRecord("", "calculator-ready", "Type a Calculation", "Example: = 12 * 8", "")
+}
+
+/**
+ * @returns {CalculatorRecord}
+ */
+function disabledRecord() {
+  return statusRecord("", "calculator-unavailable", "Calculator Disabled",
+    "Enable Calculator Results in Omalauncher Settings", "")
+}
+
+/**
  * @param {unknown} expression
  * @param {unknown} message
  * @returns {CalculatorRecord}
@@ -159,6 +179,8 @@ if (typeof module !== "undefined") {
     normalizedResult: normalizedResult,
     resultRecord: resultRecord,
     unavailableRecord: unavailableRecord,
+    readyRecord: readyRecord,
+    disabledRecord: disabledRecord,
     loadingRecord: loadingRecord,
     errorRecord: errorRecord
   }

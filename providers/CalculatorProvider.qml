@@ -40,7 +40,15 @@ Item {
     root.expression = parsed.expression
     root.explicitQuery = parsed.explicit
     root.clearResult()
-    if (!root.providerEnabled || !parsed.active) return
+    if (!parsed.active) return
+    if (!root.providerEnabled) {
+      root.records = parsed.explicit ? [CalculatorModel.disabledRecord()] : []
+      return
+    }
+    if (!parsed.expression) {
+      root.records = [CalculatorModel.readyRecord()]
+      return
+    }
     if (!root.backendSettled) {
       root.loading = true
       root.records = parsed.explicit ? [CalculatorModel.loadingRecord(parsed.expression)] : []
