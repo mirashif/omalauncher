@@ -78,8 +78,11 @@ test("file search exposes bounded provider status and management records", () =>
     "unavailable", "File Search Unavailable", "Install fd", "settings").route, "settings")
   assert.equal(FileSearchModel.statusRecord(
     "error", "File Search Timed Out", "Timed out", "").kind, "file-search-error")
-  assert.match(FileSearchModel.managementRecord(false, 0).description, /Enable/)
-  assert.match(FileSearchModel.managementRecord(true, 2).description, /2 configured scopes/)
+  assert.equal(FileSearchModel.managementRecord(false, 0).description,
+    "Enable in Settings · Root shortcut: f report")
+  assert.equal(FileSearchModel.managementRecord(true, 2).description,
+    "2 configured scopes · Root shortcut: f report")
+  assert.equal(FileSearchModel.managementRecord(true, 2).breadcrumb, "")
 })
 
 test("superseded file searches cannot apply their late output", () => {

@@ -766,6 +766,25 @@ Item {
       order: -3,
       section: "Launcher"
     }, {
+      id: "omalauncher:calculate",
+      type: "launcher-command",
+      kind: "open-calculator",
+      title: "Calculate",
+      breadcrumb: "",
+      description: "Start with = · Example: = 12 * 8",
+      icon: "",
+      iconFont: "",
+      appIcon: "",
+      appId: "",
+      aliases: ["calculator"],
+      keywords: ["calculator", "calculate", "math", "expression", "equals"],
+      route: "",
+      parentRoute: "root",
+      searchText: "calculate calculator math expression equals = 12 * 8 omalauncher",
+      providerPriority: -1,
+      order: -1,
+      section: "Launcher"
+    }, {
       id: "omalauncher:toggle-compact",
       type: "launcher-command",
       kind: "toggle-compact",
@@ -1825,6 +1844,16 @@ Item {
     }
     if (row.resultKind === "open-settings") {
       root.setActiveRoute("settings", true)
+      return
+    }
+    if (row.resultKind === "open-calculator") {
+      root.setSearchTextSilently("= ")
+      root.selectedIndex = 0
+      root.rebuildResults()
+      Qt.callLater(function() {
+        searchInput.forceActiveFocus()
+        searchInput.cursorPosition = searchInput.text.length
+      })
       return
     }
     if (row.resultKind === "settings-open-about") {

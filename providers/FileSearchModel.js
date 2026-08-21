@@ -292,10 +292,11 @@ function managementRecord(enabled, scopeCount) {
     type: "launcher-command",
     kind: "open-files",
     title: "Search Files",
-    breadcrumb: "Omalauncher",
+    breadcrumb: "",
     description: enabled === true
-      ? (Number(scopeCount || 0) + " configured scope" + (Number(scopeCount || 0) === 1 ? "" : "s"))
-      : "Enable scoped file search in Omalauncher Settings",
+      ? (Number(scopeCount || 0) + " configured scope" + (Number(scopeCount || 0) === 1 ? "" : "s")
+        + " · Root shortcut: f report")
+      : "Enable in Settings · Root shortcut: f report",
     icon: "󰈞",
     iconFont: "",
     appIcon: "",

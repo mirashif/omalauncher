@@ -251,11 +251,19 @@ test("settings commands expose only their launcher-owned primary action", () => 
     resultKind: "about-open-url",
     title: "View Source Code"
   }, {})
+  const calculatorActions = ActionModel.actionsForResult({
+    resultId: "omalauncher:calculate",
+    resultType: "launcher-command",
+    resultKind: "open-calculator",
+    title: "Calculate"
+  }, {})
 
   assert.deepEqual(settingActions.map(action => action.id), ["primary"])
   assert.deepEqual(aboutActions.map(action => action.id), ["primary"])
+  assert.deepEqual(calculatorActions.map(action => action.id), ["primary"])
   assert.equal(settingActions[0].title, "Scoped File Search")
   assert.equal(aboutActions[0].title, "View Source Code")
+  assert.equal(calculatorActions[0].title, "Calculate")
 })
 
 test("calculator results expose copy actions without launcher personalization", () => {

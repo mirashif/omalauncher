@@ -79,12 +79,12 @@ function pathName(value) {
 function settingsRecords(preferences, context) {
   var values = preferences || {}
   var status = context || {}
-  var calculatorDescription = enabledLabel(values.calculatorEnabled)
+  var calculatorDescription = enabledLabel(values.calculatorEnabled) + " · Try = 12 * 8"
   if (status.calculatorSettled === true && status.calculatorAvailable !== true) {
     calculatorDescription += " · qalc unavailable"
   }
   var scopes = Array.isArray(values.fileSearchScopes) ? values.fileSearchScopes : []
-  var fileDescription = enabledLabel(values.fileSearchEnabled)
+  var fileDescription = enabledLabel(values.fileSearchEnabled) + " · Try f report"
   if (scopes.length > 0) {
     fileDescription += " · " + scopes.length + " scope" + (scopes.length === 1 ? "" : "s")
   }
