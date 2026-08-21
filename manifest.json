@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.mirashif.omalauncher",
   "name": "Omalauncher",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "author": "Mir Ashif",
   "license": "MIT",
   "description": "A keyboard-first command palette for Omarchy.",

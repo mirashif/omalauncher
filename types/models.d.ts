@@ -62,6 +62,7 @@ export interface SearchableRecord {
   appId?: string;
   startupClass?: string;
   aliases?: string[];
+  exactKeywords?: string[];
   keywords?: string[];
   route?: string;
   parentRoute?: string;
@@ -98,6 +99,7 @@ export interface SearchableRecord {
   semanticQuality?: number;
   _searchTitle?: string;
   _searchAliases?: string[];
+  _searchExactKeywords?: string[];
   _searchContextWords?: string[];
   _searchFullWords?: string[];
 }

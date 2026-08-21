@@ -110,6 +110,7 @@ function buildApplicationRecords(entries, options) {
       appId: appId,
       startupClass: String(entry.startupClass || "").trim(),
       aliases: [],
+      exactKeywords: keywords,
       keywords: keywords.concat(categories),
       route: "",
       parentRoute: "",

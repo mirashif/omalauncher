@@ -188,6 +188,33 @@ function commandAliases(command) {
 }
 
 /**
+ * @param {unknown} args
+ * @returns {string[]}
+ */
+function optionalChoiceValues(args) {
+    var text = normalizedString(args)
+    var choices = []
+    /** @type {BooleanMap} */
+    var seen = {}
+    var groups = text.match(/\[[^\]]*\|[^\]]*\]/g) || []
+    for (var i = 0; i < groups.length; i++) {
+        var group = groups[i]
+        if (!group)
+            continue
+        var values = group.slice(1, -1).split("|")
+        for (var valueIndex = 0; valueIndex < values.length; valueIndex++) {
+            var value = normalizedString(values[valueIndex])
+            var key = value.toLowerCase()
+            if (!/^[a-z0-9][a-z0-9._-]*$/i.test(value) || seen[key])
+                continue
+            seen[key] = true
+            choices.push(value)
+        }
+    }
+    return choices
+}
+
+/**
  * @param {readonly CatalogCommandInput[] | null | undefined} commands
  * @returns {CliRecord[]}
  */
@@ -195,6 +222,13 @@ function buildRecords(commands) {
     /** @type {CliRecord[]} */
     var records = []
     var input = commands || []
+    /** @type {string[]} */
+    var codingAgentNames = []
+    for (var commandIndex = 0; commandIndex < input.length; commandIndex++) {
+        var catalogCommand = input[commandIndex]
+        if (catalogCommand && normalizedString(catalogCommand.route) === "omarchy default agent")
+            codingAgentNames = optionalChoiceValues(catalogCommand.args)
+    }
 
     for (var i = 0; i < input.length; i++) {
         var command = input[i]
@@ -271,6 +305,7 @@ function buildRecords(commands) {
                 settingValue: "",
                 isChecked: false,
                 aliases: ["Agent Picker", "Pick Agent"],
+                exactKeywords: codingAgentNames,
                 keywords: ["omarchy agent --pick", "coding agent", "choose", "picker", "terminal", "cli"],
                 executionKind: "cli-direct",
                 commandArgvJson: JSON.stringify(["omarchy", "agent", "--pick"]),

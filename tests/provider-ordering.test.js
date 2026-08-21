@@ -46,3 +46,38 @@ test("fully tied search results follow provider priority and expose their sectio
     ]
   )
 })
+
+test("an installed application outranks commands for an exact desktop keyword", () => {
+  const application = AppIndex.buildApplicationRecords([
+    {
+      id: "code.desktop",
+      name: "Visual Studio Code",
+      genericName: "Text Editor",
+      keywords: ["vscode"],
+      categories: ["TextEditor", "Development", "IDE"]
+    }
+  ])[0]
+
+  const parsedMenu = MenuIndex.parseMenuJsonc(`{
+    "vscode": { "label": "VSCode", "action": "omarchy-default-editor vscode" }
+  }`)
+  assert.equal(parsedMenu.error, "")
+  const mergedMenu = MenuIndex.mergeMenuSources(parsedMenu.items, [])
+  const menuCommand = MenuIndex.buildCommandRecords(mergedMenu, {})[0]
+
+  const cliCommand = CommandCatalogModel.buildRecords([
+    {
+      route: "omarchy install editor vscode",
+      binary: "omarchy-install-editor-vscode",
+      group: "install",
+      name: "editor-vscode"
+    }
+  ])[0]
+
+  const results = SearchEngine.search([menuCommand, cliCommand, application], "vscode")
+
+  assert.deepEqual(
+    results.map(record => record.type),
+    ["application", "omarchy-command", "omarchy-cli"]
+  )
+})

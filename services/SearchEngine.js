@@ -133,8 +133,10 @@ function everyTermFuzzyMatches(queryTerms, words) {
  */
 function prepareRecord(record) {
   var aliases = Array.isArray(record.aliases) ? record.aliases : []
+  var exactKeywords = Array.isArray(record.exactKeywords) ? record.exactKeywords : []
   record._searchTitle = normalize(record.title)
   record._searchAliases = aliases.map(function(alias) { return normalize(alias) })
+  record._searchExactKeywords = exactKeywords.map(function(keyword) { return normalize(keyword) })
   record._searchContextWords = tokens((record.title || "") + " " + (record.breadcrumb || ""))
   record._searchFullWords = tokens(record.searchText || [
     record.title,
@@ -165,6 +167,12 @@ function semanticScorePrepared(record, needle, queryTerms) {
     if (normalizedAlias === needle) return { tier: 1, quality: i }
   }
   if (title === needle) return { tier: 2, quality: 0 }
+  var exactKeywords = Array.isArray(record.exactKeywords) ? record.exactKeywords : []
+  var normalizedExactKeywords = Array.isArray(record._searchExactKeywords)
+    ? record._searchExactKeywords : exactKeywords.map(function(keyword) { return normalize(keyword) })
+  for (var keywordIndex = 0; keywordIndex < normalizedExactKeywords.length; keywordIndex++) {
+    if (normalizedExactKeywords[keywordIndex] === needle) return { tier: 2, quality: 0 }
+  }
   if (title.indexOf(needle) === 0) return { tier: 3, quality: title.length - needle.length }
 
   var contextWords = Array.isArray(record._searchContextWords)
@@ -221,6 +229,7 @@ function copyRecord(record) {
   var copy = Object.assign({}, record)
   delete copy._searchTitle
   delete copy._searchAliases
+  delete copy._searchExactKeywords
   delete copy._searchContextWords
   delete copy._searchFullWords
   return copy

@@ -89,3 +89,26 @@ test("the catalog exposes the supported coding-agent picker variant", () => {
   assert.equal(records[1].emptyVisible, true)
   assert.deepEqual(JSON.parse(records[1].commandArgvJson), ["omarchy", "agent", "--pick"])
 })
+
+test("supported coding-agent names find the agent picker", () => {
+  const records = CommandCatalogModel.buildRecords([
+    {
+      route: "omarchy agent",
+      binary: "omarchy-agent",
+      group: "agent",
+      summary: "Launch the default coding agent",
+      args: "[--inline] [--pick]"
+    },
+    {
+      route: "omarchy default agent",
+      binary: "omarchy-default-agent",
+      group: "default",
+      name: "agent",
+      summary: "Set and launch the default coding agent",
+      args: "[codex|future-agent]"
+    }
+  ])
+
+  assert.equal(SearchEngine.search(records, "codex")[0].commandRoute, "omarchy agent --pick")
+  assert.equal(SearchEngine.search(records, "future agent")[0].commandRoute, "omarchy agent --pick")
+})

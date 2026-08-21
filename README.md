@@ -6,7 +6,7 @@ Omalauncher turns Omarchy's apps, nested menus, shell features, and CLI catalog
 into fast, keyboard-first search. Type what you mean—such as `clipboard`,
 `toggle nightlight`, or `browser default`—without remembering where it lives.
 
-**Built for Omarchy 4 · Current build: v0.10.0**
+**Built for Omarchy 4 · Current build: v1.0.0**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
@@ -52,6 +52,13 @@ when they can be used on the current system.
   literal argument arrays.
 
 ## A closer look
+
+### Installed applications come first
+
+In this live Omarchy session, searching `vscode` puts the installed application
+first while keeping the related setup and CLI routes one shortcut away.
+
+![A live Omalauncher search for vscode with Visual Studio Code ranked before the related Omarchy command and CLI route](assets/real-world-vscode-search.png)
 
 ### Applications and commands, side by side
 
