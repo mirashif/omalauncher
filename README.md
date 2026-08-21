@@ -6,7 +6,7 @@ Omalauncher turns Omarchy's apps, nested menus, shell features, and CLI catalog
 into fast, keyboard-first search. Type what you mean—such as `clipboard`,
 `toggle nightlight`, or `browser default`—without remembering where it lives.
 
-**Built for Omarchy 4 · Current release: v0.9.0**
+**Built for Omarchy 4 · Current build: v0.10.0**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
@@ -42,6 +42,8 @@ when they can be used on the current system.
   search aliases, hide distractions, and recover hidden results at any time.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
+- **Open it your way.** Use the Omarchy bar icon or choose a global shortcut
+  during the two-step welcome setup.
 - **Get useful defaults.** An empty search shows favorites and recent items
   first, followed by browsable applications, menu commands, and shell features.
   The larger CLI catalog appears when you search, without cluttering that view.
@@ -109,9 +111,10 @@ folder, or copy its full path.
 
 ### Settings inside the launcher
 
-Search for **Omalauncher Settings** to configure Compact Mode, numbered result
-shortcuts, calculator and file search, folder scopes, and ignore patterns.
-Settings and personalization resets require confirmation.
+Search for **Omalauncher Settings** to change the launcher shortcut, rerun
+welcome setup, configure Compact Mode, numbered result shortcuts, calculator
+and file search, folder scopes, and ignore patterns. Settings and
+personalization resets require confirmation.
 
 ## Install
 
@@ -125,40 +128,31 @@ GitHub account with access.
 omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 ```
 
-### 2. Choose a shortcut
+### 2. Complete welcome setup
 
-First, check whether your preferred shortcut is already assigned:
+Click the Omalauncher search icon on the right side of the bar. Welcome setup
+suggests `SUPER + SPACE`, lets you record another chord, checks current
+Hyprland bindings, and asks explicitly before replacing a conflict. The final
+step has you close and reopen Omalauncher with the shortcut so the setup is
+verified.
 
-```bash
-omarchy menu keybindings --print
-```
+The recommended choice replaces the stock Omarchy Menu shortcut atomically:
+Omalauncher takes `SUPER + SPACE` and Omarchy Menu moves to `SUPER + R`. Setup
+checks that both chords are safe before changing either one, so the stock menu
+is never left without a shortcut. If you choose another available chord,
+existing Omarchy shortcuts stay where they are.
 
-Add the following binding to `~/.config/hypr/bindings.lua`, or replace
-`SUPER + R` with another unused shortcut:
+Shortcut changes are written to Omalauncher's marked block in
+`~/.config/hypr/bindings.lua`. The previous file is backed up, Hyprland is
+reloaded and checked for configuration errors, and a failed change is rolled
+back automatically.
 
-```lua
-o.bind(
-  "SUPER + R",
-  "Omalauncher",
-  "omarchy-shell shell toggle io.github.omalauncher '{}'"
-)
-```
-
-If `SUPER + R` is already assigned, choose another shortcut or explicitly
-unbind the existing action before replacing it. Then validate the Hyprland
-configuration:
-
-```bash
-hyprctl reload
-hyprctl configerrors
-```
-
-The stock Omarchy launchers remain available on `SUPER + SPACE` and
-`SUPER + ALT + SPACE`.
+After the recommended swap, Omarchy Menu remains available on `SUPER + R` and
+the stock application launcher remains on `SUPER + ALT + SPACE`.
 
 ### 3. Start searching
 
-Press `SUPER + R`, type an application or command, and press `Enter`. Use
+Press your chosen shortcut, type an application or command, and press `Enter`. Use
 `Ctrl+K` whenever you want to see more actions for the selected result.
 
 ## How it works
@@ -197,8 +191,7 @@ These shortcuts cover the everyday search-and-run flow:
 | `Ctrl+Enter` | Open the selected static menu command's parent inside Omalauncher |
 | `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
 | `Ctrl+Up/Down` | Jump between result or action sections |
-| `Up` at the first row | Cycle backward through successful queries |
-| `Down` while cycling | Return toward the draft query |
+| `Up/Down` | Move through results, wrapping at either end |
 | `Ctrl+Shift+C` | Enable or disable Compact Mode |
 | `Backspace` or `Left` | Leave a submenu when its search is empty |
 
@@ -229,6 +222,13 @@ start interacting.
 omarchy plugin update io.github.omalauncher --yes
 ```
 
+When updating from v0.9, move the newly available widget into the bar once:
+
+```bash
+omarchy plugin disable io.github.omalauncher
+omarchy plugin enable io.github.omalauncher --section right
+```
+
 If a keep-loaded instance does not refresh after an update, restart the shell:
 
 ```bash
@@ -249,12 +249,11 @@ omarchy restart shell
 
 ## Remove
 
-Remove the Omalauncher binding from `~/.config/hypr/bindings.lua`, then
-validate the configuration and remove the plugin:
+Remove the launcher shortcut from Omalauncher Settings first, then remove the
+plugin. If the shortcut came from a pre-v0.10 manual `o.bind` entry, remove
+that entry from `~/.config/hypr/bindings.lua` and run `hyprctl reload` instead.
 
 ```bash
-hyprctl reload
-hyprctl configerrors
 omarchy plugin disable io.github.omalauncher
 omarchy plugin remove io.github.omalauncher
 ```
@@ -269,7 +268,7 @@ If the shortcut does nothing, confirm the binding exists and ask Hyprland to
 report configuration errors:
 
 ```bash
-rg -n 'SUPER.*R|io.github.omalauncher' ~/.config/hypr/bindings.lua
+rg -n 'SUPER.*(SPACE|R)|io.github.omalauncher' ~/.config/hypr/bindings.lua
 hyprctl reload
 hyprctl configerrors
 ```

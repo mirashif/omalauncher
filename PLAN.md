@@ -1,6 +1,6 @@
 # Omalauncher Product Plan
 
-Status: v0.9.0 complete; next milestone not yet scoped
+Status: v0.10.0 implemented and validated locally
 
 Last updated: 2026-08-21
 
@@ -21,7 +21,24 @@ The product should remain:
 4. Safe around commands, expressions, paths, and plugin updates.
 5. Additive: the stock Omarchy launchers remain available as fallbacks.
 
-## Current release: v0.9.0
+## Current release: v0.10.0
+
+### First-run access
+
+- Theme-native two-step welcome setup inspired by Raycast's focused first-run
+  flow: choose a launcher shortcut, then close and verify it from the desktop.
+- Secure shortcut capture through Wayland keyboard-shortcut inhibition so an
+  existing global binding does not fire while a new chord is recorded.
+- Conflict inspection, explicit replacement, atomic backup, Hyprland reload,
+  config-error validation, rollback, and concurrent-edit protection.
+- Recommended atomic shortcut swap: Omalauncher takes `SUPER + SPACE` while
+  Omarchy Menu moves to the validated `SUPER + R` fallback.
+- Right-side Omarchy bar widget with left-click launcher access and right-click
+  Settings.
+- Version 4 state migration: new installs enter setup while existing users
+  continue uninterrupted, with a one-time post-setup coaching result.
+- Settings entries to change or remove a managed launcher shortcut and rerun
+  welcome setup.
 
 ### Search and navigation
 
@@ -29,7 +46,8 @@ The product should remain:
   Omarchy commands, menus, and links.
 - Breadcrumb-aware matching for nested commands and duplicate titles.
 - Deterministic semantic tiers with frecency only as a tie-breaker.
-- Favorites, recents, aliases, hidden-result recovery, and query history.
+- Favorites, recents, aliases, hidden-result recovery, and wrapping result
+  navigation.
 - Native route navigation for static menus and applications.
 - `Ctrl+1` through `Ctrl+8` activation for the corresponding visible row.
 - Compact Mode, section jumps, pop-to-root, and immediate-close shortcuts.
@@ -39,7 +57,7 @@ The product should remain:
 - Searchable Action Panel with shallow submenus and a stock-menu fallback.
 - Favorite reordering, alias editing, hide/unhide, and ranking reset actions.
 - In-launcher Settings for launcher behavior and provider configuration.
-- Version 3 state migration with independent preference normalization.
+- Version 4 state migration with independent preferences and onboarding state.
 - Confirmed resets for provider settings and personalization.
 
 ### Providers
@@ -80,14 +98,16 @@ The product should remain:
 - File search is disabled and unconfigured by default. It never scans `/`, all
   of `$HOME`, file contents, or every root-search keystroke implicitly.
 - Calculator and file results remain ephemeral and outside learned ranking.
-- Plugin-owned Settings do not edit Omarchy or Hyprland configuration.
+- Omalauncher edits only its marked Hyprland hotkey block, using backup,
+  reload, validation, rollback, and race protection. Other configuration is
+  preserved byte-for-byte.
 - No file below `/usr/share/omarchy` is modified.
-- Global per-command hotkeys remain deferred until Omarchy provides a managed
-  registration contract. Numbered activation is launcher-local.
+- Launcher and per-application hotkeys share one owned block so a chord cannot
+  be claimed by both. Numbered activation remains launcher-local.
 
 ## Quality contract
 
-The release check currently covers 100 Node tests, manifest validation, QML
+The release check currently covers 135 Node tests, manifest validation, QML
 linting, a clean install/remove smoke test, and whitespace validation.
 
 ```bash
