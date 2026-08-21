@@ -47,3 +47,12 @@ test("suggested folders add immediately from root search", () => {
   assert.match(suggestedScopeAction[1], /validateSettingsScope\(row\.settingValue, true\)/)
   assert.equal((launcher.match(/SettingsModel\.scopeValidationApplies/g) || []).length, 2)
 })
+
+test("state changes defer onboarding synchronization to avoid signal re-entry", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+  const stateStore = /StateStore \{\s*id: stateStore([\s\S]*?)\n  \}\n\n  AppProvider/.exec(launcher)
+
+  assert.ok(stateStore)
+  assert.match(stateStore[1], /onSnapshotChanged:[\s\S]*?Qt\.callLater\(root\.syncOnboardingForOpen\)/)
+  assert.doesNotMatch(stateStore[1], /^\s*root\.syncOnboardingForOpen\(\)\s*$/m)
+})

@@ -2257,7 +2257,7 @@ Item {
       root.rebuildCachedRecords()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
-      root.syncOnboardingForOpen()
+      Qt.callLater(root.syncOnboardingForOpen)
     }
   }
 
