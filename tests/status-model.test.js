@@ -33,6 +33,17 @@ test("partial-provider warnings accompany otherwise normal empty states", () => 
   assert.match(status.detail, /^Partial index:/)
 })
 
+test("normal empty search states use plain recovery guidance", () => {
+  const status = StatusModel.emptyStatus({
+    stateReady: true,
+    indexSettled: true,
+    totalRecords: 12,
+    query: "missing"
+  })
+  assert.equal(status.title, "No matching results")
+  assert.equal(status.detail, "Try fewer words or search by an app, setting, or action name.")
+})
+
 test("status is hidden whenever results exist and warnings are deduplicated", () => {
   assert.equal(StatusModel.emptyStatus({ resultCount: 1 }).visible, false)
   assert.equal(StatusModel.warningText(["Apps unavailable", "", "Apps unavailable"]), "Apps unavailable")

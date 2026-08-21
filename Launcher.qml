@@ -828,6 +828,8 @@ Item {
     records.push(FileSearchModel.managementRecord(
       preferences.fileSearchEnabled === true,
       fileScopes.length))
+    records = records.concat(SettingsModel.rootSearchRecords(
+      preferences, root.settingsContext()))
     if ((stateStore.hidden || []).length > 0) records.push({
       id: "omalauncher:manage-hidden",
       type: "launcher-command",
@@ -2130,11 +2132,33 @@ Item {
   function primaryActionLabel() {
     var row = root.selectedResultSnapshot()
     if (!row.resultId) return ""
+    if (row.resultKind === "onboarding-coach") return "Try It"
     if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultKind === "open-settings") return "Open Settings"
+    if (row.resultKind === "open-calculator") return "Start Calculating"
+    if (row.resultKind === "settings-open-about") return "Open About"
+    if (row.resultKind === "about-copy-details") return "Copy Details"
+    if (row.resultKind === "about-open-url") return "Open Link"
     if (row.resultKind === "open-files") return "Open File Search"
-    if (String(row.resultKind || "").indexOf("settings-") === 0) return "Apply"
+    if (row.resultKind === "settings-toggle") {
+      return stateStore.preferences[String(row.settingKey || "")] === true ? "Disable" : "Enable"
+    }
+    if (row.resultKind === "settings-open-launcher-hotkey") return "Configure"
+    if (row.resultKind === "settings-run-onboarding") return "Open Setup"
+    if (row.resultKind === "settings-remove-launcher-hotkey") return "Remove"
+    if (row.resultKind === "settings-open-scope") return "Add Scope"
+    if (row.resultKind === "settings-add-suggested-scope") return "Add Scope"
+    if (row.resultKind === "settings-open-ignore") return "Add Ignore"
+    if (row.resultKind === "settings-save-scope") return "Add Directory"
+    if (row.resultKind === "settings-save-ignore") return "Add Pattern"
+    if (row.resultKind === "settings-remove-scope"
+        || row.resultKind === "settings-remove-ignore") return "Remove"
+    if (row.resultKind === "settings-open-reset-providers"
+        || row.resultKind === "settings-open-reset-personalization") return "Review Reset"
+    if (row.resultKind === "settings-confirm-reset-providers"
+        || row.resultKind === "settings-confirm-reset-personalization") return "Reset"
+    if (row.resultKind === "settings-cancel") return "Cancel"
     if (row.resultKind === "calculator") return "Copy Result"
     if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
     if (row.resultType === "file") return "Open File"

@@ -41,7 +41,7 @@ function record(id, kind, title, description, icon, order, section, key, value) 
     type: "launcher-command",
     kind: kind,
     title: title,
-    breadcrumb: "Omalauncher Settings",
+    breadcrumb: "",
     description: description,
     icon: icon,
     iconFont: "",
@@ -136,7 +136,7 @@ function settingsRecords(preferences, context) {
     records.push(record(
       "omalauncher:setting-scope:" + scopeIndex,
       "settings-remove-scope",
-      "Remove Scope",
+      "Remove " + pathName(scopes[scopeIndex]),
       text(scopes[scopeIndex]),
       "",
       20 + scopeIndex,
@@ -154,7 +154,7 @@ function settingsRecords(preferences, context) {
     records.push(record(
       "omalauncher:setting-ignore:" + ignoreIndex,
       "settings-remove-ignore",
-      "Remove Ignore Pattern",
+      "Remove " + text(ignores[ignoreIndex]),
       text(ignores[ignoreIndex]),
       "",
       ignoreOrder + 1 + ignoreIndex,

@@ -97,8 +97,10 @@ function emptyStatus(options) {
     return {
       visible: true,
       kind: "empty",
-      title: "No matching applications, shell features, or commands",
-      detail: warnings.length ? "Partial index: " + warnings.join(" · ") : "Try a title, breadcrumb, alias, or command ID."
+      title: "No matching results",
+      detail: warnings.length
+        ? "Partial index: " + warnings.join(" · ")
+        : "Try fewer words or search by an app, setting, or action name."
     }
   }
   return {
