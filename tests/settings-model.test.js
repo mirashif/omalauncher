@@ -5,95 +5,142 @@ const SettingsModel = require("../services/SettingsModel.js")
 const SearchEngine = require("../services/SearchEngine.js")
 const StateModel = require("../services/StateModel.js")
 
-test("settings expose provider toggles and configured file rules", () => {
+function configuredState() {
   let state = StateModel.emptyState()
   state = StateModel.setPreference(state, "fileSearchEnabled", true)
+  state = StateModel.setPreference(state, "quickActivationEnabled", true)
   state = StateModel.addFileScope(state, "/home/test/Documents")
   state = StateModel.addFileIgnore(state, "node_modules")
-  const rows = SettingsModel.settingsRecords(state.preferences, {
+  return state
+}
+
+function settingsContext() {
+  return {
     fileSearchSettled: true,
     fileSearchAvailable: false,
+    calculatorSettled: true,
+    calculatorAvailable: true,
     launcherHotkey: "SUPER + R",
     onboardingHotkey: "SUPER + R",
     commonScopes: ["/home/test/Documents", "/home/test/Downloads"],
-    productVersion: "0.10.0"
-  })
+    productVersion: "0.10.0",
+    creatorWebsiteUrl: "https://mirashif.com",
+    repositoryUrl: "https://github.com/mirashif/omalauncher"
+  }
+}
+
+test("settings root is concise and uses semantic controls", () => {
+  const rows = SettingsModel.settingsRecords(configuredState().preferences, settingsContext())
+  const shortcut = rows.find(row => row.kind === "settings-open-shortcut")
+  const compact = rows.find(row => row.settingKey === "compactMode")
+  const quickActivation = rows.find(row => row.settingKey === "quickActivationEnabled")
+  const calculator = rows.find(row => row.settingKey === "calculatorEnabled")
+  const fileSearch = rows.find(row => row.kind === "settings-open-file-search")
+  const reset = rows.find(row => row.kind === "settings-open-reset")
+  const about = rows.find(row => row.kind === "settings-open-about")
+
+  assert.equal(rows.length, 7)
+  assert.ok(shortcut)
+  assert.ok(compact)
+  assert.ok(quickActivation)
+  assert.ok(calculator)
+  assert.ok(fileSearch)
+  assert.ok(reset)
+  assert.ok(about)
+  assert.equal(shortcut.controlType, "navigation")
+  assert.equal(shortcut.trailingText, "SUPER + R")
+  assert.equal(compact.controlType, "toggle")
+  assert.equal(compact.checked, false)
+  assert.equal(quickActivation.checked, true)
+  assert.equal(calculator.description, "Show instant results for = expressions")
+  assert.equal(fileSearch.controlType, "navigation")
+  assert.equal(fileSearch.trailingText, "On · 1 folder")
+  assert.equal(fileSearch.targetRoute, "settings-file-search")
+  assert.equal(reset.targetRoute, "settings-reset")
+  assert.equal(about.trailingText, "v0.10.0")
+  assert.deepEqual([...new Set(rows.map(row => row.section))], ["General", "Providers", "Data", "About"])
+})
+
+test("file-search details contain provider state and configured rules", () => {
+  const rows = SettingsModel.fileSearchRecords(configuredState().preferences, settingsContext())
   const fileToggle = rows.find(row => row.settingKey === "fileSearchEnabled")
-  const calculatorToggle = rows.find(row => row.settingKey === "calculatorEnabled")
   const addScope = rows.find(row => row.kind === "settings-open-scope")
   const scope = rows.find(row => row.kind === "settings-remove-scope")
+  const addIgnore = rows.find(row => row.kind === "settings-open-ignore")
   const ignore = rows.find(row => row.kind === "settings-remove-ignore")
-  const suggested = rows.find(row => row.kind === "settings-add-suggested-scope")
-  const launcherHotkey = rows.find(row => row.kind === "settings-open-launcher-hotkey")
+
   assert.ok(fileToggle)
-  assert.ok(calculatorToggle)
   assert.ok(addScope)
   assert.ok(scope)
+  assert.ok(addIgnore)
   assert.ok(ignore)
-  assert.ok(suggested)
-  assert.ok(launcherHotkey)
-
-  assert.equal(fileToggle.description, "Enabled · Try f report · 1 scope · fd unavailable")
-  assert.equal(calculatorToggle.description, "Enabled · Try = 12 * 8")
-  assert.equal(fileToggle.breadcrumb, "")
+  assert.equal(fileToggle.controlType, "toggle")
+  assert.equal(fileToggle.checked, true)
+  assert.equal(fileToggle.description, "fd is unavailable; install it to search files")
   assert.equal(addScope.title, "Add Folder")
-  assert.equal(addScope.description, "Enter an existing folder path")
+  assert.equal(addScope.targetRoute, "settings-scope")
   assert.equal(scope.title, "Documents")
   assert.equal(scope.section, "Included Folders")
   assert.equal(scope.settingValue, "/home/test/Documents")
-  assert.equal(ignore.title, "Remove node_modules")
+  assert.equal(scope.trailingText, "Remove")
+  assert.equal(addIgnore.targetRoute, "settings-ignore")
+  assert.equal(ignore.title, "node_modules")
   assert.equal(ignore.settingValue, "node_modules")
-  assert.equal(suggested.settingValue, "/home/test/Downloads")
-  assert.equal(suggested.section, "Suggested Folders")
-  assert.equal(launcherHotkey.description, "SUPER + R")
-  assert.equal(rows.some(row => row.kind === "settings-remove-launcher-hotkey"), true)
-  assert.equal(rows.some(row => row.kind === "settings-open-reset-personalization"), true)
-  const about = rows.find(row => row.kind === "settings-open-about")
-  assert.ok(about)
-  assert.equal(about.section, "About")
-  assert.equal(about.description, "Version 0.10.0 · Project details and links")
-  assert.ok(rows.indexOf(about) > rows.findIndex(row => row.section === "Reset"))
+})
+
+test("shortcut actions live on a dedicated page", () => {
+  const rows = SettingsModel.shortcutRecords(settingsContext())
+  const configure = rows.find(row => row.kind === "settings-open-launcher-hotkey")
+  const setup = rows.find(row => row.kind === "settings-run-onboarding")
+  const remove = rows.find(row => row.kind === "settings-open-remove-launcher-hotkey")
+
+  assert.ok(configure)
+  assert.ok(setup)
+  assert.ok(remove)
+  assert.equal(configure.trailingText, "SUPER + R")
+  assert.equal(setup.section, "Setup")
+  assert.equal(remove.destructive, true)
+  assert.equal(remove.targetRoute, "settings-remove-shortcut")
 })
 
 test("launcher settings are searchable directly from root", () => {
-  const rows = SettingsModel.rootSearchRecords(StateModel.emptyPreferences(), {
-    launcherHotkey: "SUPER + SPACE",
-    onboardingHotkey: "SUPER + SPACE",
-    productVersion: "0.10.0"
-  }).map(SearchEngine.prepareRecord)
+  const rows = SettingsModel.rootSearchRecords(StateModel.emptyPreferences(), settingsContext())
+    .map(SearchEngine.prepareRecord)
   const results = SearchEngine.search(rows, "setting launcher hotkey")
 
   assert.equal(results[0].kind, "settings-open-launcher-hotkey")
-  assert.equal(results[0].title, "Launcher Shortcut")
+  assert.equal(results[0].title, "Change Launcher Shortcut")
   assert.equal(results[0].breadcrumb, "Omalauncher Settings")
   assert.equal(rows.every(row => row.emptyVisible === false), true)
 })
 
 test("configured folders remain searchable as removal actions", () => {
-  const preferences = StateModel.emptyPreferences()
-  preferences.fileSearchScopes = ["/home/test/Documents"]
-  const rows = SettingsModel.rootSearchRecords(preferences, {}).map(SearchEngine.prepareRecord)
+  const rows = SettingsModel.rootSearchRecords(configuredState().preferences, settingsContext())
+    .map(SearchEngine.prepareRecord)
   const results = SearchEngine.search(rows, "remove documents")
 
   assert.equal(results[0].kind, "settings-remove-scope")
   assert.equal(results[0].title, "Documents")
 })
 
-test("about route exposes product details, compatibility, and project links", () => {
-  const rows = SettingsModel.aboutRecords({
-    productVersion: "0.10.0",
-    repositoryUrl: "https://github.com/mirashif/omalauncher"
-  })
+test("about route exposes a product hero and project links", () => {
+  const rows = SettingsModel.aboutRecords(settingsContext())
 
   assert.deepEqual(rows.map(row => row.kind), [
     "about-copy-details",
-    "about-copy-details",
+    "about-open-url",
     "about-open-url",
     "about-open-url",
     "about-open-url"
   ])
   assert.equal(rows[0].title, "Omalauncher v0.10.0")
-  assert.equal(rows[1].description, "Omarchy 4 · Quickshell 0.3")
+  assert.equal(rows[0].controlType, "hero")
+  assert.equal(rows[0].trailingText, "Omarchy 4 · Quickshell 0.3")
+  assert.equal(rows[1].title, "Mir Ashif")
+  assert.equal(rows[1].description, "Creator and maintainer")
+  assert.equal(rows[1].section, "Creator")
+  assert.equal(rows[1].trailingText, "mirashif.com")
+  assert.equal(rows[1].settingValue, "https://mirashif.com")
   assert.equal(rows[2].settingValue, "https://github.com/mirashif/omalauncher")
   assert.equal(rows[3].settingValue, "https://github.com/mirashif/omalauncher/issues")
   assert.equal(rows[4].settingValue, "https://github.com/mirashif/omalauncher/blob/main/LICENSE")
@@ -101,17 +148,25 @@ test("about route exposes product details, compatibility, and project links", ()
   assert.equal(SettingsModel.routeTitle("settings-about"), "About Omalauncher")
 })
 
-test("settings input routes preserve literal values and validation errors", () => {
-  const scope = SettingsModel.inputRecords("settings-scope", "/home/test/My Files", "", false)[0]
-  const invalid = SettingsModel.inputRecords("settings-scope", "relative", "Use an absolute path", false)[0]
+test("folder input keeps suggestions out of the main settings page", () => {
+  const preferences = configuredState().preferences
+  const emptyInput = SettingsModel.inputRecords(
+    "settings-scope", "", "", false, preferences, settingsContext())
+  const typedInput = SettingsModel.inputRecords(
+    "settings-scope", "/home/test/My Files", "", false, preferences, settingsContext())
+  const invalid = SettingsModel.inputRecords(
+    "settings-scope", "relative", "Use an absolute path", false, preferences, settingsContext())[0]
   const ignore = SettingsModel.inputRecords("settings-ignore", "*.tmp", "", false)[0]
 
-  assert.equal(scope.settingValue, "/home/test/My Files")
-  assert.equal(scope.title, "Add Folder")
-  assert.equal(scope.section, "Add Folder")
+  assert.equal(emptyInput[0].title, "Enter a Folder Path")
+  assert.equal(emptyInput.some(row => row.settingValue === "/home/test/Downloads"), true)
+  assert.equal(SettingsModel.settingsRecords(preferences, settingsContext())
+    .some(row => row.kind === "settings-add-suggested-scope"), false)
+  assert.equal(typedInput.length, 1)
+  assert.equal(typedInput[0].settingValue, "/home/test/My Files")
   assert.equal(invalid.description, "Use an absolute path")
   assert.equal(ignore.settingValue, "*.tmp")
-  assert.equal(SettingsModel.routeTitle("settings-scope"), "Add Folder to File Search")
+  assert.equal(SettingsModel.routeTitle("settings-scope"), "Add Folder")
 })
 
 test("immediate folder validation remains valid outside Settings", () => {
@@ -121,12 +176,30 @@ test("immediate folder validation remains valid outside Settings", () => {
   assert.equal(SettingsModel.scopeValidationApplies("root", false), false)
 })
 
-test("reset routes require a separate confirmation choice", () => {
-  const rows = SettingsModel.confirmationRecords("settings-reset-personalization")
-  assert.deepEqual(rows.map(row => row.kind), [
+test("destructive settings require a separate confirmation choice", () => {
+  const reset = SettingsModel.confirmationRecords("settings-reset-personalization")
+  const shortcut = SettingsModel.confirmationRecords("settings-remove-shortcut")
+
+  assert.deepEqual(reset.map(row => row.kind), [
     "settings-confirm-reset-personalization",
     "settings-cancel"
   ])
-  assert.equal(SettingsModel.isConfirmationRoute("settings-reset-personalization"), true)
+  assert.equal(shortcut[0].kind, "settings-confirm-remove-shortcut")
+  assert.equal(shortcut[0].destructive, true)
+  assert.equal(SettingsModel.isConfirmationRoute("settings-remove-shortcut"), true)
+  assert.equal(SettingsModel.isRoute("settings-file-search"), true)
   assert.equal(SettingsModel.isRoute("unrelated"), false)
+})
+
+test("recordsForRoute keeps nested settings route-specific", () => {
+  const preferences = configuredState().preferences
+  assert.equal(SettingsModel.recordsForRoute(
+    "settings", preferences, settingsContext(), "", "", false).length, 7)
+  assert.equal(SettingsModel.recordsForRoute(
+    "settings-shortcut", preferences, settingsContext(), "", "", false)[0].section, "Shortcut")
+  assert.equal(SettingsModel.recordsForRoute(
+    "settings-file-search", preferences, settingsContext(), "", "", false)[0].kind,
+  "settings-toggle")
+  assert.equal(SettingsModel.recordsForRoute(
+    "settings-reset", preferences, settingsContext(), "", "", false).length, 2)
 })

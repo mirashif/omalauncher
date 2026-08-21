@@ -50,6 +50,7 @@ Item {
   property var navigationStack: []
   property int selectedIndex: 0
   property int resultSectionCount: 0
+  property int resultExtraHeight: 0
   property bool suppressSearchChange: false
   property bool compactExpanded: false
   property bool actionPanelOpen: false
@@ -115,6 +116,9 @@ Item {
   readonly property bool indexReady: indexSettled
   readonly property bool compactMode: !!stateStore.preferences
     && stateStore.preferences.compactMode === true
+  readonly property bool settingsRoute: SettingsModel.isRoute(activeRoute)
+  readonly property bool settingsLocationHeader: settingsRoute
+    && !SettingsModel.isInputRoute(activeRoute)
   readonly property bool compactCollapsed: compactMode
     && !compactExpanded
     && !searchInput.text
@@ -191,9 +195,10 @@ Item {
   })
 
   readonly property string pluginId: manifest && manifest.id
-    ? String(manifest.id) : "io.github.omalauncher"
+    ? String(manifest.id) : "com.mirashif.omalauncher"
   readonly property string productVersion: manifest && manifest.version
     ? String(manifest.version) : ""
+  readonly property string creatorWebsiteUrl: "https://mirashif.com"
   readonly property string repositoryUrl: "https://github.com/mirashif/omalauncher"
   readonly property bool onboardingOpen: root.opened && stateStore.loaded
     && (root.forceOnboarding || String(stateStore.onboarding.status || "pending") !== "complete")
@@ -213,6 +218,7 @@ Item {
   readonly property color scrim: Color.menu.scrim
   readonly property color selectedBackground: Color.menu.selectedBackground
   readonly property color selectedText: Color.menu.selectedText
+  readonly property color urgentText: Color.urgent
   readonly property color secondaryText: Util.alpha(foreground, 0.85)
   readonly property int cardPadding: Style.space(12)
   readonly property int dividerHeight: Math.max(1, Style.space(1))
@@ -227,7 +233,7 @@ Item {
   readonly property int maximumQuickActivationResults: 10
   readonly property int listHeight: Math.max(root.emptyStatus.visible ? emptyStateHeight : rowHeight,
     Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight
-      + resultSectionCount * sectionHeight)
+      + resultSectionCount * sectionHeight + resultExtraHeight)
   readonly property int actionRowHeight: Math.max(Style.space(50), Style.font.body + Style.font.caption + Style.space(18))
   readonly property int actionListHeight: Math.max(actionRowHeight,
     Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight
@@ -752,7 +758,9 @@ Item {
       commonScopes: fileSearchProvider.commonScopes,
       launcherHotkey: appHotkeyProvider.launcherHotkey,
       onboardingHotkey: stateStore.onboarding.hotkey,
-      productVersion: root.productVersion
+      productVersion: root.productVersion,
+      creatorWebsiteUrl: root.creatorWebsiteUrl,
+      repositoryUrl: root.repositoryUrl
     }
   }
 
@@ -941,18 +949,14 @@ Item {
       scopedRecords = root.visibleRecords(root.appRecords)
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
-    } else if (root.activeRoute === "settings") {
-      scopedRecords = SettingsModel.settingsRecords(preferences, root.settingsContext())
-    } else if (root.activeRoute === "settings-about") {
-      scopedRecords = SettingsModel.aboutRecords({
-        productVersion: root.productVersion,
-        repositoryUrl: root.repositoryUrl
-      })
-    } else if (SettingsModel.isInputRoute(root.activeRoute)) {
-      scopedRecords = SettingsModel.inputRecords(
-        root.activeRoute, query, root.settingsInputError, root.settingsInputBusy)
-    } else if (SettingsModel.isConfirmationRoute(root.activeRoute)) {
-      scopedRecords = SettingsModel.confirmationRecords(root.activeRoute)
+    } else if (SettingsModel.isRoute(root.activeRoute)) {
+      scopedRecords = SettingsModel.recordsForRoute(
+        root.activeRoute,
+        preferences,
+        root.settingsContext(),
+        query,
+        root.settingsInputError,
+        root.settingsInputBusy)
     } else if (root.activeRoute !== "root") {
       scopedRecords = root.visibleRecords(MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query))
     }
@@ -1006,10 +1010,13 @@ Item {
       }].concat(results)
     }
     var sections = {}
+    root.resultExtraHeight = 0
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
       var section = String(result.section || "")
       if (section) sections[section] = true
+      var controlType = String(result.controlType || "")
+      if (controlType === "hero") root.resultExtraHeight += Style.space(64)
       resultsModel.append({
         resultId: String(result.id || ""),
         resultType: String(result.type || ""),
@@ -1028,6 +1035,10 @@ Item {
         provider: String(result.provider || ""),
         settingKey: String(result.settingKey || ""),
         settingValue: String(result.settingValue || ""),
+        controlType: controlType,
+        settingChecked: result.checked === true,
+        trailingText: String(result.trailingText || ""),
+        destructive: result.destructive === true,
         calculatorExpression: String(result.calculatorExpression || ""),
         calculatorResult: String(result.calculatorResult || ""),
         filePath: String(result.filePath || ""),
@@ -1039,10 +1050,11 @@ Item {
         requiresSudo: result.requiresSudo === true,
         sourcePluginId: String(result.sourcePluginId || ""),
         shellPayloadJson: String(result.shellPayloadJson || ""),
-        isChecked: !!result.checked,
+        isChecked: controlType === "toggle" ? false : !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
         favorite: stateStore.isFavorite(result.id),
+        personalizable: root.canPersonalizeResult(result),
         userAlias: String(result.userAlias || "")
       })
     }
@@ -1838,6 +1850,18 @@ Item {
       root.setActiveRoute("settings", true)
       return
     }
+    if (row.resultKind === "settings-open-shortcut") {
+      root.setActiveRoute("settings-shortcut", true)
+      return
+    }
+    if (row.resultKind === "settings-open-file-search") {
+      root.setActiveRoute("settings-file-search", true)
+      return
+    }
+    if (row.resultKind === "settings-open-reset") {
+      root.setActiveRoute("settings-reset", true)
+      return
+    }
     if (row.resultKind === "open-calculator") {
       root.setSearchTextSilently("= ")
       root.selectedIndex = 0
@@ -1853,7 +1877,7 @@ Item {
       return
     }
     if (row.resultKind === "about-copy-details") {
-      root.copyText(row.settingValue, "Copied " + row.title)
+      root.copyText(row.settingValue, "Copied " + row.title, true)
       return
     }
     if (row.resultKind === "about-open-url") {
@@ -1878,10 +1902,8 @@ Item {
       root.restartOnboarding()
       return
     }
-    if (row.resultKind === "settings-remove-launcher-hotkey") {
-      if (!appHotkeyProvider.requestRemoveLauncher()) {
-        root.showOsd("", "Could not remove the launcher shortcut")
-      }
+    if (row.resultKind === "settings-open-remove-launcher-hotkey") {
+      root.setActiveRoute("settings-remove-shortcut", true)
       return
     }
     if (row.resultKind === "settings-open-scope") {
@@ -1935,6 +1957,14 @@ Item {
       stateStore.resetPersonalization()
       root.showOsd("", "Personalization reset")
       root.goBack()
+      return
+    }
+    if (row.resultKind === "settings-confirm-remove-shortcut") {
+      if (!appHotkeyProvider.requestRemoveLauncher()) {
+        root.showOsd("", "Could not remove the launcher shortcut")
+      } else {
+        root.goBack()
+      }
       return
     }
     if (row.resultKind === "settings-cancel") {
@@ -2058,12 +2088,12 @@ Item {
     root.goBack()
   }
 
-  function copyText(value, message) {
+  function copyText(value, message, keepOpen) {
     var copyValue = String(value || "")
     if (!copyValue) return
     Quickshell.execDetached(["wl-copy", "--", copyValue])
     root.showOsd("", String(message || "Copied"))
-    root.dismiss()
+    if (keepOpen !== true) root.dismiss()
   }
 
   function openExternalUrl(value) {
@@ -2087,9 +2117,18 @@ Item {
     Quickshell.execDetached(["xdg-open", parent])
   }
 
+  function canPersonalizeResult(row) {
+    var kind = String((row && (row.resultKind || row.kind)) || "")
+    return kind !== "open-settings"
+      && kind !== "toggle-compact"
+      && kind.indexOf("settings-") !== 0
+      && kind.indexOf("about-") !== 0
+  }
+
   function toggleSelectedFavorite() {
     if (resultsModel.count === 0 || root.selectedIndex < 0 || root.selectedIndex >= resultsModel.count) return
     var row = resultsModel.get(root.selectedIndex)
+    if (!root.canPersonalizeResult(row)) return
     var favoriteNow = stateStore.toggleFavorite(row.resultId)
     root.showOsd("", favoriteNow ? "Favorited " + row.title : "Removed favorite " + row.title)
   }
@@ -2108,7 +2147,9 @@ Item {
 
   function moveSelectedFavorite(delta) {
     var selected = root.selectedResultSnapshot()
-    if (selected.resultId) root.moveFavoriteForId(selected.resultId, delta)
+    if (selected.resultId && root.canPersonalizeResult(selected)) {
+      root.moveFavoriteForId(selected.resultId, delta)
+    }
   }
 
   function launchApplication(appId, title) {
@@ -2132,6 +2173,9 @@ Item {
     if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultKind === "open-settings") return "Open Settings"
+    if (row.resultKind === "settings-open-shortcut") return "Open"
+    if (row.resultKind === "settings-open-file-search") return "Open"
+    if (row.resultKind === "settings-open-reset") return "Open"
     if (row.resultKind === "open-calculator") return "Start Calculating"
     if (row.resultKind === "settings-open-about") return "Open About"
     if (row.resultKind === "about-copy-details") return "Copy Details"
@@ -2142,7 +2186,7 @@ Item {
     }
     if (row.resultKind === "settings-open-launcher-hotkey") return "Configure"
     if (row.resultKind === "settings-run-onboarding") return "Open Setup"
-    if (row.resultKind === "settings-remove-launcher-hotkey") return "Remove"
+    if (row.resultKind === "settings-open-remove-launcher-hotkey") return "Review"
     if (row.resultKind === "settings-open-scope") return "Add Folder"
     if (row.resultKind === "settings-add-suggested-scope") return "Add Folder"
     if (row.resultKind === "settings-open-ignore") return "Add Ignore"
@@ -2154,6 +2198,7 @@ Item {
         || row.resultKind === "settings-open-reset-personalization") return "Review Reset"
     if (row.resultKind === "settings-confirm-reset-providers"
         || row.resultKind === "settings-confirm-reset-personalization") return "Reset"
+    if (row.resultKind === "settings-confirm-remove-shortcut") return "Remove"
     if (row.resultKind === "settings-cancel") return "Cancel"
     if (row.resultKind === "calculator") return "Copy Result"
     if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
@@ -2175,6 +2220,11 @@ Item {
       return String(actionResultsModel.get(root.actionSelectedIndex).title || "")
     }
     return root.primaryActionLabel()
+  }
+
+  function secondaryFooterLabel() {
+    if (root.settingsRoute) return "Esc  Back"
+    return "Ctrl+K / right-click  Actions"
   }
 
   function evaluateGuards() {
@@ -2314,7 +2364,7 @@ Item {
   AppHotkeyProvider {
     id: appHotkeyProvider
     onEntriesChanged: if (root.actionPanelOpen) root.rebuildActions()
-    onLauncherHotkeyChanged: if (root.activeRoute === "settings" || root.activeRoute === "root")
+    onLauncherHotkeyChanged: if (root.settingsRoute || root.activeRoute === "root")
       root.rebuildResults()
     onConflictDetected: function(appId, title, hotkey, existingDescription) {
       root.pendingConfirmationAction = "replace-hotkey"
@@ -2401,12 +2451,12 @@ Item {
       root.onboardingHotkey = hotkey
       if (root.onboardingOpen) root.finishOnboardingShortcutSetup()
       else root.showOsd("󰌌", "Launcher shortcut set: " + hotkey)
-      if (root.activeRoute === "settings") root.rebuildResults()
+      if (root.settingsRoute) root.rebuildResults()
     }
     onLauncherHotkeyRemoved: function() {
       stateStore.setOnboarding("complete", "", false)
       root.showOsd("󰌌", "Launcher shortcut removed")
-      if (root.activeRoute === "settings") root.rebuildResults()
+      if (root.settingsRoute) root.rebuildResults()
     }
     onMutationFailed: function(message) {
       if (root.onboardingOpen) {
@@ -2474,7 +2524,7 @@ Item {
     providerEnabled: !!stateStore.preferences
       && stateStore.preferences.calculatorEnabled === true
     onRecordsChanged: root.rebuildResults()
-    onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
+    onBackendSettledChanged: if (root.settingsRoute) root.rebuildResults()
   }
 
   FileSearchProvider {
@@ -2482,8 +2532,8 @@ Item {
     providerEnabled: !!stateStore.preferences
       && stateStore.preferences.fileSearchEnabled === true
     onRecordsChanged: root.rebuildResults()
-    onBackendSettledChanged: if (root.activeRoute === "settings") root.rebuildResults()
-    onCommonScopesChanged: if (root.activeRoute === "settings") root.rebuildResults()
+    onBackendSettledChanged: if (root.settingsRoute) root.rebuildResults()
+    onCommonScopesChanged: if (root.settingsRoute) root.rebuildResults()
   }
 
   FileView {
@@ -2690,23 +2740,47 @@ Item {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
-          anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
+          anchors.rightMargin: root.settingsLocationHeader
+            && !SettingsModel.isConfirmationRoute(root.activeRoute)
+            && root.activeRoute !== "settings-about"
+              ? Style.space(132)
+              : (root.providerWarning ? Style.space(42) : Style.space(16))
           anchors.verticalCenter: parent.verticalCenter
           visible: !searchInput.text
           text: !stateStore.loaded
             ? "Loading launcher state…"
             : (root.indexSettled
-                ? (root.activeRoute === "root" ? "Search apps, shell features, and Omarchy commands…" : "Search " + root.activeMenuTitle + "…")
+                ? (root.settingsLocationHeader
+                    ? root.activeMenuTitle
+                    : (root.activeRoute === "root"
+                        ? "Search apps, shell features, and Omarchy commands…"
+                        : "Search " + root.activeMenuTitle + "…"))
                 : "Building unified index…")
-          color: root.secondaryText
+          color: root.settingsLocationHeader ? root.selectedText : root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
+          font.weight: root.settingsLocationHeader ? Font.DemiBold : Font.Normal
           elide: Text.ElideRight
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: root.providerWarning ? Style.space(44) : Style.space(16)
+          anchors.verticalCenter: parent.verticalCenter
+          visible: root.settingsLocationHeader
+            && !SettingsModel.isConfirmationRoute(root.activeRoute)
+            && root.activeRoute !== "settings-about"
+            && !searchInput.text
+          text: "Type to filter"
+          color: root.secondaryText
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.caption
         }
 
         TextInput {
           id: searchInput
           enabled: !root.actionPanelOpen && !root.warningPanelOpen && stateStore.loaded
+          cursorVisible: !root.settingsLocationHeader || text.length > 0
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
@@ -2737,7 +2811,9 @@ Item {
           Keys.onPressed: function(event) {
             if (root.activateQuickResult(event)) {
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K) {
+            } else if (!root.settingsRoute
+                       && (event.modifiers & Qt.ControlModifier) !== 0
+                       && event.key === Qt.Key_K) {
               root.openActionPanel()
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0
@@ -2751,17 +2827,21 @@ Item {
             } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
               root.popToRoot()
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0
+            } else if (!root.settingsRoute
+                       && (event.modifiers & Qt.ControlModifier) !== 0
                        && (event.modifiers & Qt.ShiftModifier) !== 0
                        && event.key === Qt.Key_Up) {
               root.moveSelectedFavorite(-1)
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0
+            } else if (!root.settingsRoute
+                       && (event.modifiers & Qt.ControlModifier) !== 0
                        && (event.modifiers & Qt.ShiftModifier) !== 0
                        && event.key === Qt.Key_Down) {
               root.moveSelectedFavorite(1)
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
+            } else if (!root.settingsRoute
+                       && (event.modifiers & Qt.ControlModifier) !== 0
+                       && event.key === Qt.Key_F) {
               root.toggleSelectedFavorite()
               event.accepted = true
             } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Up) {
@@ -2894,28 +2974,33 @@ Item {
           required property string provider
           required property string resultKind
           required property bool favorite
+          required property bool personalizable
           required property bool isChecked
           required property string userAlias
+          required property string controlType
+          required property bool settingChecked
+          required property string trailingText
+          required property bool destructive
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
-          readonly property var descriptionParts: String(description || "").split(" · ")
-          readonly property string settingState: resultKind === "settings-toggle"
-            ? String(descriptionParts[0] || "") : ""
-          readonly property string supportingText: settingState
-            ? descriptionParts.slice(1).join(" · ")
-            : (breadcrumb || description)
-          readonly property bool highlightSupportingText: !settingState && !!breadcrumb
+          readonly property bool isSettingsRow: root.settingsRoute && controlType.length > 0
+          readonly property bool isHero: isSettingsRow && controlType === "hero"
+          readonly property string supportingText: breadcrumb || description
+          readonly property bool highlightSupportingText: !isSettingsRow && !!breadcrumb
           width: ListView.view.width
-          height: root.rowHeight
+          height: root.rowHeight + (isHero ? Style.space(64) : 0)
           radius: Math.max(0, Style.cornerRadius - Style.space(3))
           color: selected ? root.selectedBackground : "transparent"
-          Accessible.role: Accessible.ListItem
+          Accessible.role: resultRow.controlType === "toggle"
+            ? Accessible.CheckBox
+            : (resultRow.isSettingsRow ? Accessible.Button : Accessible.ListItem)
           Accessible.name: resultRow.title
-            + (resultRow.settingState ? ", " + resultRow.settingState : "")
-          Accessible.description: resultRow.settingState
-            ? resultRow.description
-            : (resultRow.breadcrumb || resultRow.description)
+            + (resultRow.controlType === "toggle"
+              ? (resultRow.settingChecked ? ", on" : ", off")
+              : (resultRow.trailingText ? ", " + resultRow.trailingText : ""))
+          Accessible.description: resultRow.breadcrumb || resultRow.description
+          Accessible.checked: resultRow.controlType === "toggle" && resultRow.settingChecked
           Accessible.focusable: true
           Accessible.focused: resultRow.selected
           Accessible.onPressAction: {
@@ -2925,6 +3010,7 @@ Item {
 
           Item {
             id: rowIcon
+            visible: !resultRow.isHero
             width: Style.space(48)
             height: parent.height
             anchors.left: parent.left
@@ -2956,6 +3042,7 @@ Item {
 
           Column {
             id: resultContent
+            visible: !resultRow.isHero
             anchors.left: rowIcon.right
             anchors.leftMargin: Style.space(6)
             anchors.verticalCenter: parent.verticalCenter
@@ -2977,7 +3064,7 @@ Item {
               width: parent.width
               text: root.highlightedText(resultTitleMetrics.elidedText)
               textFormat: Text.RichText
-              color: root.foreground
+              color: resultRow.destructive ? root.urgentText : root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.heading
               font.weight: Font.Medium
@@ -3010,6 +3097,53 @@ Item {
             }
           }
 
+          Column {
+            anchors.centerIn: parent
+            width: Math.max(1, parent.width - Style.space(56))
+            spacing: Style.space(5)
+            visible: resultRow.isHero
+
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              text: resultRow.icon || "󰋼"
+              color: root.selectedText
+              font.family: resultRow.iconFont || Style.font.menuFamily
+              font.pixelSize: Style.space(34)
+            }
+
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              text: resultRow.title
+              color: root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.title
+              font.weight: Font.DemiBold
+              elide: Text.ElideRight
+            }
+
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              text: resultRow.description
+              color: root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+            }
+
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              text: resultRow.trailingText
+              color: root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+            }
+          }
+
           Row {
             id: rowBadges
             anchors.right: parent.right
@@ -3018,53 +3152,7 @@ Item {
             spacing: Style.space(8)
 
             Rectangle {
-              visible: resultRow.settingState.length > 0
-              width: settingStateText.implicitWidth + Style.space(12)
-              height: Math.max(Style.space(22), settingStateText.implicitHeight + Style.space(6))
-              radius: height / 2
-              color: resultRow.settingState === "Enabled" ? root.foreground : "transparent"
-              border.width: Math.max(1, Style.space(1))
-              border.color: root.foreground
-
-              Text {
-                id: settingStateText
-                anchors.centerIn: parent
-                text: resultRow.settingState
-                color: resultRow.settingState === "Enabled" ? root.background : root.foreground
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-                font.weight: Font.DemiBold
-              }
-            }
-
-            Rectangle {
-              visible: root.quickActivationHint(resultRow.index).length > 0
-              width: quickActivationText.implicitWidth + Style.space(10)
-              height: Math.max(Style.space(22), quickActivationText.implicitHeight + Style.space(6))
-              radius: height / 2
-              color: root.foreground
-
-              Text {
-                id: quickActivationText
-                anchors.centerIn: parent
-                text: root.quickActivationHint(resultRow.index)
-                color: root.background
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-                font.weight: Font.DemiBold
-              }
-            }
-
-            Text {
-              visible: resultRow.favorite
-              text: "★"
-              color: root.secondaryText
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.body
-            }
-
-            Rectangle {
-              visible: resultRow.userAlias.length > 0
+              visible: !resultRow.isSettingsRow && resultRow.userAlias.length > 0
               width: aliasBadgeText.implicitWidth + Style.space(12)
               height: Math.max(Style.space(22), aliasBadgeText.implicitHeight + Style.space(6))
               radius: height / 2
@@ -3079,6 +3167,80 @@ Item {
                 font.pixelSize: Style.font.caption
               }
             }
+
+            Text {
+              visible: !resultRow.isSettingsRow
+                && resultRow.personalizable
+                && resultRow.favorite
+              text: "★"
+              color: resultRow.selected ? root.selectedText : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.body
+            }
+
+            Rectangle {
+              visible: !resultRow.isSettingsRow
+                && root.quickActivationHint(resultRow.index).length > 0
+              width: Math.max(Style.space(46), quickActivationText.implicitWidth + Style.space(10))
+              height: Math.max(Style.space(22), quickActivationText.implicitHeight + Style.space(6))
+              radius: height / 2
+              color: resultRow.selected ? root.foreground : "transparent"
+              border.width: Math.max(1, Style.space(1))
+              border.color: resultRow.selected ? root.foreground : root.secondaryText
+
+              Text {
+                id: quickActivationText
+                anchors.centerIn: parent
+                text: root.quickActivationHint(resultRow.index)
+                color: resultRow.selected ? root.background : root.secondaryText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                font.weight: Font.DemiBold
+              }
+            }
+
+            Text {
+              visible: resultRow.isSettingsRow
+                && !resultRow.isHero
+                && resultRow.controlType !== "toggle"
+                && resultRow.trailingText.length > 0
+              text: resultRow.trailingText
+              color: resultRow.destructive ? root.urgentText : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              font.weight: Font.Medium
+            }
+
+            Rectangle {
+              visible: resultRow.isSettingsRow && resultRow.controlType === "toggle"
+              width: Style.space(38)
+              height: Style.space(22)
+              radius: height / 2
+              color: resultRow.settingChecked ? root.foreground : "transparent"
+              border.width: Math.max(1, Style.space(1))
+              border.color: resultRow.settingChecked ? root.foreground : root.secondaryText
+
+              Rectangle {
+                width: Style.space(14)
+                height: width
+                radius: width / 2
+                anchors.verticalCenter: parent.verticalCenter
+                x: resultRow.settingChecked
+                  ? parent.width - width - Style.space(4)
+                  : Style.space(4)
+                color: resultRow.settingChecked ? root.background : root.foreground
+              }
+            }
+
+            Text {
+              visible: resultRow.isSettingsRow
+                && (resultRow.controlType === "navigation" || resultRow.controlType === "link")
+              text: resultRow.controlType === "link" ? "↗" : "›"
+              color: resultRow.destructive ? root.urgentText : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.heading
+              font.weight: Font.DemiBold
+            }
           }
 
           MouseArea {
@@ -3090,8 +3252,11 @@ Item {
               resultsModel.count, root.selectedIndex, resultRow.index, true)
             onClicked: function(mouse) {
               root.selectedIndex = resultRow.index
-              if (mouse.button === Qt.RightButton) root.openActionPanel()
-              else root.runSelected(false)
+              if (mouse.button === Qt.RightButton) {
+                if (!root.settingsRoute) root.openActionPanel()
+                return
+              }
+              root.runSelected(false)
             }
           }
         }
@@ -3183,8 +3348,8 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: Style.space(18)
           anchors.verticalCenter: parent.verticalCenter
-          visible: !root.actionPanelOpen && root.primaryActionLabel().length > 0
-          text: "Ctrl+K / right-click  Actions"
+          visible: !root.actionPanelOpen && root.secondaryFooterLabel().length > 0
+          text: root.secondaryFooterLabel()
           color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption

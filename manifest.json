@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.omalauncher",
+  "id": "com.mirashif.omalauncher",
   "name": "Omalauncher",
   "version": "0.10.0",
-  "author": "Omalauncher contributors",
+  "author": "Mir Ashif",
   "license": "MIT",
   "description": "A keyboard-first command palette for Omarchy.",
   "kinds": [

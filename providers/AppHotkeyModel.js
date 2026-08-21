@@ -8,7 +8,7 @@
 var BEGIN_MARKER = "-- BEGIN OMALAUNCHER APP HOTKEYS (managed)"
 var END_MARKER = "-- END OMALAUNCHER APP HOTKEYS"
 var LAUNCHER_TITLE = "Omalauncher"
-var LAUNCHER_COMMAND = "omarchy-shell shell toggle io.github.omalauncher '{\"source\":\"hotkey\"}'"
+var LAUNCHER_COMMAND = "omarchy-shell shell toggle com.mirashif.omalauncher '{\"source\":\"hotkey\"}'"
 var MENU_TITLE = "Omarchy menu"
 var MENU_COMMAND = "omarchy-menu toggle"
 var MENU_PRIMARY_HOTKEY = "SUPER + SPACE"

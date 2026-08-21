@@ -10,7 +10,8 @@ test("launcher exposes About from root search and routes its actions", () => {
 
   assert.match(launcher, /kind: "settings-open-about"/)
   assert.match(launcher, /root\.setActiveRoute\("settings-about", true\)/)
-  assert.match(launcher, /SettingsModel\.aboutRecords\(/)
+  assert.match(launcher, /SettingsModel\.recordsForRoute\(/)
+  assert.match(launcher, /readonly property string creatorWebsiteUrl: "https:\/\/mirashif\.com"/)
   assert.match(launcher, /row\.resultKind === "about-copy-details"/)
   assert.match(launcher, /row\.resultKind === "about-open-url"/)
   assert.match(launcher, /Quickshell\.execDetached\(\["xdg-open", url\]\)/)

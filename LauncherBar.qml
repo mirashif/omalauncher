@@ -4,7 +4,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "io.github.omalauncher"
+  moduleName: "com.mirashif.omalauncher"
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -22,9 +22,9 @@ BarWidget {
     onPressed: function(button) {
       if (!root.bar) return
       if (button === Qt.RightButton) {
-        root.bar.run("omarchy-shell shell summon io.github.omalauncher '{\"source\":\"bar\",\"route\":\"settings\"}'")
+        root.bar.run("omarchy-shell shell summon com.mirashif.omalauncher '{\"source\":\"bar\",\"route\":\"settings\"}'")
       } else {
-        root.bar.run("omarchy-shell shell toggle io.github.omalauncher '{\"source\":\"bar\"}'")
+        root.bar.run("omarchy-shell shell toggle com.mirashif.omalauncher '{\"source\":\"bar\"}'")
       }
     }
   }

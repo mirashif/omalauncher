@@ -14,7 +14,7 @@
 /** @typedef {import("../types/models").RecentRecord} RecentRecord */
 /** @typedef {import("../types/models").EmptyRowsOptions} EmptyRowsOptions */
 
-var STATE_VERSION = 4
+var STATE_VERSION = 1
 var QUERY_HISTORY_LIMIT = 50
 
 /** @returns {OnboardingState} */
@@ -210,12 +210,10 @@ function normalizeState(value) {
 
   var sourceOnboardingValue = source["onboarding"]
   var sourceOnboarding = isRecord(sourceOnboardingValue) ? sourceOnboardingValue : {}
-  var sourceVersion = Math.floor(Number(source["version"] || 0))
-  var legacyState = Object.keys(source).length > 0 && sourceVersion < STATE_VERSION
   var rawOnboardingStatus = validText(sourceOnboarding["status"])
   /** @type {"pending" | "verify" | "complete"} */
   var onboardingStatus = rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
-    ? rawOnboardingStatus : (legacyState ? "complete" : "pending")
+    ? rawOnboardingStatus : "pending"
   var onboardingHotkey = validText(sourceOnboarding["hotkey"])
   if (/[^A-Za-z0-9_ +]/.test(onboardingHotkey) || onboardingHotkey.length > 64) {
     onboardingHotkey = ""
@@ -260,19 +258,6 @@ function parseStateResult(raw) {
 /** @param {unknown} state @returns {string} */
 function serializeState(state) {
   return JSON.stringify(normalizeState(state), null, 2) + "\n"
-}
-
-/** @param {unknown} raw @returns {boolean} */
-function migrationRequired(raw) {
-  var source = String(raw || "").trim()
-  if (!source) return false
-  try {
-    /** @type {unknown} */
-    var parsed = JSON.parse(source)
-    return !isRecord(parsed) || Number(parsed["version"] || 0) !== STATE_VERSION
-  } catch (error) {
-    return false
-  }
 }
 
 /** @param {unknown} state @param {unknown} id @returns {boolean} */
@@ -643,7 +628,6 @@ if (typeof module !== "undefined") {
     parseState: parseState,
     parseStateResult: parseStateResult,
     serializeState: serializeState,
-    migrationRequired: migrationRequired,
     isFavorite: isFavorite,
     toggleFavorite: toggleFavorite,
     moveFavorite: moveFavorite,

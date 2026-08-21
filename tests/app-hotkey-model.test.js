@@ -41,7 +41,7 @@ test("launcher and application hotkeys share one managed block", () => {
   assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(updated), "SUPER + R")
   assert.deepEqual(AppHotkeyModel.parseManagedEntries(updated), entries)
   assert.match(updated, /-- launcher: \{"hotkey":"SUPER \+ R"\}/)
-  assert.match(updated, /omarchy-shell shell toggle io\.github\.omalauncher/)
+  assert.match(updated, /omarchy-shell shell toggle com\.mirashif\.omalauncher/)
 
   const applicationUpdated = AppHotkeyModel.updateBindingsSource(
     updated,

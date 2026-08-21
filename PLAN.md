@@ -35,8 +35,8 @@ The product should remain:
   Omarchy Menu moves to the validated `SUPER + R` fallback.
 - Right-side Omarchy bar widget with left-click launcher access and right-click
   Settings.
-- Version 4 state migration: new installs enter setup while existing users
-  continue uninterrupted, with a one-time post-setup coaching result.
+- Version 1 state schema with first-run setup and a one-time post-setup
+  coaching result.
 - Settings entries to change or remove a managed launcher shortcut and rerun
   welcome setup.
 
@@ -57,7 +57,7 @@ The product should remain:
 - Searchable Action Panel with shallow submenus and a stock-menu fallback.
 - Favorite reordering, alias editing, hide/unhide, and ranking reset actions.
 - In-launcher Settings for launcher behavior and provider configuration.
-- Version 4 state migration with independent preferences and onboarding state.
+- Versioned state with independent preferences and onboarding state.
 - Confirmed resets for provider settings and personalization.
 
 ### Providers

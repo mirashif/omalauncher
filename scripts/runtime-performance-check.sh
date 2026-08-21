@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-plugin_id=io.github.omalauncher
+plugin_id=com.mirashif.omalauncher
 
 omarchy-shell shell call "$plugin_id" resetPerformanceStats '' >/dev/null
 omarchy-shell shell call "$plugin_id" open '{"query":"update hyprland"}' >/dev/null

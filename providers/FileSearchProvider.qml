@@ -78,7 +78,7 @@ Item {
     if (!root.query) {
       root.records = [FileSearchModel.statusRecord(
         "ready", "Type to Search Files",
-        "Search here, or from Root Search type f report · "
+        "Search here, or from Root Search type f report.pdf · "
           + root.scopes.length + " configured scope" + (root.scopes.length === 1 ? "" : "s"), "")]
       return
     }

@@ -3,6 +3,7 @@
   "version": "0.10.0",
   "private": true,
   "description": "A keyboard-first command palette for Omarchy.",
+  "author": "Mir Ashif (https://mirashif.com)",
   "scripts": {
     "benchmark": "node scripts/performance-benchmark.js",
     "benchmark:runtime": "bash scripts/runtime-performance-check.sh",

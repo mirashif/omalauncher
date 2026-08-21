@@ -10,11 +10,11 @@ Omalauncher targets Omarchy 4.0 and Quickshell 0.3. Copy a checkout into the
 third-party plugin directory:
 
 ```bash
-mkdir -p ~/.config/omarchy/plugins/io.github.omalauncher
+mkdir -p ~/.config/omarchy/plugins/com.mirashif.omalauncher
 rsync -a --exclude=.git --exclude=node_modules \
-  ./ ~/.config/omarchy/plugins/io.github.omalauncher/
+  ./ ~/.config/omarchy/plugins/com.mirashif.omalauncher/
 omarchy-shell shell rescanPlugins
-omarchy plugin enable io.github.omalauncher
+omarchy plugin enable com.mirashif.omalauncher
 ```
 
 Plugin files below `~/.config/omarchy/plugins/` reload automatically. If a

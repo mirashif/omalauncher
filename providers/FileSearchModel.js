@@ -295,8 +295,8 @@ function managementRecord(enabled, scopeCount) {
     breadcrumb: "",
     description: enabled === true
       ? (Number(scopeCount || 0) + " configured scope" + (Number(scopeCount || 0) === 1 ? "" : "s")
-        + " · Root shortcut: f report")
-      : "Enable in Settings · Root shortcut: f report",
+        + " · Root shortcut: f report.pdf")
+      : "Enable in Settings · Root shortcut: f report.pdf",
     icon: "󰈞",
     iconFont: "",
     appIcon: "",

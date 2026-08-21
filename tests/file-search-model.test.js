@@ -5,9 +5,9 @@ const FileSearchModel = require("../providers/FileSearchModel.js")
 const GenerationModel = require("../services/GenerationModel.js")
 
 test("file mode is explicit at root and implicit inside the Files route", () => {
-  assert.deepEqual(FileSearchModel.queryRequest("f report", false), {
+  assert.deepEqual(FileSearchModel.queryRequest("f report.pdf", false), {
     active: true,
-    query: "report",
+    query: "report.pdf",
     explicit: true
   })
   assert.equal(FileSearchModel.queryRequest("firefox", false).active, false)
@@ -81,9 +81,9 @@ test("file search exposes bounded provider status and management records", () =>
   assert.equal(FileSearchModel.statusRecord(
     "error", "File Search Timed Out", "Timed out", "").kind, "file-search-error")
   assert.equal(FileSearchModel.managementRecord(false, 0).description,
-    "Enable in Settings · Root shortcut: f report")
+    "Enable in Settings · Root shortcut: f report.pdf")
   assert.equal(FileSearchModel.managementRecord(true, 2).description,
-    "2 configured scopes · Root shortcut: f report")
+    "2 configured scopes · Root shortcut: f report.pdf")
   assert.equal(FileSearchModel.managementRecord(true, 2).breadcrumb, "")
 })
 

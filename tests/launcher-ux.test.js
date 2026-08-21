@@ -64,3 +64,30 @@ test("state changes defer onboarding synchronization to avoid signal re-entry", 
   assert.match(stateStore[1], /onSnapshotChanged:[\s\S]*?Qt\.callLater\(root\.syncOnboardingForOpen\)/)
   assert.doesNotMatch(stateStore[1], /^\s*root\.syncOnboardingForOpen\(\)\s*$/m)
 })
+
+test("settings rows render semantic switches instead of status pills", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+
+  assert.match(launcher, /required property string controlType/)
+  assert.match(launcher, /Accessible\.role: resultRow\.controlType === "toggle"[\s\S]*?Accessible\.CheckBox/)
+  assert.match(launcher, /Accessible\.checked: resultRow\.controlType === "toggle"/)
+  assert.match(launcher, /visible: resultRow\.isSettingsRow && resultRow\.controlType === "toggle"[\s\S]*?width: Style\.space\(38\)/)
+  assert.doesNotMatch(launcher, /settingState/)
+})
+
+test("settings use location-first headers and route-aware footer guidance", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+
+  assert.match(launcher, /root\.settingsLocationHeader[\s\S]*?root\.activeMenuTitle/)
+  assert.match(launcher, /text: "Type to filter"/)
+  assert.match(launcher, /function secondaryFooterLabel\(\)[\s\S]*?root\.settingsRoute[\s\S]*?"Esc  Back"/)
+})
+
+test("settings and About cannot be personalized through global shortcuts", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+
+  assert.match(launcher, /function canPersonalizeResult\(row\)/)
+  assert.match(launcher, /kind\.indexOf\("settings-"\) !== 0/)
+  assert.match(launcher, /kind\.indexOf\("about-"\) !== 0/)
+  assert.match(launcher, /!root\.settingsRoute[\s\S]*?event\.key === Qt\.Key_F/)
+})

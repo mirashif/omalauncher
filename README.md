@@ -103,7 +103,7 @@ not installed.
 
 Search for files inside only the folders you choose. Enable the provider in
 `Omalauncher Settings`, add one or more folders, then open **Search Files** or
-type a query such as `f report` from Root Search.
+type a query such as `f report.pdf` from Root Search.
 
 File search is off by default, never accepts `/` as a scope, and uses the
 optional `fd` command. From a file's Action Panel you can open it, reveal its
@@ -118,9 +118,7 @@ personalization resets require confirmation.
 
 ## Install
 
-Omalauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**. This
-repository is currently private, so Git must already be authenticated to a
-GitHub account with access.
+Omalauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**.
 
 ### 1. Add the plugin
 
@@ -219,14 +217,7 @@ start interacting.
 ## Update
 
 ```bash
-omarchy plugin update io.github.omalauncher --yes
-```
-
-When updating from v0.9, move the newly available widget into the bar once:
-
-```bash
-omarchy plugin disable io.github.omalauncher
-omarchy plugin enable io.github.omalauncher --section right
+omarchy plugin update com.mirashif.omalauncher --yes
 ```
 
 If a keep-loaded instance does not refresh after an update, restart the shell:
@@ -239,7 +230,7 @@ omarchy restart shell
 <summary>Roll back to an earlier commit</summary>
 
 ```bash
-plugin_dir="$HOME/.config/omarchy/plugins/io.github.omalauncher"
+plugin_dir="$HOME/.config/omarchy/plugins/com.mirashif.omalauncher"
 git -C "$plugin_dir" log --oneline -10
 git -C "$plugin_dir" checkout <commit>
 omarchy restart shell
@@ -250,12 +241,11 @@ omarchy restart shell
 ## Remove
 
 Remove the launcher shortcut from Omalauncher Settings first, then remove the
-plugin. If the shortcut came from a pre-v0.10 manual `o.bind` entry, remove
-that entry from `~/.config/hypr/bindings.lua` and run `hyprctl reload` instead.
+plugin.
 
 ```bash
-omarchy plugin disable io.github.omalauncher
-omarchy plugin remove io.github.omalauncher
+omarchy plugin disable com.mirashif.omalauncher
+omarchy plugin remove com.mirashif.omalauncher
 ```
 
 Personalization remains at the state path above so it is available after a
@@ -268,7 +258,7 @@ If the shortcut does nothing, confirm the binding exists and ask Hyprland to
 report configuration errors:
 
 ```bash
-rg -n 'SUPER.*(SPACE|R)|io.github.omalauncher' ~/.config/hypr/bindings.lua
+rg -n 'SUPER.*(SPACE|R)|com.mirashif.omalauncher' ~/.config/hypr/bindings.lua
 hyprctl reload
 hyprctl configerrors
 ```
@@ -289,8 +279,8 @@ qs log -p "$OMARCHY_PATH/shell" -t 100 | rg -i 'omalauncher|warning|error'
 <summary>Advanced health check</summary>
 
 ```bash
-omarchy-shell shell call io.github.omalauncher ping ''
-omarchy-shell shell call io.github.omalauncher stats ''
+omarchy-shell shell call com.mirashif.omalauncher ping ''
+omarchy-shell shell call com.mirashif.omalauncher stats ''
 ```
 
 A malformed `~/.config/omarchy/extensions/omarchy-menu.jsonc` is reported in
@@ -304,6 +294,12 @@ Commands whose availability checks are false are intentionally absent.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation, benchmarks,
 and implementation notes. The longer-term direction and product boundaries are
 documented in [PLAN.md](PLAN.md).
+
+## Author and support
+
+Created and maintained by [Mir Ashif](https://mirashif.com). Find the project on
+[GitHub](https://github.com/mirashif/omalauncher), or report bugs and request
+features through [GitHub Issues](https://github.com/mirashif/omalauncher/issues).
 
 ## License
 

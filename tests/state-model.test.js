@@ -18,7 +18,7 @@ test("state normalization repairs malformed and duplicate values", () => {
   assert.match(StateModel.parseStateResult("not json").error, /malformed/)
   assert.equal(StateModel.parseStateResult("").error, "")
   assert.deepEqual(StateModel.normalizeState({
-    version: 99,
+    version: 1,
     favorites: ["application:firefox", "", "application:firefox", null],
     usage: {
       "application:firefox": { count: 3.9, lastUsed: 1200.8 },
@@ -37,7 +37,7 @@ test("state normalization repairs malformed and duplicate values", () => {
       fileSearchIgnores: ["node_modules", "", "node_modules", "*.tmp"]
     }
   }), {
-    version: 4,
+    version: 1,
     favorites: ["application:firefox"],
     usage: { "application:firefox": { count: 3, lastUsed: 1200 } },
     aliases: { "application:firefox": "ff" },
@@ -55,50 +55,16 @@ test("state normalization repairs malformed and duplicate values", () => {
   })
 })
 
-test("version 1 state migrates without losing favorites or usage", () => {
-  const migrated = StateModel.normalizeState({
-    version: 1,
-    favorites: ["application:firefox"],
-    usage: { "application:firefox": { count: 2, lastUsed: 3000 } }
-  })
-
-  assert.deepEqual(migrated, {
-    version: 4,
-    favorites: ["application:firefox"],
-    usage: { "application:firefox": { count: 2, lastUsed: 3000 } },
-    aliases: {},
-    hidden: [],
-    queryHistory: [],
-    preferences: StateModel.emptyPreferences(),
-    onboarding: { version: 1, status: "complete", hotkey: "", showCoach: false }
-  })
-})
-
-test("version 2 state gains provider defaults without losing compact mode", () => {
-  const migrated = StateModel.normalizeState({
-    version: 2,
-    favorites: ["application:firefox"],
-    preferences: { compactMode: true }
-  })
-
-  assert.equal(migrated.version, 4)
-  assert.equal(migrated.preferences.compactMode, true)
-  assert.equal(migrated.preferences.calculatorEnabled, true)
-  assert.equal(migrated.preferences.fileSearchEnabled, false)
-  assert.equal(migrated.preferences.quickActivationEnabled, true)
-  assert.deepEqual(migrated.preferences.fileSearchScopes, [])
-})
-
-test("fresh installs onboard while existing state migrates without interruption", () => {
+test("fresh and partial state enter onboarding until setup completes", () => {
   assert.deepEqual(StateModel.emptyState().onboarding, {
     version: 1,
     status: "pending",
     hotkey: "",
     showCoach: false
   })
-  assert.equal(StateModel.normalizeState({ version: 3, favorites: ["one"] }).onboarding.status, "complete")
+  assert.equal(StateModel.normalizeState({ version: 1, favorites: ["one"] }).onboarding.status, "pending")
   assert.equal(StateModel.normalizeState({
-    version: 4,
+    version: 1,
     onboarding: { status: "verify", hotkey: "SUPER + R", showCoach: true }
   }).onboarding.status, "verify")
 })
@@ -117,13 +83,6 @@ test("onboarding persists setup, verification, and one-time coaching", () => {
   assert.equal(complete.onboarding.showCoach, true)
   assert.equal(coached.onboarding.showCoach, false)
   assert.deepEqual(coached.favorites, ready.favorites)
-})
-
-test("only valid older state documents require a persisted migration", () => {
-  assert.equal(StateModel.migrationRequired(JSON.stringify({ version: 2 })), true)
-  assert.equal(StateModel.migrationRequired(JSON.stringify(StateModel.emptyState())), false)
-  assert.equal(StateModel.migrationRequired("{broken"), false)
-  assert.equal(StateModel.migrationRequired(""), false)
 })
 
 test("favorites toggle immutably with newest first", () => {

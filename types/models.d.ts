@@ -466,6 +466,7 @@ export interface SettingsContext {
   launcherHotkey?: string;
   onboardingHotkey?: string;
   productVersion?: string;
+  creatorWebsiteUrl?: string;
   repositoryUrl?: string;
 }
 
@@ -475,6 +476,10 @@ export interface SettingRecord extends SearchableRecord {
   settingKey: string;
   settingValue: string;
   title: string;
+  controlType: string;
+  checked: boolean;
+  trailingText: string;
+  destructive: boolean;
 }
 
 export interface RecentRecord {
