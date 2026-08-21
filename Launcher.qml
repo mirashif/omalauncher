@@ -784,6 +784,27 @@ Item {
       providerPriority: -1,
       order: -2,
       section: "Launcher"
+    }, {
+      id: "omalauncher:about",
+      type: "launcher-command",
+      kind: "settings-open-about",
+      title: "About Omalauncher",
+      breadcrumb: "Omalauncher",
+      description: (root.productVersion ? "Version " + root.productVersion + " · " : "")
+        + "Project details and links",
+      icon: "󰋼",
+      iconFont: "",
+      appIcon: "",
+      appId: "",
+      aliases: [],
+      keywords: ["about", "version", "compatibility", "source", "license", "github", "issues"],
+      route: "settings-about",
+      parentRoute: "root",
+      searchText: "about omalauncher version compatibility source license github issues "
+        + root.productVersion,
+      providerPriority: -1,
+      order: 1,
+      section: "Launcher"
     }]
     records.push(FileSearchModel.managementRecord(
       preferences.fileSearchEnabled === true,
@@ -884,12 +905,11 @@ Item {
     } else if (root.activeRoute === "hidden") {
       scopedRecords = root.hiddenRecords()
     } else if (root.activeRoute === "settings") {
-      scopedRecords = SettingsModel.settingsRecords(preferences, {
-        calculatorSettled: calculatorProvider.backendSettled,
-        calculatorAvailable: calculatorProvider.backendAvailable,
-        fileSearchSettled: fileSearchProvider.backendSettled,
-        fileSearchAvailable: fileSearchProvider.backendAvailable,
-        commonScopes: fileSearchProvider.commonScopes
+      scopedRecords = SettingsModel.settingsRecords(preferences, root.settingsContext())
+    } else if (root.activeRoute === "settings-about") {
+      scopedRecords = SettingsModel.aboutRecords({
+        productVersion: root.productVersion,
+        repositoryUrl: root.repositoryUrl
       })
     } else if (SettingsModel.isInputRoute(root.activeRoute)) {
       scopedRecords = SettingsModel.inputRecords(
@@ -1807,6 +1827,18 @@ Item {
       root.setActiveRoute("settings", true)
       return
     }
+    if (row.resultKind === "settings-open-about") {
+      root.setActiveRoute("settings-about", true)
+      return
+    }
+    if (row.resultKind === "about-copy-details") {
+      root.copyText(row.settingValue, "Copied " + row.title)
+      return
+    }
+    if (row.resultKind === "about-open-url") {
+      root.openExternalUrl(row.settingValue)
+      return
+    }
     if (row.resultKind === "settings-toggle") {
       var settingKey = String(row.settingKey || "")
       if (settingKey === "compactMode") {
@@ -2005,6 +2037,13 @@ Item {
     Quickshell.execDetached(["wl-copy", "--", copyValue])
     root.showOsd("", String(message || "Copied"))
     root.dismiss()
+  }
+
+  function openExternalUrl(value) {
+    var url = String(value || "")
+    if (url.indexOf("https://") !== 0) return
+    root.dismiss()
+    Quickshell.execDetached(["xdg-open", url])
   }
 
   function openFile(value) {

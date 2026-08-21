@@ -70,7 +70,7 @@ function actionsForResult(result, context, route) {
   var hiddenManager = resultKind === "manage-hidden"
   var compactToggle = resultKind === "toggle-compact"
   var settingsCommand = resultKind === "open-settings" || resultKind === "open-files"
-    || resultKind.indexOf("settings-") === 0
+    || resultKind.indexOf("settings-") === 0 || resultKind.indexOf("about-") === 0
   var calculator = text(row.resultType || row.type) === "calculator"
   var file = text(row.resultType || row.type) === "file"
   var fileStatus = text(row.resultType || row.type) === "file-status"

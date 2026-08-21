@@ -9,6 +9,7 @@
 /** @type {BooleanMap} */
 var ROUTES = {
   settings: true,
+  "settings-about": true,
   "settings-scope": true,
   "settings-ignore": true,
   "settings-reset-providers": true,
@@ -167,7 +168,59 @@ function settingsRecords(preferences, context) {
     "Reset Provider Settings", "Restore provider defaults and clear scopes", "󰑐", 80, "Reset", "", ""))
   records.push(record("omalauncher:setting-reset-personalization", "settings-open-reset-personalization",
     "Reset Personalization", "Clear favorites, aliases, hidden results, history, and ranking", "", 81, "Reset", "", ""))
+  var version = text(status.productVersion)
+  records.push(record("omalauncher:setting-about", "settings-open-about", "About Omalauncher",
+    (version ? "Version " + version + " · " : "") + "Project details and links",
+    "󰋼", 100, "About", "", ""))
   return records
+}
+
+/**
+ * Exposes Settings actions to root search without adding them to the launcher's
+ * empty state. About already has a dedicated root record, so keep one result.
+ * @param {Partial<Preferences> | null | undefined} preferences
+ * @param {SettingsContext | null | undefined} context
+ * @returns {SettingRecord[]}
+ */
+function rootSearchRecords(preferences, context) {
+  var source = settingsRecords(preferences, context)
+  /** @type {SettingRecord[]} */
+  var records = []
+  for (var i = 0; i < source.length; i++) {
+    var sourceRecord = source[i]
+    if (!sourceRecord || sourceRecord.kind === "settings-open-about") continue
+    var copy = /** @type {SettingRecord} */ (Object.assign({}, sourceRecord))
+    copy.breadcrumb = "Omalauncher Settings"
+    copy.section = "Launcher Settings"
+    copy.emptyVisible = false
+    records.push(copy)
+  }
+  return records
+}
+
+/**
+ * @param {SettingsContext | null | undefined} context
+ * @returns {SettingRecord[]}
+ */
+function aboutRecords(context) {
+  var values = context || {}
+  var version = text(values.productVersion)
+  var repositoryUrl = text(values.repositoryUrl) || "https://github.com/mirashif/omalauncher"
+  var productTitle = "Omalauncher" + (version ? " v" + version.replace(/^v/i, "") : "")
+  return [
+    record("omalauncher:about-product", "about-copy-details", productTitle,
+      "A keyboard-first command palette for Omarchy", "󰋼", 0, "About", "about", productTitle),
+    record("omalauncher:about-compatibility", "about-copy-details", "Compatibility",
+      "Omarchy 4 · Quickshell 0.3", "󰍹", 1, "About", "compatibility",
+      "Omarchy 4 · Quickshell 0.3"),
+    record("omalauncher:about-source", "about-open-url", "View Source Code",
+      "Open the project on GitHub", "", 10, "Project", "source", repositoryUrl),
+    record("omalauncher:about-issues", "about-open-url", "Report an Issue",
+      "Open the GitHub issue tracker", "", 11, "Project", "issues", repositoryUrl + "/issues"),
+    record("omalauncher:about-license", "about-open-url", "View MIT License",
+      "Read the license on GitHub", "", 12, "Project", "license",
+      repositoryUrl + "/blob/main/LICENSE")
+  ]
 }
 
 /**
@@ -249,6 +302,7 @@ function routeTitle(route) {
   /** @type {StringMap} */
   var titles = {
     settings: "Omalauncher Settings",
+    "settings-about": "About Omalauncher",
     "settings-scope": "Add File Search Scope",
     "settings-ignore": "Add File Ignore Pattern",
     "settings-reset-providers": "Reset Provider Settings",
@@ -260,6 +314,8 @@ function routeTitle(route) {
 if (typeof module !== "undefined") {
   module.exports = {
     settingsRecords: settingsRecords,
+    rootSearchRecords: rootSearchRecords,
+    aboutRecords: aboutRecords,
     inputRecords: inputRecords,
     confirmationRecords: confirmationRecords,
     isRoute: isRoute,

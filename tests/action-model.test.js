@@ -239,15 +239,23 @@ test("compact-mode command exposes only its primary toggle action", () => {
 })
 
 test("settings commands expose only their launcher-owned primary action", () => {
-  const actions = ActionModel.actionsForResult({
+  const settingActions = ActionModel.actionsForResult({
     resultId: "omalauncher:setting-file-search",
     resultType: "launcher-command",
     resultKind: "settings-toggle",
     title: "Scoped File Search"
   }, {})
+  const aboutActions = ActionModel.actionsForResult({
+    resultId: "omalauncher:about-source",
+    resultType: "launcher-command",
+    resultKind: "about-open-url",
+    title: "View Source Code"
+  }, {})
 
-  assert.deepEqual(actions.map(action => action.id), ["primary"])
-  assert.equal(actions[0].title, "Scoped File Search")
+  assert.deepEqual(settingActions.map(action => action.id), ["primary"])
+  assert.deepEqual(aboutActions.map(action => action.id), ["primary"])
+  assert.equal(settingActions[0].title, "Scoped File Search")
+  assert.equal(aboutActions[0].title, "View Source Code")
 })
 
 test("calculator results expose copy actions without launcher personalization", () => {
