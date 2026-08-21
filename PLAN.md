@@ -49,7 +49,7 @@ The product should remain:
 - Favorites, recents, aliases, hidden-result recovery, and wrapping result
   navigation.
 - Native route navigation for static menus and applications.
-- `Ctrl+1` through `Ctrl+8` activation for the corresponding visible row.
+- `Ctrl+1` through `Ctrl+9`, plus `Ctrl+0` for result 10, including off-screen results.
 - Compact Mode, section jumps, pop-to-root, and immediate-close shortcuts.
 
 ### Actions and settings

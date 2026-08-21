@@ -224,6 +224,7 @@ Item {
   readonly property int sectionHeight: Style.space(28)
   readonly property int emptyStateHeight: Style.space(132)
   readonly property int maximumVisibleRows: 8
+  readonly property int maximumQuickActivationResults: 10
   readonly property int listHeight: Math.max(root.emptyStatus.visible ? emptyStateHeight : rowHeight,
     Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight
       + resultSectionCount * sectionHeight)
@@ -1144,7 +1145,8 @@ Item {
   }
 
   function quickActivationOrdinal(key) {
-    var keys = [Qt.Key_1, Qt.Key_2, Qt.Key_3, Qt.Key_4, Qt.Key_5, Qt.Key_6, Qt.Key_7, Qt.Key_8]
+    var keys = [Qt.Key_1, Qt.Key_2, Qt.Key_3, Qt.Key_4, Qt.Key_5,
+      Qt.Key_6, Qt.Key_7, Qt.Key_8, Qt.Key_9, Qt.Key_0]
     for (var index = 0; index < keys.length; index++) {
       if (key === keys[index]) return index + 1
     }
@@ -1162,7 +1164,7 @@ Item {
     return QuickActivationModel.hintForIndex(
       index,
       resultsModel.count,
-      root.maximumVisibleRows,
+      root.maximumQuickActivationResults,
       stateStore.preferences.quickActivationEnabled === true,
       root.quickActivationEligible())
   }
@@ -1173,7 +1175,7 @@ Item {
     var index = QuickActivationModel.resultIndex(
       ordinal,
       resultsModel.count,
-      root.maximumVisibleRows,
+      root.maximumQuickActivationResults,
       stateStore.preferences.quickActivationEnabled === true,
       root.quickActivationEligible())
     if (index < 0) return false

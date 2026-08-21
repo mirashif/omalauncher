@@ -24,6 +24,14 @@ test("up and down rotate through search results instead of query history", () =>
   assert.doesNotMatch(searchInput[1], /cycleQueryHistory/)
 })
 
+test("numbered activation includes off-screen results nine and ten", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+
+  assert.match(launcher, /readonly property int maximumQuickActivationResults: 10/)
+  assert.match(launcher, /var keys = \[[^\]]*Qt\.Key_9, Qt\.Key_0\]/)
+  assert.match(launcher, /QuickActivationModel\.resultIndex\([\s\S]*?root\.maximumQuickActivationResults/)
+})
+
 test("new installations place the launcher widget on the right", () => {
   const manifest = fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8")
   assert.match(manifest, /"barWidget"\s*:\s*\{[\s\S]*?"defaultSection"\s*:\s*"right"/)

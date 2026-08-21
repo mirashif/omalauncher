@@ -178,7 +178,7 @@ These shortcuts cover the everyday search-and-run flow:
 | `Enter` | Open or run the selected result |
 | `Ctrl+K` | Open or close the selected result's Action Panel |
 | `Ctrl+F` | Add or remove the selected favorite |
-| `Ctrl+1`…`Ctrl+8` | Open the corresponding visible result |
+| `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Open results 1–10, including off-screen results |
 | `Shift+Escape` | Return directly to Root Search |
 | `Ctrl+W` | Close Omalauncher immediately |
 | `Escape` | Close the current layer, clear search, go back, or close |
