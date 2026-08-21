@@ -11,9 +11,10 @@ into fast, keyboard-first search. Type what you mean—such as `clipboard`,
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
 
-![Omalauncher opening in Compact Mode, searching for the default browser settings, and opening the Browser Action Panel](assets/omalauncher-demo.gif)
+![Omalauncher finding Clipboard, searching scoped files, and opening actions for a running application](assets/omalauncher-demo.gif)
 
-_Open, search, and act without leaving the keyboard._
+_Search across Omarchy, find local files, and control running applications
+without leaving the keyboard._
 
 ## Why Omalauncher?
 
@@ -60,26 +61,42 @@ first while keeping the related setup and CLI routes one shortcut away.
 
 ![A live Omalauncher search for vscode with Visual Studio Code ranked before the related Omarchy command and CLI route](assets/real-world-vscode-search.png)
 
-### Applications and commands, side by side
+### Control running applications
 
-The same query can find an installed application and a related Omarchy command
-without mixing up what each result will do.
+Press `Ctrl+K` to search an application's actions. Running applications expose
+quit and restart controls, while supported desktop applications can be
+uninstalled after confirmation.
 
-![Searching for Docker returns both the Docker application and the Docker DB installation command](assets/unified-search.png)
+![The Visual Studio Code Action Panel showing open, quit, restart, configure, and uninstall actions](assets/preview.png)
 
-### Context for every command
+### Search the live shell, menu, and CLI together
 
-Breadcrumbs make deeply nested actions understandable before you run them. For
-example, `install spotify` finds the Spotify action under Install › Service.
+One query can find a summonable shell feature, its related menu route, and a
+CLI command. Provider headings and breadcrumbs make the destination clear
+before anything runs.
 
-![Searching for Install Spotify shows the Spotify command under Install and Service](assets/command-context.png)
+![Searching for Clipboard shows the live shell overlay, the related Omarchy menu command, and the Omarchy CLI Share route](assets/shell-feature-search.png)
 
-### More actions when you need them
+### Find local files without searching everywhere
 
-The Action Panel keeps the primary action obvious while putting navigation,
-aliases, favorites, and ranking controls one shortcut away.
+File search stays inside folders you explicitly choose. The Action Panel can
+open the selected file, reveal it in the file manager, or copy its full path.
 
-![The Visual Studio Code Action Panel showing open, configuration, and favorite actions](assets/personalization.png)
+![A scoped file-search result with actions to open the file, reveal it in the file manager, or copy its path](assets/file-actions.png)
+
+### Calculate without opening another app
+
+Expressions beginning with `=` return a result that can be copied immediately.
+
+![Omalauncher calculating 12 times 8 and returning 96](assets/calculator.png)
+
+### Start with what matters to you
+
+An empty search puts favorites first, followed by recently used applications
+and commands. Number badges make the first ten results directly accessible
+from the keyboard.
+
+![Omalauncher's personalized home showing favorites, recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
 
 ## More than app search
 
