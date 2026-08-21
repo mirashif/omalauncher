@@ -211,14 +211,16 @@ function normalizeState(value) {
   var sourceOnboardingValue = source["onboarding"]
   var sourceOnboarding = isRecord(sourceOnboardingValue) ? sourceOnboardingValue : {}
   var rawOnboardingStatus = validText(sourceOnboarding["status"])
-  /** @type {"pending" | "verify" | "complete"} */
-  var onboardingStatus = rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
+  /** @type {"pending" | "dependencies" | "verify" | "complete"} */
+  var onboardingStatus = rawOnboardingStatus === "dependencies"
+    || rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
     ? rawOnboardingStatus : "pending"
   var onboardingHotkey = validText(sourceOnboarding["hotkey"])
   if (/[^A-Za-z0-9_ +]/.test(onboardingHotkey) || onboardingHotkey.length > 64) {
     onboardingHotkey = ""
   }
-  if (onboardingStatus === "verify" && !onboardingHotkey) onboardingStatus = "pending"
+  if ((onboardingStatus === "dependencies" || onboardingStatus === "verify")
+      && !onboardingHotkey) onboardingStatus = "pending"
   /** @type {OnboardingState} */
   var onboarding = {
     version: 1,
@@ -493,12 +495,13 @@ function resetPersonalization(state) {
 function setOnboarding(state, status, hotkey, showCoach) {
   var current = normalizeState(state)
   var nextStatus = validText(status)
-  if (nextStatus !== "pending" && nextStatus !== "verify" && nextStatus !== "complete") {
+  if (nextStatus !== "pending" && nextStatus !== "dependencies"
+      && nextStatus !== "verify" && nextStatus !== "complete") {
     return current
   }
   var chord = validText(hotkey)
   if (/[^A-Za-z0-9_ +]/.test(chord) || chord.length > 64) chord = ""
-  if (nextStatus === "verify" && !chord) return current
+  if ((nextStatus === "dependencies" || nextStatus === "verify") && !chord) return current
   return stateWith(current, {
     onboarding: {
       version: 1,

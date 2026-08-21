@@ -44,7 +44,7 @@ when they can be used on the current system.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
 - **Open it your way.** Use the Omarchy bar icon or choose a global shortcut
-  during the two-step welcome setup.
+  during welcome setup.
 - **Get useful defaults.** An empty search shows favorites and recent items
   first, followed by browsable applications, menu commands, and shell features.
   The larger CLI catalog appears when you search, without cluttering that view.
@@ -121,7 +121,8 @@ the provider retry action reloads them on demand.
 Enter an expression such as `= 12 * 8` or `= 10 km to mi`. The answer appears
 as a result and `Enter` copies it. Calculator support uses the optional `qalc`
 command from `libqalculate`; the rest of Omalauncher keeps working when it is
-not installed.
+not installed. Welcome setup and **Settings › Optional Features** can install
+it for you in a visible terminal.
 
 ### Scoped file search
 
@@ -131,18 +132,27 @@ type a query such as `f report.pdf` from Root Search.
 
 File search is off by default, never accepts `/` as a scope, and uses the
 optional `fd` command. From a file's Action Panel you can open it, reveal its
-folder, or copy its full path.
+folder, or copy its full path. Welcome setup and **Settings › Optional
+Features** can install `fd` when it is missing.
 
 ### Settings inside the launcher
 
 Search for **Omalauncher Settings** to change the launcher shortcut, rerun
 welcome setup, configure Compact Mode, numbered result shortcuts, calculator
-and file search, folder scopes, and ignore patterns. Settings and
+and file search, install or recheck optional feature tools, configure folder
+scopes and ignore patterns. Settings and
 personalization resets require confirmation.
 
 ## Install
 
 Omalauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**.
+
+The required runtime is the standard Omarchy desktop stack: `omarchy`,
+`omarchy-shell`, Quickshell, Hyprland (`hyprctl`), `xdg-open`,
+`xdg-terminal-exec`, `wl-copy`, and standard shell/core utilities. A supported
+Omarchy installation already provides these. The only feature-specific
+packages are optional: `libqalculate` supplies calculator results and `fd`
+supplies scoped file search.
 
 ### 1. Add the plugin
 
@@ -154,9 +164,11 @@ omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 
 Click the Omalauncher search icon on the right side of the bar. Welcome setup
 suggests `SUPER + SPACE`, lets you record another chord, checks current
-Hyprland bindings, and asks explicitly before replacing a conflict. The final
-step has you close and reopen Omalauncher with the shortcut so the setup is
-verified.
+Hyprland bindings, and asks explicitly before replacing a conflict. It then
+checks the optional calculator and scoped file-search tools. You can install
+anything missing in a visible terminal, or skip that step and add it later from
+**Settings › Optional Features**. The final step has you close and reopen
+Omalauncher with the shortcut so the setup is verified.
 
 The recommended choice replaces the stock Omarchy Menu shortcut atomically:
 Omalauncher takes `SUPER + SPACE` and Omarchy Menu moves to `SUPER + R`. Setup
@@ -171,6 +183,13 @@ back automatically.
 
 After the recommended swap, Omarchy Menu remains available on `SUPER + R` and
 the stock application launcher remains on `SUPER + ALT + SPACE`.
+
+Optional tools can also be installed manually. This command is safe to rerun;
+Omarchy installs only packages that are missing:
+
+```bash
+omarchy pkg add libqalculate fd
+```
 
 ### 3. Start searching
 

@@ -19,6 +19,7 @@
 var ROUTES = {
   settings: true,
   "settings-shortcut": true,
+  "settings-dependencies": true,
   "settings-file-search": true,
   "settings-reset": true,
   "settings-about": true,
@@ -112,6 +113,12 @@ function settingsRecords(preferences, context) {
   if (status.fileSearchSettled === true && status.fileSearchAvailable !== true) {
     fileSearchDescription = "fd is unavailable"
   }
+  var dependenciesSettled = status.calculatorSettled === true && status.fileSearchSettled === true
+  var missingDependencies = (status.calculatorAvailable === true ? 0 : 1)
+    + (status.fileSearchAvailable === true ? 0 : 1)
+  var dependencyStatus = dependenciesSettled
+    ? (missingDependencies > 0 ? countLabel(missingDependencies, "missing") : "Ready")
+    : "Checking"
   var version = text(status.productVersion)
 
   return [
@@ -143,6 +150,12 @@ function settingsRecords(preferences, context) {
         trailingText: fileSearchStatus,
         targetRoute: "settings-file-search"
       }),
+    record("omalauncher:setting-dependencies", "settings-open-dependencies", "Optional Features",
+      "Install calculator and file-search tools", "󰏗", 12, "Providers", "", "", {
+        controlType: "navigation",
+        trailingText: dependencyStatus,
+        targetRoute: "settings-dependencies"
+      }),
     record("omalauncher:setting-reset-page", "settings-open-reset", "Data and Reset",
       "Restore defaults or clear personalization", "󰑐", 20, "Data", "", "", {
         controlType: "navigation",
@@ -155,6 +168,92 @@ function settingsRecords(preferences, context) {
         targetRoute: "settings-about"
       })
   ]
+}
+
+/**
+ * @param {SettingsContext | null | undefined} context
+ * @returns {SettingRecord[]}
+ */
+function dependencyRecords(context) {
+  var status = context || {}
+  var calculatorSettled = status.calculatorSettled === true
+  var fileSearchSettled = status.fileSearchSettled === true
+  var calculatorAvailable = status.calculatorAvailable === true
+  var fileSearchAvailable = status.fileSearchAvailable === true
+  var installRunning = status.dependencyInstallRunning === true
+  /** @type {string[]} */
+  var missingPackages = []
+  if (calculatorSettled && !calculatorAvailable) missingPackages.push("libqalculate")
+  if (fileSearchSettled && !fileSearchAvailable) missingPackages.push("fd")
+  /** @type {SettingRecord[]} */
+  var records = []
+
+  if (missingPackages.length > 0) {
+    records.push(record(
+      "omalauncher:setting-install-dependencies",
+      "settings-install-dependencies",
+      installRunning ? "Installing Optional Tools…" : "Install Missing Tools",
+      installRunning
+        ? "Complete the package installation in the terminal"
+        : "Runs omarchy pkg add " + missingPackages.join(" ") + " in a visible terminal",
+      installRunning ? "" : "󰏗",
+      0,
+      "Actions",
+      "dependencies",
+      "all",
+      { controlType: "action", trailingText: installRunning ? "In progress" : "Open Terminal" }
+    ))
+  }
+
+  records.push(record(
+    "omalauncher:setting-dependency-calculator",
+    calculatorSettled && !calculatorAvailable
+      ? "settings-install-dependency" : "settings-dependency-status",
+    "Calculator Support",
+    calculatorSettled
+      ? (calculatorAvailable
+          ? "qalc is ready for instant = results"
+          : "Install libqalculate to enable calculator results")
+      : "Checking for qalc",
+    "",
+    10,
+    "Features",
+    "dependency",
+    "calculator",
+    { controlType: "action", trailingText: calculatorSettled
+      ? (calculatorAvailable ? "Installed" : "Install") : "Checking" }
+  ))
+  records.push(record(
+    "omalauncher:setting-dependency-file-search",
+    fileSearchSettled && !fileSearchAvailable
+      ? "settings-install-dependency" : "settings-dependency-status",
+    "File Search Support",
+    fileSearchSettled
+      ? (fileSearchAvailable
+          ? "fd is ready for scoped file search"
+          : "Install fd to enable scoped file search")
+      : "Checking for fd",
+    "󰈞",
+    11,
+    "Features",
+    "dependency",
+    "file-search",
+    { controlType: "action", trailingText: fileSearchSettled
+      ? (fileSearchAvailable ? "Installed" : "Install") : "Checking" }
+  ))
+  records.push(record(
+    "omalauncher:setting-recheck-dependencies",
+    "settings-recheck-dependencies",
+    "Check Again",
+    "Refresh qalc and fd availability",
+    "󰑐",
+    20,
+    "Actions",
+    "dependencies",
+    "refresh",
+    { controlType: "action", trailingText: "Refresh" }
+  ))
+  return records
 }
 
 /**
@@ -320,6 +419,7 @@ function resetRecords() {
 function rootSearchRecords(preferences, context) {
   var source = settingsRecords(preferences, context)
     .concat(shortcutRecords(context))
+    .concat(dependencyRecords(context))
     .concat(fileSearchRecords(preferences, context))
     .concat(resetRecords())
     .concat(suggestedScopeRecords(preferences, context))
@@ -457,6 +557,7 @@ function recordsForRoute(route, preferences, context, query, error, busy) {
   var value = text(route)
   if (value === "settings") return settingsRecords(preferences, context)
   if (value === "settings-shortcut") return shortcutRecords(context)
+  if (value === "settings-dependencies") return dependencyRecords(context)
   if (value === "settings-file-search") return fileSearchRecords(preferences, context)
   if (value === "settings-reset") return resetRecords()
   if (value === "settings-about") return aboutRecords(context)
@@ -499,6 +600,7 @@ function routeTitle(route) {
   var titles = {
     settings: "Settings",
     "settings-shortcut": "Launcher Shortcut",
+    "settings-dependencies": "Optional Features",
     "settings-file-search": "File Search",
     "settings-reset": "Data and Reset",
     "settings-about": "About Omalauncher",
@@ -515,6 +617,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     settingsRecords: settingsRecords,
     shortcutRecords: shortcutRecords,
+    dependencyRecords: dependencyRecords,
     fileSearchRecords: fileSearchRecords,
     resetRecords: resetRecords,
     rootSearchRecords: rootSearchRecords,

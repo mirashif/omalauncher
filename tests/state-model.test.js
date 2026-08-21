@@ -67,10 +67,20 @@ test("fresh and partial state enter onboarding until setup completes", () => {
     version: 1,
     onboarding: { status: "verify", hotkey: "SUPER + R", showCoach: true }
   }).onboarding.status, "verify")
+  assert.equal(StateModel.normalizeState({
+    version: 1,
+    onboarding: { status: "dependencies", hotkey: "SUPER + R" }
+  }).onboarding.status, "dependencies")
+  assert.equal(StateModel.normalizeState({
+    version: 1,
+    onboarding: { status: "dependencies", hotkey: "" }
+  }).onboarding.status, "pending")
 })
 
-test("onboarding persists setup, verification, and one-time coaching", () => {
-  const ready = StateModel.setOnboarding(StateModel.emptyState(), "verify", "SUPER + R", false)
+test("onboarding persists optional features, verification, and one-time coaching", () => {
+  const dependencies = StateModel.setOnboarding(
+    StateModel.emptyState(), "dependencies", "SUPER + R", false)
+  const ready = StateModel.setOnboarding(dependencies, "verify", "SUPER + R", false)
   const complete = StateModel.setOnboarding(ready, "complete", "SUPER + R", true)
   const coached = StateModel.dismissOnboardingCoach(complete)
 
@@ -80,6 +90,7 @@ test("onboarding persists setup, verification, and one-time coaching", () => {
     hotkey: "SUPER + R",
     showCoach: false
   })
+  assert.equal(dependencies.onboarding.status, "dependencies")
   assert.equal(complete.onboarding.showCoach, true)
   assert.equal(coached.onboarding.showCoach, false)
   assert.deepEqual(coached.favorites, ready.favorites)

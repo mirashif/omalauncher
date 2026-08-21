@@ -57,12 +57,12 @@ Item {
     if (!root.activeRequest) return
     if (!root.providerEnabled) {
       root.records = [FileSearchModel.statusRecord(
-        "disabled", "File Search Disabled", "Enable it in Omalauncher Settings", "settings")]
+        "disabled", "File Search Disabled", "Enable it in Omalauncher Settings", "settings-file-search")]
       return
     }
     if (root.scopes.length === 0) {
       root.records = [FileSearchModel.statusRecord(
-        "unconfigured", "No File Search Scopes", "Add a directory in Omalauncher Settings", "settings")]
+        "unconfigured", "No File Search Scopes", "Add a directory in Omalauncher Settings", "settings-file-search")]
       return
     }
     if (!root.backendSettled) {
@@ -72,7 +72,7 @@ Item {
     }
     if (!root.backendAvailable) {
       root.records = [FileSearchModel.statusRecord(
-        "unavailable", "File Search Unavailable", "Install fd to enable scoped search", "settings")]
+        "unavailable", "File Search Unavailable", "Install fd to enable scoped search", "settings-dependencies")]
       return
     }
     if (!root.query) {
@@ -90,6 +90,17 @@ Item {
   function retryCurrentRequest() {
     root.requestKey = ""
     root.request(root.query, root.scopes, root.ignores, root.activeRequest)
+  }
+
+  function refreshBackend() {
+    if (availabilityProc.running) return false
+    root.backendSettled = false
+    root.backendAvailable = false
+    root.backendPath = ""
+    availabilityProc.output = ""
+    root.retryCurrentRequest()
+    availabilityProc.running = true
+    return true
   }
 
   Process {
@@ -263,7 +274,7 @@ Item {
 
   onProviderEnabledChanged: root.retryCurrentRequest()
   Component.onCompleted: {
-    availabilityProc.running = true
+    root.refreshBackend()
     commonScopeProc.running = true
   }
 }

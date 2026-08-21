@@ -69,6 +69,17 @@ Item {
     root.request(root.requestedQuery, root.requestedStrongMatch)
   }
 
+  function refreshBackend() {
+    if (availabilityProc.running) return false
+    root.backendSettled = false
+    root.backendAvailable = false
+    root.backendPath = ""
+    availabilityProc.output = ""
+    root.retryCurrentRequest()
+    availabilityProc.running = true
+    return true
+  }
+
   Process {
     id: availabilityProc
     property string output: ""
@@ -137,5 +148,5 @@ Item {
   }
 
   onProviderEnabledChanged: root.retryCurrentRequest()
-  Component.onCompleted: availabilityProc.running = true
+  Component.onCompleted: root.refreshBackend()
 }

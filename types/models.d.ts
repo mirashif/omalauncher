@@ -20,7 +20,7 @@ export interface Preferences {
 
 export interface OnboardingState {
   version: number;
-  status: "pending" | "verify" | "complete";
+  status: "pending" | "dependencies" | "verify" | "complete";
   hotkey: string;
   showCoach: boolean;
 }
@@ -464,6 +464,7 @@ export interface SettingsContext {
   calculatorAvailable?: boolean;
   fileSearchSettled?: boolean;
   fileSearchAvailable?: boolean;
+  dependencyInstallRunning?: boolean;
   commonScopes?: readonly string[];
   launcherHotkey?: string;
   onboardingHotkey?: string;

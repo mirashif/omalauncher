@@ -152,6 +152,10 @@ cp -a /usr/share/omarchy/shell "$test_omarchy/shell"
 
 cp "$project_dir/tests/fixtures/hyprctl-onboarding-stub.sh" "$stub_bin/hyprctl"
 chmod +x "$stub_bin/hyprctl"
+for optional_tool in qalc fd; do
+  printf '%s\n' '#!/bin/sh' 'exit 0' >"$stub_bin/$optional_tool"
+  chmod +x "$stub_bin/$optional_tool"
+done
 printf '%s\n' '-- Isolated onboarding test bindings' >"$test_home/.config/hypr/bindings.lua"
 jq -n --arg id "$plugin_id" '{
   version: 1,
@@ -242,10 +246,22 @@ press_enter
 
 stats=$(wait_for_stats_matching '
   .onboarding.visible == true
+  and .onboarding.stage == "dependencies"
+  and .onboarding.status == "dependencies"
+  and .onboarding.calculatorAvailable == true
+  and .onboarding.fileSearchAvailable == true
+  and .onboarding.primaryAction == "Continue"
+' "replacing the shortcut did not advance onboarding to optional features")
+printf '%s\n' '✓ optional features are presented without blocking setup'
+demo_pause
+press_enter
+
+stats=$(wait_for_stats_matching '
+  .onboarding.visible == true
   and .onboarding.stage == "verify"
   and .onboarding.status == "verify"
   and .onboarding.primaryAction == "Close and try it"
-' "replacing the shortcut did not advance onboarding to verification")
+' "optional features did not advance onboarding to verification")
 jq -e '.onboarding.hotkey == "SUPER + SPACE"' <<<"$stats" >/dev/null \
   || fail "onboarding saved the wrong shortcut"
 rg -q --fixed-strings -- '-- launcher: {"hotkey":"SUPER + SPACE"}' \

@@ -36,15 +36,17 @@ test("settings root is concise and uses semantic controls", () => {
   const quickActivation = rows.find(row => row.settingKey === "quickActivationEnabled")
   const calculator = rows.find(row => row.settingKey === "calculatorEnabled")
   const fileSearch = rows.find(row => row.kind === "settings-open-file-search")
+  const dependencies = rows.find(row => row.kind === "settings-open-dependencies")
   const reset = rows.find(row => row.kind === "settings-open-reset")
   const about = rows.find(row => row.kind === "settings-open-about")
 
-  assert.equal(rows.length, 7)
+  assert.equal(rows.length, 8)
   assert.ok(shortcut)
   assert.ok(compact)
   assert.ok(quickActivation)
   assert.ok(calculator)
   assert.ok(fileSearch)
+  assert.ok(dependencies)
   assert.ok(reset)
   assert.ok(about)
   assert.equal(shortcut.controlType, "navigation")
@@ -56,9 +58,32 @@ test("settings root is concise and uses semantic controls", () => {
   assert.equal(fileSearch.controlType, "navigation")
   assert.equal(fileSearch.trailingText, "On · 1 folder")
   assert.equal(fileSearch.targetRoute, "settings-file-search")
+  assert.equal(dependencies.trailingText, "1 missing")
+  assert.equal(dependencies.targetRoute, "settings-dependencies")
   assert.equal(reset.targetRoute, "settings-reset")
   assert.equal(about.trailingText, "v0.10.0")
   assert.deepEqual([...new Set(rows.map(row => row.section))], ["General", "Providers", "Data", "About"])
+})
+
+test("optional-feature settings install only missing tools and expose status", () => {
+  const rows = SettingsModel.dependencyRecords(settingsContext())
+  const install = rows.find(row => row.kind === "settings-install-dependencies")
+  const calculator = rows.find(row => row.settingValue === "calculator")
+  const fileSearch = rows.find(row => row.settingValue === "file-search")
+  const recheck = rows.find(row => row.kind === "settings-recheck-dependencies")
+
+  assert.ok(install)
+  assert.ok(calculator)
+  assert.ok(fileSearch)
+  assert.match(String(install.description), /omarchy pkg add fd/)
+  assert.equal(install.trailingText, "Open Terminal")
+  assert.equal(calculator.kind, "settings-dependency-status")
+  assert.equal(calculator.trailingText, "Installed")
+  assert.equal(fileSearch.kind, "settings-install-dependency")
+  assert.equal(fileSearch.trailingText, "Install")
+  assert.ok(recheck)
+  assert.equal(SettingsModel.isRoute("settings-dependencies"), true)
+  assert.equal(SettingsModel.routeTitle("settings-dependencies"), "Optional Features")
 })
 
 test("file-search details contain provider state and configured rules", () => {
@@ -194,12 +219,15 @@ test("destructive settings require a separate confirmation choice", () => {
 test("recordsForRoute keeps nested settings route-specific", () => {
   const preferences = configuredState().preferences
   assert.equal(SettingsModel.recordsForRoute(
-    "settings", preferences, settingsContext(), "", "", false).length, 7)
+    "settings", preferences, settingsContext(), "", "", false).length, 8)
   assert.equal(SettingsModel.recordsForRoute(
     "settings-shortcut", preferences, settingsContext(), "", "", false)[0].section, "Shortcut")
   assert.equal(SettingsModel.recordsForRoute(
     "settings-file-search", preferences, settingsContext(), "", "", false)[0].kind,
   "settings-toggle")
+  assert.equal(SettingsModel.recordsForRoute(
+    "settings-dependencies", preferences, settingsContext(), "", "", false)
+    .some(row => row.kind === "settings-install-dependencies"), true)
   assert.equal(SettingsModel.recordsForRoute(
     "settings-reset", preferences, settingsContext(), "", "", false).length, 2)
 })
