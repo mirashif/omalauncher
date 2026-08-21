@@ -213,14 +213,18 @@ Item {
   readonly property color scrim: Color.menu.scrim
   readonly property color selectedBackground: Color.menu.selectedBackground
   readonly property color selectedText: Color.menu.selectedText
+  readonly property color secondaryText: Util.alpha(foreground, 0.85)
   readonly property int cardPadding: Style.space(12)
   readonly property int dividerHeight: Math.max(1, Style.space(1))
   readonly property int resultsTopOffset: cardPadding + dividerHeight
   readonly property int footerHeight: Style.space(38)
+  readonly property bool footerVisible: !compactCollapsed && resultsModel.count > 0
+  readonly property int effectiveFooterHeight: footerVisible ? footerHeight : 0
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
   readonly property int sectionHeight: Style.space(28)
+  readonly property int emptyStateHeight: Style.space(132)
   readonly property int maximumVisibleRows: 8
-  readonly property int listHeight: Math.max(rowHeight,
+  readonly property int listHeight: Math.max(root.emptyStatus.visible ? emptyStateHeight : rowHeight,
     Math.min(maximumVisibleRows, Math.max(1, resultsModel.count)) * rowHeight
       + resultSectionCount * sectionHeight)
   readonly property int actionRowHeight: Math.max(Style.space(50), Style.font.body + Style.font.caption + Style.space(18))
@@ -2141,6 +2145,17 @@ Item {
     return "Run Command"
   }
 
+  function footerActionLabel() {
+    if (root.aliasEditorOpen || root.hotkeyEditorOpen) return "Save"
+    if (root.actionPanelOpen
+        && actionResultsModel.count > 0
+        && root.actionSelectedIndex >= 0
+        && root.actionSelectedIndex < actionResultsModel.count) {
+      return String(actionResultsModel.get(root.actionSelectedIndex).title || "")
+    }
+    return root.primaryActionLabel()
+  }
+
   function evaluateGuards() {
     if (!root.defaultSourceLoaded) return
     if (guardProc.running) {
@@ -2579,7 +2594,7 @@ Item {
                 root.listHeight,
                 root.cardPadding,
                 root.resultsTopOffset,
-                root.footerHeight),
+                root.effectiveFooterHeight),
           root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0),
         root.warningPanelOpen ? root.warningPanelHeight + Style.space(24) : 0)
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
@@ -2620,17 +2635,22 @@ Item {
         color: root.selectedBackground
         opacity: 0.96
 
-        Text {
+        Item {
+          id: searchLeadingControl
           anchors.left: parent.left
-          anchors.leftMargin: Style.space(16)
-          anchors.verticalCenter: parent.verticalCenter
-          text: root.activeRoute === "root" ? "" : ""
-          color: root.selectedText
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.icon
+          width: Style.space(48)
+          height: parent.height
           Accessible.role: root.activeRoute === "root" ? Accessible.StaticText : Accessible.Button
           Accessible.name: root.activeRoute === "root" ? "Search" : "Back to previous section"
           Accessible.onPressAction: if (root.activeRoute !== "root") root.goBack()
+
+          Text {
+            anchors.centerIn: parent
+            text: root.activeRoute === "root" ? "" : ""
+            color: root.selectedText
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.icon
+          }
 
           MouseArea {
             anchors.fill: parent
@@ -2652,8 +2672,7 @@ Item {
             : (root.indexSettled
                 ? (root.activeRoute === "root" ? "Search apps, shell features, and Omarchy commands…" : "Search " + root.activeMenuTitle + "…")
                 : "Building unified index…")
-          color: root.selectedText
-          opacity: 0.55
+          color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
           elide: Text.ElideRight
@@ -2667,8 +2686,8 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
-          color: root.selectedText
-          selectionColor: root.foreground
+          color: root.foreground
+          selectionColor: root.selectedText
           selectedTextColor: root.selectedBackground
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
@@ -2804,7 +2823,7 @@ Item {
         anchors.top: searchBox.bottom
         anchors.topMargin: root.resultsTopOffset
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.footerHeight
+        anchors.bottomMargin: root.effectiveFooterHeight
         model: resultsModel
         enabled: !root.actionPanelOpen
         clip: true
@@ -2825,8 +2844,7 @@ Item {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Style.space(4)
             text: parent.section
-            color: root.foreground
-            opacity: 0.48
+            color: root.secondaryText
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.caption
             font.weight: Font.DemiBold
@@ -2855,13 +2873,23 @@ Item {
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
+          readonly property var descriptionParts: String(description || "").split(" · ")
+          readonly property string settingState: resultKind === "settings-toggle"
+            ? String(descriptionParts[0] || "") : ""
+          readonly property string supportingText: settingState
+            ? descriptionParts.slice(1).join(" · ")
+            : (breadcrumb || description)
+          readonly property bool highlightSupportingText: !settingState && !!breadcrumb
           width: ListView.view.width
           height: root.rowHeight
           radius: Math.max(0, Style.cornerRadius - Style.space(3))
           color: selected ? root.selectedBackground : "transparent"
           Accessible.role: Accessible.ListItem
           Accessible.name: resultRow.title
-          Accessible.description: resultRow.breadcrumb || resultRow.description
+            + (resultRow.settingState ? ", " + resultRow.settingState : "")
+          Accessible.description: resultRow.settingState
+            ? resultRow.description
+            : (resultRow.breadcrumb || resultRow.description)
           Accessible.focusable: true
           Accessible.focused: resultRow.selected
           Accessible.onPressAction: {
@@ -2923,7 +2951,7 @@ Item {
               width: parent.width
               text: root.highlightedText(resultTitleMetrics.elidedText)
               textFormat: Text.RichText
-              color: resultRow.selected ? root.selectedText : root.foreground
+              color: root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.heading
               font.weight: Font.Medium
@@ -2933,23 +2961,22 @@ Item {
 
             TextMetrics {
               id: resultSupportingMetrics
-              text: resultRow.breadcrumb || resultRow.description
+              text: resultRow.supportingText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.bodySmall
-              font.weight: resultRow.breadcrumb ? Font.Bold : Font.Normal
+              font.weight: resultRow.highlightSupportingText ? Font.Bold : Font.Normal
               elide: Qt.ElideRight
               elideWidth: resultContent.width
             }
 
             Text {
               width: parent.width
-              text: resultRow.breadcrumb
+              text: resultRow.highlightSupportingText
                 ? root.highlightedText(resultSupportingMetrics.elidedText)
                 : HighlightModel.escapeHtml(resultSupportingMetrics.elidedText)
-              visible: (resultRow.breadcrumb || resultRow.description).length > 0
+              visible: resultRow.supportingText.length > 0
               textFormat: Text.RichText
-              color: resultRow.selected ? root.selectedText : root.foreground
-              opacity: 0.58
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.bodySmall
               wrapMode: Text.NoWrap
@@ -2963,6 +2990,26 @@ Item {
             anchors.rightMargin: Style.space(18)
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(8)
+
+            Rectangle {
+              visible: resultRow.settingState.length > 0
+              width: settingStateText.implicitWidth + Style.space(12)
+              height: Math.max(Style.space(22), settingStateText.implicitHeight + Style.space(6))
+              radius: height / 2
+              color: resultRow.settingState === "Enabled" ? root.foreground : "transparent"
+              border.width: Math.max(1, Style.space(1))
+              border.color: root.foreground
+
+              Text {
+                id: settingStateText
+                anchors.centerIn: parent
+                text: resultRow.settingState
+                color: resultRow.settingState === "Enabled" ? root.background : root.foreground
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                font.weight: Font.DemiBold
+              }
+            }
 
             Rectangle {
               visible: root.quickActivationHint(resultRow.index).length > 0
@@ -2985,8 +3032,7 @@ Item {
             Text {
               visible: resultRow.favorite
               text: "★"
-              color: resultRow.selected ? root.selectedText : root.foreground
-              opacity: 0.7
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.body
             }
@@ -2996,14 +3042,13 @@ Item {
               width: aliasBadgeText.implicitWidth + Style.space(12)
               height: Math.max(Style.space(22), aliasBadgeText.implicitHeight + Style.space(6))
               radius: height / 2
-              color: resultRow.selected ? root.selectedText : root.selectedBackground
-              opacity: 0.82
+              color: root.foreground
 
               Text {
                 id: aliasBadgeText
                 anchors.centerIn: parent
                 text: resultRow.userAlias
-                color: resultRow.selected ? root.selectedBackground : root.selectedText
+                color: root.background
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.caption
               }
@@ -3026,6 +3071,19 @@ Item {
         }
       }
 
+      Rectangle {
+        id: resultScrollThumb
+        visible: resultList.visible && resultList.contentHeight > resultList.height + 1
+        z: 8
+        width: Math.max(Style.space(3), 2)
+        height: Math.max(Style.space(24), resultList.height * resultList.visibleArea.heightRatio)
+        anchors.right: resultList.right
+        anchors.rightMargin: Style.space(4)
+        y: resultList.y + resultList.visibleArea.yPosition * Math.max(0, resultList.height - height)
+        radius: width / 2
+        color: root.secondaryText
+      }
+
       Column {
         anchors.centerIn: resultList
         spacing: Style.space(8)
@@ -3036,8 +3094,7 @@ Item {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           text: root.emptyStatus.kind === "loading" ? "" : (root.emptyStatus.kind === "error" ? "" : "")
-          color: root.foreground
-          opacity: 0.55
+          color: root.selectedText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.iconLarge
         }
@@ -3047,7 +3104,6 @@ Item {
           horizontalAlignment: Text.AlignHCenter
           text: root.emptyStatus.title
           color: root.foreground
-          opacity: 0.68
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.title
         }
@@ -3057,8 +3113,7 @@ Item {
           horizontalAlignment: Text.AlignHCenter
           visible: text.length > 0
           text: root.emptyStatus.detail
-          color: root.foreground
-          opacity: 0.42
+          color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.Wrap
@@ -3067,7 +3122,7 @@ Item {
 
       Rectangle {
         id: footer
-        visible: !root.compactCollapsed
+        visible: root.footerVisible
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -3084,23 +3139,27 @@ Item {
         }
 
         Text {
+          id: footerPrimaryAction
           anchors.left: parent.left
           anchors.leftMargin: Style.space(18)
           anchors.verticalCenter: parent.verticalCenter
-          text: root.primaryActionLabel() ? "↵  " + root.primaryActionLabel() : ""
-          color: root.foreground
-          opacity: 0.58
+          width: root.actionPanelOpen
+            ? Math.max(1, actionPanel.x - Style.space(26))
+            : parent.width / 2
+          text: root.footerActionLabel() ? "↵  " + root.footerActionLabel() : ""
+          color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
         }
 
         Text {
           anchors.right: parent.right
           anchors.rightMargin: Style.space(18)
           anchors.verticalCenter: parent.verticalCenter
-          text: "Ctrl+K  Actions"
-          color: root.foreground
-          opacity: 0.58
+          visible: !root.actionPanelOpen && root.primaryActionLabel().length > 0
+          text: "Ctrl+K / right-click  Actions"
+          color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.caption
         }
@@ -3153,8 +3212,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignRight
             text: String(root.actionTarget.title || "")
-            color: root.foreground
-            opacity: 0.5
+            color: root.secondaryText
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
@@ -3191,8 +3249,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             visible: !actionSearchInput.text
             text: "Search actions…"
-            color: root.selectedText
-            opacity: 0.5
+            color: root.secondaryText
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.body
             elide: Text.ElideRight
@@ -3205,9 +3262,9 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: Style.space(12)
             anchors.verticalCenter: parent.verticalCenter
-            color: root.selectedText
+            color: root.foreground
             selectionColor: root.foreground
-            selectedTextColor: root.selectedBackground
+            selectedTextColor: root.background
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.body
             clip: true
@@ -3306,8 +3363,7 @@ Item {
               anchors.bottom: parent.bottom
               anchors.bottomMargin: Style.space(4)
               text: parent.section
-              color: root.foreground
-              opacity: 0.46
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
               font.weight: Font.DemiBold
@@ -3370,7 +3426,7 @@ Item {
                 text: actionRow.title
                 color: actionRow.destructive
                   ? Color.urgent
-                  : (actionRow.selected ? root.selectedText : root.foreground)
+                  : root.foreground
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
                 font.weight: Font.Medium
@@ -3381,8 +3437,7 @@ Item {
                 width: parent.width
                 visible: text.length > 0
                 text: actionRow.description
-                color: actionRow.selected ? root.selectedText : root.foreground
-                opacity: 0.5
+                color: root.secondaryText
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.caption
                 elide: Text.ElideRight
@@ -3396,8 +3451,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               visible: actionRow.shortcut.length > 0
               text: actionRow.shortcut
-              color: actionRow.selected ? root.selectedText : root.foreground
-              opacity: 0.58
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
             }
@@ -3416,12 +3470,24 @@ Item {
           }
         }
 
+        Rectangle {
+          id: actionScrollThumb
+          visible: actionList.contentHeight > actionList.height + 1
+          z: 8
+          width: Math.max(Style.space(3), 2)
+          height: Math.max(Style.space(24), actionList.height * actionList.visibleArea.heightRatio)
+          anchors.right: actionList.right
+          anchors.rightMargin: Style.space(3)
+          y: actionList.y + actionList.visibleArea.yPosition * Math.max(0, actionList.height - height)
+          radius: width / 2
+          color: root.secondaryText
+        }
+
         Text {
           anchors.centerIn: actionList
           visible: actionResultsModel.count === 0 && !root.aliasEditorOpen && !root.hotkeyEditorOpen
           text: "No matching actions"
-          color: root.foreground
-          opacity: 0.55
+          color: root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.body
         }
@@ -3462,8 +3528,7 @@ Item {
             Text {
               width: parent.width
               text: String(root.actionTarget.title || "")
-              color: root.foreground
-              opacity: 0.55
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.bodySmall
               elide: Text.ElideRight
@@ -3481,9 +3546,9 @@ Item {
                 anchors.leftMargin: Style.space(14)
                 anchors.rightMargin: Style.space(14)
                 verticalAlignment: TextInput.AlignVCenter
-                color: root.selectedText
+                color: root.foreground
                 selectionColor: root.foreground
-                selectedTextColor: root.selectedBackground
+                selectedTextColor: root.background
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
                 maximumLength: 64
@@ -3516,8 +3581,7 @@ Item {
             Text {
               width: parent.width
               text: root.aliasEditorError || "A short keyword without spaces"
-              color: root.aliasEditorError ? Color.urgent : root.foreground
-              opacity: root.aliasEditorError ? 0.9 : 0.5
+              color: root.aliasEditorError ? Color.urgent : root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.Wrap
@@ -3526,8 +3590,7 @@ Item {
             Text {
               width: parent.width
               text: "Enter  Save  ·  Esc  Cancel"
-              color: root.foreground
-              opacity: 0.48
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
             }
@@ -3574,8 +3637,7 @@ Item {
             Text {
               width: parent.width
               text: String(root.actionTarget.title || "")
-              color: root.foreground
-              opacity: 0.55
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.bodySmall
               elide: Text.ElideRight
@@ -3590,8 +3652,7 @@ Item {
               Text {
                 anchors.centerIn: parent
                 text: root.recordedHotkey || "Press your hotkey"
-                color: root.selectedText
-                opacity: root.recordedHotkey ? 1 : 0.62
+                color: root.recordedHotkey ? root.foreground : root.secondaryText
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
                 font.weight: Font.Medium
@@ -3602,8 +3663,7 @@ Item {
               width: parent.width
               text: root.hotkeyEditorError
                 || "Use Super, Ctrl, or Alt plus one key. Existing bindings require confirmation."
-              color: root.hotkeyEditorError ? Color.urgent : root.foreground
-              opacity: root.hotkeyEditorError ? 0.9 : 0.5
+              color: root.hotkeyEditorError ? Color.urgent : root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.Wrap
@@ -3612,8 +3672,7 @@ Item {
             Text {
               width: parent.width
               text: "Enter  Save  ·  Esc  Cancel"
-              color: root.foreground
-              opacity: 0.48
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
             }
@@ -3718,8 +3777,7 @@ Item {
               anchors.leftMargin: Style.space(18)
               anchors.rightMargin: Style.space(18)
               text: modelData.detail
-              color: root.foreground
-              opacity: 0.5
+              color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.Wrap

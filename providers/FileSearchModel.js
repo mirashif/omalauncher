@@ -262,7 +262,7 @@ function statusRecord(kind, title, description, route) {
     type: "file-status",
     kind: "file-search-" + kind,
     title: title,
-    breadcrumb: "Scoped File Search",
+    breadcrumb: "",
     description: description,
     icon: kind === "loading" ? "" : (kind === "ready" ? "󰈞" : ""),
     iconFont: "",

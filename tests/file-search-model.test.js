@@ -74,8 +74,10 @@ test("file helpers preserve unusual names and derive safe parent paths", () => {
 })
 
 test("file search exposes bounded provider status and management records", () => {
-  assert.equal(FileSearchModel.statusRecord(
-    "unavailable", "File Search Unavailable", "Install fd", "settings").route, "settings")
+  const unavailable = FileSearchModel.statusRecord(
+    "unavailable", "File Search Unavailable", "Install fd", "settings")
+  assert.equal(unavailable.route, "settings")
+  assert.equal(unavailable.breadcrumb, "")
   assert.equal(FileSearchModel.statusRecord(
     "error", "File Search Timed Out", "Timed out", "").kind, "file-search-error")
   assert.equal(FileSearchModel.managementRecord(false, 0).description,
