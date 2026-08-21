@@ -133,6 +133,45 @@ function actionsForResult(result, context, route) {
     return actions
   }
 
+  if (activeRoute === "application-tools") {
+    if (!application) return []
+    if (state.canResolveDesktopEntry === true) {
+      actions.push(action(
+        "reveal-application",
+        "Show Desktop Entry in File Manager",
+        resultTitle,
+        "",
+        "󰗃",
+        ["application", "desktop", "entry", "reveal", "folder", "file", "manager"],
+        actions.length,
+        "Desktop Entry"
+      ))
+      actions.push(action(
+        "copy-desktop-entry-path",
+        "Copy Desktop Entry Path",
+        resultTitle,
+        "",
+        "󰆏",
+        ["application", "desktop", "entry", "copy", "path"],
+        actions.length,
+        "Desktop Entry"
+      ))
+    }
+    if (appId) {
+      actions.push(action(
+        "copy-application-id",
+        "Copy Application ID",
+        appId,
+        "",
+        "",
+        ["application", "desktop", "id", "copy"],
+        actions.length,
+        "Application ID"
+      ))
+    }
+    return actions
+  }
+
   if (activeRoute === "configure") {
     var currentAlias = text(state.alias)
     var currentHotkey = application ? text(state.hotkey) : ""
@@ -207,42 +246,6 @@ function actionsForResult(result, context, route) {
 
   if (hiddenManager || compactToggle || settingsCommand) return actions
 
-  if (application && state.canResolveDesktopEntry === true) {
-    actions.push(action(
-      "reveal-application",
-      "Show Desktop Entry in File Manager",
-      resultTitle,
-      "",
-      "󰗃",
-      ["application", "desktop", "entry", "reveal", "folder", "file", "manager"],
-      actions.length,
-      "Application"
-    ))
-    actions.push(action(
-      "copy-desktop-entry-path",
-      "Copy Desktop Entry Path",
-      resultTitle,
-      "",
-      "󰆏",
-      ["application", "desktop", "entry", "copy", "path"],
-      actions.length,
-      "Application"
-    ))
-  }
-
-  if (appId) {
-    actions.push(action(
-      "copy-application-id",
-      "Copy Application ID",
-      appId,
-      "",
-      "",
-      ["application", "desktop", "id", "copy"],
-      actions.length,
-      "Application"
-    ))
-  }
-
   if (application && state.applicationRunning === true) {
     actions.push(action(
       "quit-application",
@@ -263,6 +266,21 @@ function actionsForResult(result, context, route) {
       ["application", "restart", "relaunch", "quit", "open"],
       actions.length,
       "Application"
+    ))
+  }
+
+  if (application && (state.canResolveDesktopEntry === true || appId)) {
+    actions.push(action(
+      "application-tools",
+      "Application Details",
+      "Desktop entry and application ID",
+      "",
+      "󰋼",
+      ["application", "details", "desktop", "entry", "id", "advanced"],
+      actions.length,
+      "Application",
+      "submenu",
+      "application-tools"
     ))
   }
 

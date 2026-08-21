@@ -39,17 +39,25 @@ test("applications expose uninstall only when the provider supports removal", ()
 })
 
 test("applications expose desktop-entry utilities only when resolution is available", () => {
-  const actions = ActionModel.actionsForResult({
+  const result = {
     resultId: "application:org.mozilla.firefox",
     resultType: "application",
     appId: "org.mozilla.firefox",
     title: "Firefox"
-  }, { canResolveDesktopEntry: true })
+  }
+  const actions = ActionModel.actionsForResult(result, { canResolveDesktopEntry: true })
 
-  assert.deepEqual(actions.slice(0, 4).map(action => action.id), [
-    "primary", "reveal-application", "copy-desktop-entry-path", "copy-application-id"
+  assert.deepEqual(actions.slice(0, 2).map(action => action.id), [
+    "primary", "application-tools"
   ])
-  assert.equal(actions[3].description, "org.mozilla.firefox")
+  assert.equal(actions[1].kind, "submenu")
+
+  const utilities = ActionModel.actionsForResult(
+    result, { canResolveDesktopEntry: true }, "application-tools")
+  assert.deepEqual(utilities.map(action => action.id), [
+    "reveal-application", "copy-desktop-entry-path", "copy-application-id"
+  ])
+  assert.equal(utilities[2].description, "org.mozilla.firefox")
 })
 
 test("application quit and restart appear only for a confirmed running identity", () => {
@@ -67,6 +75,9 @@ test("application quit and restart appear only for a confirmed running identity"
     running.filter(action => action.id.endsWith("-application")).map(action => action.id),
     ["quit-application", "restart-application"]
   )
+  assert.deepEqual(running.slice(0, 4).map(action => action.id), [
+    "primary", "quit-application", "restart-application", "application-tools"
+  ])
 })
 
 test("commands expose structured root and Omarchy submenu actions", () => {
