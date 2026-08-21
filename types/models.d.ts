@@ -18,6 +18,13 @@ export interface Preferences {
   fileSearchIgnores: string[];
 }
 
+export interface OnboardingState {
+  version: number;
+  status: "pending" | "verify" | "complete";
+  hotkey: string;
+  showCoach: boolean;
+}
+
 export interface LauncherState {
   version: number;
   favorites: string[];
@@ -26,6 +33,7 @@ export interface LauncherState {
   hidden: string[];
   queryHistory: string[];
   preferences: Preferences;
+  onboarding: OnboardingState;
 }
 
 export interface StateParseResult {
@@ -455,6 +463,10 @@ export interface SettingsContext {
   fileSearchSettled?: boolean;
   fileSearchAvailable?: boolean;
   commonScopes?: readonly string[];
+  launcherHotkey?: string;
+  onboardingHotkey?: string;
+  productVersion?: string;
+  repositoryUrl?: string;
 }
 
 export interface SettingRecord extends SearchableRecord {

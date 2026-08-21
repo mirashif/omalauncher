@@ -33,6 +33,48 @@ test("managed hotkey blocks preserve every unrelated user binding", () => {
   assert.equal(removed, original)
 })
 
+test("launcher and application hotkeys share one managed block", () => {
+  const original = "-- My bindings\n"
+  const entries = AppHotkeyModel.setEntry({}, "org.mozilla.firefox", "Firefox", "SUPER + F")
+  const updated = AppHotkeyModel.updateBindingsSource(original, entries, "SUPER + R")
+
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(updated), "SUPER + R")
+  assert.deepEqual(AppHotkeyModel.parseManagedEntries(updated), entries)
+  assert.match(updated, /-- launcher: \{"hotkey":"SUPER \+ R"\}/)
+  assert.match(updated, /omarchy-shell shell toggle io\.github\.omalauncher/)
+
+  const applicationUpdated = AppHotkeyModel.updateBindingsSource(
+    updated,
+    AppHotkeyModel.setEntry(entries, "org.gnome.Nautilus", "Files", "SUPER + E")
+  )
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(applicationUpdated), "SUPER + R")
+})
+
+test("replacing the stock menu shortcut gives Omarchy Menu a fallback chord", () => {
+  const updated = AppHotkeyModel.updateBindingsSource(
+    "-- My bindings\n", {}, "SUPER + SPACE", "SUPER + R")
+
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(updated), "SUPER + SPACE")
+  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(updated), "SUPER + R")
+  assert.match(updated, /hl\.unbind\("SUPER \+ SPACE"\)/)
+  assert.match(updated, /o\.bind\("SUPER \+ SPACE", "Omalauncher"/)
+  assert.match(updated, /hl\.unbind\("SUPER \+ R"\)/)
+  assert.match(updated, /o\.bind\("SUPER \+ R", "Omarchy menu", "omarchy-menu toggle"\)/)
+
+  const withoutLauncher = AppHotkeyModel.updateBindingsSource(updated, {}, "")
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(withoutLauncher), "")
+  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(withoutLauncher), "SUPER + R")
+})
+
+test("owned hotkeys can transfer between the launcher and applications", () => {
+  const entries = AppHotkeyModel.setEntry({}, "org.mozilla.firefox", "Firefox", "SUPER + R")
+  assert.deepEqual(AppHotkeyModel.removeHotkey(entries, "SUPER + R"), {})
+
+  const source = AppHotkeyModel.updateBindingsSource("", entries, "SUPER + R")
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(source), "SUPER + R")
+  assert.deepEqual(AppHotkeyModel.parseManagedEntries(source), {})
+})
+
 test("managed hotkeys remain last so confirmed overrides take effect", () => {
   const existing = [
     AppHotkeyModel.BEGIN_MARKER,
@@ -79,6 +121,14 @@ test("hyprctl binding JSON is converted to canonical conflict descriptions", () 
   assert.equal(AppHotkeyModel.conflictDescription(rows, "SHIFT + SUPER + B"), "Open browser")
   assert.equal(AppHotkeyModel.conflictDescription(rows, "CTRL + RETURN"), "Open terminal")
   assert.equal(AppHotkeyModel.conflictDescription(rows, "SUPER + X"), "")
+  assert.equal(AppHotkeyModel.isNamedLauncherBinding(JSON.stringify([
+    { modmask: 64, key: "R", description: "Omalauncher", dispatcher: "__lua" }
+  ]), "SUPER + R"), true)
+  assert.equal(AppHotkeyModel.isNamedLauncherBinding(rows, "SUPER + B"), false)
+  assert.equal(AppHotkeyModel.isNamedMenuBinding(JSON.stringify([
+    { modmask: 64, key: "SPACE", description: "Omarchy menu", dispatcher: "__lua" }
+  ]), "SUPER + SPACE"), true)
+  assert.equal(AppHotkeyModel.isNamedMenuBinding(rows, "SUPER + B"), false)
 })
 
 /** @param {string} directory @param {boolean} failAfterReload */

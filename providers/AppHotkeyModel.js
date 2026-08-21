@@ -7,6 +7,11 @@
 
 var BEGIN_MARKER = "-- BEGIN OMALAUNCHER APP HOTKEYS (managed)"
 var END_MARKER = "-- END OMALAUNCHER APP HOTKEYS"
+var LAUNCHER_TITLE = "Omalauncher"
+var LAUNCHER_COMMAND = "omarchy-shell shell toggle io.github.omalauncher '{\"source\":\"hotkey\"}'"
+var MENU_TITLE = "Omarchy menu"
+var MENU_COMMAND = "omarchy-menu toggle"
+var MENU_FALLBACK_HOTKEY = "SUPER + R"
 
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function isRecord(value) {
@@ -132,6 +137,48 @@ function parseManagedEntries(source) {
   return entries
 }
 
+/** @param {unknown} source @returns {string} */
+function parseManagedLauncherHotkey(source) {
+  var text = String(source || "")
+  var begin = text.indexOf(BEGIN_MARKER)
+  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
+  if (begin < 0 || end < 0) return ""
+  var lines = text.slice(begin + BEGIN_MARKER.length, end).split(/\r?\n/)
+  for (var i = 0; i < lines.length; i++) {
+    var match = /^\s*-- launcher: (\{.*\})\s*$/.exec(lines[i] || "")
+    if (!match) continue
+    try {
+      /** @type {unknown} */
+      var parsed = JSON.parse(match[1] || "{}")
+      if (!isRecord(parsed)) continue
+      var hotkey = normalizeHotkey(parsed["hotkey"])
+      if (safeGlobalHotkey(hotkey)) return hotkey
+    } catch (error) { }
+  }
+  return ""
+}
+
+/** @param {unknown} source @returns {string} */
+function parseManagedMenuHotkey(source) {
+  var text = String(source || "")
+  var begin = text.indexOf(BEGIN_MARKER)
+  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
+  if (begin < 0 || end < 0) return ""
+  var lines = text.slice(begin + BEGIN_MARKER.length, end).split(/\r?\n/)
+  for (var i = 0; i < lines.length; i++) {
+    var match = /^\s*-- menu: (\{.*\})\s*$/.exec(lines[i] || "")
+    if (!match) continue
+    try {
+      /** @type {unknown} */
+      var parsed = JSON.parse(match[1] || "{}")
+      if (!isRecord(parsed)) continue
+      var hotkey = normalizeHotkey(parsed["hotkey"])
+      if (safeGlobalHotkey(hotkey)) return hotkey
+    } catch (error) { }
+  }
+  return ""
+}
+
 /** @param {AppHotkeyMap | null | undefined} entries @returns {AppHotkeyMap} */
 function copyEntries(entries) {
   /** @type {AppHotkeyMap} */
@@ -178,23 +225,57 @@ function removeEntry(entries, appId) {
   return next
 }
 
-/** @param {AppHotkeyMap | null | undefined} entries @returns {string} */
-function managedBlock(entries) {
+/** @param {AppHotkeyMap | null | undefined} entries @param {unknown} hotkey @returns {AppHotkeyMap} */
+function removeHotkey(entries, hotkey) {
+  var next = copyEntries(entries)
+  var chord = normalizeHotkey(hotkey)
+  if (!chord) return next
+  var ids = Object.keys(next)
+  for (var i = 0; i < ids.length; i++) {
+    var entry = next[ids[i] || ""]
+    if (entry && entry.hotkey === chord) delete next[entry.appId]
+  }
+  return next
+}
+
+/**
+ * @param {AppHotkeyMap | null | undefined} entries
+ * @param {unknown} [launcherHotkey]
+ * @param {unknown} [menuHotkey]
+ * @returns {string}
+ */
+function managedBlock(entries, launcherHotkey, menuHotkey) {
   var source = entries || {}
+  var launcherChord = normalizeHotkey(launcherHotkey)
+  var menuChord = normalizeHotkey(menuHotkey)
+  if (menuChord === launcherChord) menuChord = ""
   var ids = Object.keys(source).sort(function(left, right) {
     var leftEntry = source[left]
     var rightEntry = source[right]
     var byHotkey = String(leftEntry ? leftEntry.hotkey : "").localeCompare(String(rightEntry ? rightEntry.hotkey : ""))
     return byHotkey || left.localeCompare(right)
   })
-  if (ids.length === 0) return ""
+  if (ids.length === 0 && !safeGlobalHotkey(launcherChord) && !safeGlobalHotkey(menuChord)) return ""
   var lines = [BEGIN_MARKER]
+  if (safeGlobalHotkey(launcherChord)) {
+    lines.push("-- launcher: " + JSON.stringify({ hotkey: launcherChord }))
+    lines.push("hl.unbind(" + luaQuote(launcherChord) + ")")
+    lines.push("o.bind(" + luaQuote(launcherChord) + ", "
+      + luaQuote(LAUNCHER_TITLE) + ", " + luaQuote(LAUNCHER_COMMAND) + ")")
+  }
+  if (safeGlobalHotkey(menuChord)) {
+    lines.push("-- menu: " + JSON.stringify({ hotkey: menuChord }))
+    lines.push("hl.unbind(" + luaQuote(menuChord) + ")")
+    lines.push("o.bind(" + luaQuote(menuChord) + ", "
+      + luaQuote(MENU_TITLE) + ", " + luaQuote(MENU_COMMAND) + ")")
+  }
   for (var i = 0; i < ids.length; i++) {
     var entry = source[ids[i] || ""]
     if (!entry) continue
     var appId = cleanAppId(entry.appId)
     var hotkey = normalizeHotkey(entry.hotkey)
-    if (!appId || !safeGlobalHotkey(hotkey)) continue
+    if (!appId || !safeGlobalHotkey(hotkey)
+        || hotkey === launcherChord || hotkey === menuChord) continue
     var title = String(entry.title || appId).trim() || appId
     lines.push("-- app: " + JSON.stringify({ id: appId, title: title, hotkey: hotkey }))
     lines.push("hl.unbind(" + luaQuote(hotkey) + ")")
@@ -206,12 +287,22 @@ function managedBlock(entries) {
   return lines.join("\n")
 }
 
-/** @param {unknown} source @param {AppHotkeyMap | null | undefined} entries @returns {string} */
-function updateBindingsSource(source, entries) {
+/**
+ * @param {unknown} source
+ * @param {AppHotkeyMap | null | undefined} entries
+ * @param {unknown} [launcherHotkey]
+ * @param {unknown} [menuHotkey]
+ * @returns {string}
+ */
+function updateBindingsSource(source, entries, launcherHotkey, menuHotkey) {
   var text = String(source || "")
+  var launcherChord = launcherHotkey === undefined
+    ? parseManagedLauncherHotkey(text) : normalizeHotkey(launcherHotkey)
+  var menuChord = menuHotkey === undefined
+    ? parseManagedMenuHotkey(text) : normalizeHotkey(menuHotkey)
   var begin = text.indexOf(BEGIN_MARKER)
   var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
-  var block = managedBlock(entries)
+  var block = managedBlock(entries, launcherChord, menuChord)
   if (begin >= 0 && end >= 0) {
     var lineStart = text.lastIndexOf("\n", begin - 1) + 1
     var lineEnd = text.indexOf("\n", end + END_MARKER.length)
@@ -257,6 +348,42 @@ function conflictDescription(json, hotkey) {
     }
   } catch (error) { }
   return ""
+}
+
+/** @param {unknown} json @param {unknown} hotkey @returns {boolean} */
+function isNamedLauncherBinding(json, hotkey) {
+  var target = normalizeHotkey(hotkey)
+  if (!target) return false
+  try {
+    /** @type {unknown} */
+    var rows = JSON.parse(String(json || "[]"))
+    if (!isUnknownArray(rows)) return false
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i]
+      if (!isRecord(row) || hotkeyFromBind(row) !== target) continue
+      if (String(row["description"] || "").trim().toLowerCase() === LAUNCHER_TITLE.toLowerCase())
+        return true
+    }
+  } catch (error) { }
+  return false
+}
+
+/** @param {unknown} json @param {unknown} hotkey @returns {boolean} */
+function isNamedMenuBinding(json, hotkey) {
+  var target = normalizeHotkey(hotkey)
+  if (!target) return false
+  try {
+    /** @type {unknown} */
+    var rows = JSON.parse(String(json || "[]"))
+    if (!isUnknownArray(rows)) return false
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i]
+      if (!isRecord(row) || hotkeyFromBind(row) !== target) continue
+      if (String(row["description"] || "").trim().toLowerCase() === MENU_TITLE.toLowerCase())
+        return true
+    }
+  } catch (error) { }
+  return false
 }
 
 /** @returns {string} */
@@ -314,18 +441,28 @@ if (typeof module !== "undefined") {
   module.exports = {
     BEGIN_MARKER: BEGIN_MARKER,
     END_MARKER: END_MARKER,
+    LAUNCHER_TITLE: LAUNCHER_TITLE,
+    LAUNCHER_COMMAND: LAUNCHER_COMMAND,
+    MENU_TITLE: MENU_TITLE,
+    MENU_COMMAND: MENU_COMMAND,
+    MENU_FALLBACK_HOTKEY: MENU_FALLBACK_HOTKEY,
     cleanAppId: cleanAppId,
     normalizeHotkey: normalizeHotkey,
     safeGlobalHotkey: safeGlobalHotkey,
     luaQuote: luaQuote,
     shellQuote: shellQuote,
     parseManagedEntries: parseManagedEntries,
+    parseManagedLauncherHotkey: parseManagedLauncherHotkey,
+    parseManagedMenuHotkey: parseManagedMenuHotkey,
     setEntry: setEntry,
     removeEntry: removeEntry,
+    removeHotkey: removeHotkey,
     managedBlock: managedBlock,
     updateBindingsSource: updateBindingsSource,
     hotkeyFromBind: hotkeyFromBind,
     conflictDescription: conflictDescription,
+    isNamedLauncherBinding: isNamedLauncherBinding,
+    isNamedMenuBinding: isNamedMenuBinding,
     mutationScript: mutationScript,
     mutationRequest: mutationRequest
   }

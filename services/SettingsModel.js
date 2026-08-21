@@ -92,6 +92,11 @@ function settingsRecords(preferences, context) {
   }
   /** @type {SettingRecord[]} */
   var records = [
+    record("omalauncher:setting-launcher-hotkey", "settings-open-launcher-hotkey", "Launcher Shortcut",
+      text(status.launcherHotkey || status.onboardingHotkey) || "Not configured", "󰌌", -3, "Shortcuts",
+      "launcherHotkey", ""),
+    record("omalauncher:setting-run-onboarding", "settings-run-onboarding", "Run Welcome Setup Again",
+      "Review the launcher shortcut and test it", "󰑐", -2, "Shortcuts", "", ""),
     record("omalauncher:setting-compact", "settings-toggle", "Compact Mode",
       enabledLabel(values.compactMode), "", 0, "Behavior", "compactMode", ""),
     record("omalauncher:setting-quick-activation", "settings-toggle", "Numbered Quick Activation",
@@ -103,6 +108,11 @@ function settingsRecords(preferences, context) {
     record("omalauncher:setting-add-scope", "settings-open-scope", "Add File Search Scope",
       "Choose an existing directory", "", 4, "File Search", "", "")
   ]
+
+  if (text(status.launcherHotkey)) {
+    records.splice(2, 0, record("omalauncher:setting-remove-launcher-hotkey", "settings-remove-launcher-hotkey",
+      "Remove Launcher Shortcut", text(status.launcherHotkey), "", -1, "Shortcuts", "", ""))
+  }
 
   var suggestions = Array.isArray(status.commonScopes) ? status.commonScopes : []
   for (var suggestionIndex = 0; suggestionIndex < suggestions.length; suggestionIndex++) {

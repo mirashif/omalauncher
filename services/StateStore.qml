@@ -20,6 +20,7 @@ Item {
   readonly property var hidden: snapshot.hidden || []
   readonly property var queryHistory: snapshot.queryHistory || []
   readonly property var preferences: snapshot.preferences || StateModel.emptyPreferences()
+  readonly property var onboarding: snapshot.onboarding || StateModel.emptyOnboarding()
 
   function hydrate(raw) {
     var parsed = StateModel.parseStateResult(raw)
@@ -133,6 +134,16 @@ Item {
 
   function resetPersonalization() {
     root.snapshot = StateModel.resetPersonalization(root.snapshot)
+    root.scheduleSave()
+  }
+
+  function setOnboarding(status, hotkey, showCoach) {
+    root.snapshot = StateModel.setOnboarding(root.snapshot, status, hotkey, showCoach)
+    root.scheduleSave()
+  }
+
+  function dismissOnboardingCoach() {
+    root.snapshot = StateModel.dismissOnboardingCoach(root.snapshot)
     root.scheduleSave()
   }
 

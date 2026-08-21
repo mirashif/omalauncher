@@ -5,6 +5,7 @@
 /** @typedef {import("../types/models").StringMap} StringMap */
 /** @typedef {import("../types/models").UsageMap} UsageMap */
 /** @typedef {import("../types/models").Preferences} Preferences */
+/** @typedef {import("../types/models").OnboardingState} OnboardingState */
 /** @typedef {import("../types/models").LauncherState} LauncherState */
 /** @typedef {import("../types/models").StateParseResult} StateParseResult */
 /** @typedef {import("../types/models").BooleanPreferenceKey} BooleanPreferenceKey */
@@ -13,8 +14,18 @@
 /** @typedef {import("../types/models").RecentRecord} RecentRecord */
 /** @typedef {import("../types/models").EmptyRowsOptions} EmptyRowsOptions */
 
-var STATE_VERSION = 3
+var STATE_VERSION = 4
 var QUERY_HISTORY_LIMIT = 50
+
+/** @returns {OnboardingState} */
+function emptyOnboarding() {
+  return {
+    version: 1,
+    status: "pending",
+    hotkey: "",
+    showCoach: false
+  }
+}
 
 /** @returns {Preferences} */
 function emptyPreferences() {
@@ -37,7 +48,8 @@ function emptyState() {
     aliases: {},
     hidden: [],
     queryHistory: [],
-    preferences: emptyPreferences()
+    preferences: emptyPreferences(),
+    onboarding: emptyOnboarding()
   }
 }
 
@@ -101,7 +113,8 @@ function stateWith(state, changes) {
     aliases: updates.aliases === undefined ? current.aliases : updates.aliases,
     hidden: updates.hidden === undefined ? current.hidden : updates.hidden,
     queryHistory: updates.queryHistory === undefined ? current.queryHistory : updates.queryHistory,
-    preferences: updates.preferences === undefined ? current.preferences : updates.preferences
+    preferences: updates.preferences === undefined ? current.preferences : updates.preferences,
+    onboarding: updates.onboarding === undefined ? current.onboarding : updates.onboarding
   }
 }
 
@@ -195,6 +208,27 @@ function normalizeState(value) {
     fileSearchIgnores: uniqueList(sourcePreferences["fileSearchIgnores"], normalizeIgnore, 64)
   }
 
+  var sourceOnboardingValue = source["onboarding"]
+  var sourceOnboarding = isRecord(sourceOnboardingValue) ? sourceOnboardingValue : {}
+  var sourceVersion = Math.floor(Number(source["version"] || 0))
+  var legacyState = Object.keys(source).length > 0 && sourceVersion < STATE_VERSION
+  var rawOnboardingStatus = validText(sourceOnboarding["status"])
+  /** @type {"pending" | "verify" | "complete"} */
+  var onboardingStatus = rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
+    ? rawOnboardingStatus : (legacyState ? "complete" : "pending")
+  var onboardingHotkey = validText(sourceOnboarding["hotkey"])
+  if (/[^A-Za-z0-9_ +]/.test(onboardingHotkey) || onboardingHotkey.length > 64) {
+    onboardingHotkey = ""
+  }
+  if (onboardingStatus === "verify" && !onboardingHotkey) onboardingStatus = "pending"
+  /** @type {OnboardingState} */
+  var onboarding = {
+    version: 1,
+    status: onboardingStatus,
+    hotkey: onboardingHotkey,
+    showCoach: onboardingStatus === "complete" && sourceOnboarding["showCoach"] === true
+  }
+
   return {
     version: STATE_VERSION,
     favorites: favorites,
@@ -202,7 +236,8 @@ function normalizeState(value) {
     aliases: aliases,
     hidden: hidden,
     queryHistory: queryHistory,
-    preferences: preferences
+    preferences: preferences,
+    onboarding: onboarding
   }
 }
 
@@ -464,6 +499,39 @@ function resetPersonalization(state) {
 }
 
 /**
+ * @param {unknown} state
+ * @param {unknown} status
+ * @param {unknown} hotkey
+ * @param {unknown} showCoach
+ * @returns {LauncherState}
+ */
+function setOnboarding(state, status, hotkey, showCoach) {
+  var current = normalizeState(state)
+  var nextStatus = validText(status)
+  if (nextStatus !== "pending" && nextStatus !== "verify" && nextStatus !== "complete") {
+    return current
+  }
+  var chord = validText(hotkey)
+  if (/[^A-Za-z0-9_ +]/.test(chord) || chord.length > 64) chord = ""
+  if (nextStatus === "verify" && !chord) return current
+  return stateWith(current, {
+    onboarding: {
+      version: 1,
+      status: nextStatus,
+      hotkey: chord,
+      showCoach: nextStatus === "complete" && showCoach === true
+    }
+  })
+}
+
+/** @param {unknown} state @returns {LauncherState} */
+function dismissOnboardingCoach(state) {
+  var current = normalizeState(state)
+  if (!current.onboarding.showCoach) return current
+  return setOnboarding(current, "complete", current.onboarding.hotkey, false)
+}
+
+/**
  * @param {SearchableRecord} record
  * @param {string} section
  * @param {boolean} favorite
@@ -568,6 +636,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     STATE_VERSION: STATE_VERSION,
     QUERY_HISTORY_LIMIT: QUERY_HISTORY_LIMIT,
+    emptyOnboarding: emptyOnboarding,
     emptyPreferences: emptyPreferences,
     emptyState: emptyState,
     normalizeState: normalizeState,
@@ -594,6 +663,8 @@ if (typeof module !== "undefined") {
     removeFileIgnore: removeFileIgnore,
     resetProviderSettings: resetProviderSettings,
     resetPersonalization: resetPersonalization,
+    setOnboarding: setOnboarding,
+    dismissOnboardingCoach: dismissOnboardingCoach,
     emptyStateRows: emptyStateRows
   }
 }

@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Wayland._ShortcutsInhibitor
 import QtQuick
 import qs.Commons
 import qs.Ui as Ui
@@ -66,6 +67,18 @@ Item {
   property bool hotkeyEditorOpen: false
   property string hotkeyEditorError: ""
   property string recordedHotkey: ""
+  property string openSource: ""
+  property bool forceOnboarding: false
+  property string onboardingHotkey: "SUPER + SPACE"
+  property string onboardingStatusText: ""
+  property bool onboardingStatusIsError: false
+  property bool onboardingRecording: false
+  property bool onboardingInspectionPending: false
+  property bool onboardingExistingLauncherBinding: false
+  property bool onboardingReplacementPending: false
+  property bool onboardingReplacesMenu: false
+  property bool onboardingReplacementBlocked: false
+  property string lastOnboardingInspection: ""
   property bool actionConfirmationOpen: false
   property string pendingConfirmationAction: ""
   property var pendingConfirmationTarget: ({})
@@ -182,6 +195,19 @@ Item {
 
   readonly property string pluginId: manifest && manifest.id
     ? String(manifest.id) : "io.github.omalauncher"
+  readonly property string productVersion: manifest && manifest.version
+    ? String(manifest.version) : ""
+  readonly property string repositoryUrl: "https://github.com/mirashif/omalauncher"
+  readonly property bool onboardingOpen: root.opened && stateStore.loaded
+    && (root.forceOnboarding || String(stateStore.onboarding.status || "pending") !== "complete")
+  readonly property string onboardingStage: String(stateStore.onboarding.status || "pending") === "verify"
+    ? "verify" : "pending"
+  readonly property bool onboardingCanSkip: {
+    var revision = root.pluginRegistry ? Number(root.pluginRegistry.registryRevision || 0) : 0
+    return revision >= 0 && root.pluginRegistry
+      && typeof root.pluginRegistry.inBar === "function"
+      && root.pluginRegistry.inBar(root.pluginId)
+  }
   readonly property string defaultMenuPath: omarchyPath + "/default/omarchy/omarchy-menu.jsonc"
   readonly property string userMenuPath: Quickshell.env("HOME") + "/.config/omarchy/extensions/omarchy-menu.jsonc"
   readonly property color background: Color.menu.background
@@ -215,17 +241,190 @@ Item {
     return LayoutModel.screenForMonitor(Quickshell.screens || [], name)
   }
 
+  function syncOnboardingForOpen() {
+    if (!root.opened || !stateStore.loaded) return
+    var onboarding = stateStore.onboarding || ({})
+    if (String(onboarding.status || "") === "verify"
+        && (root.openSource === "hotkey" || root.openSource === "")) {
+      stateStore.setOnboarding("complete", onboarding.hotkey, true)
+      root.forceOnboarding = false
+      root.onboardingRecording = false
+      root.onboardingStatusText = ""
+      Qt.callLater(function() { searchInput.forceActiveFocus() })
+      return
+    }
+    if (root.onboardingOpen) Qt.callLater(root.prepareOnboarding)
+  }
+
+  function prepareOnboarding() {
+    if (!root.onboardingOpen) return
+    var onboarding = stateStore.onboarding || ({})
+    var savedHotkey = String(onboarding.hotkey || "")
+    root.onboardingHotkey = savedHotkey || appHotkeyProvider.launcherHotkey || "SUPER + SPACE"
+    root.onboardingRecording = false
+    root.onboardingExistingLauncherBinding = false
+    root.onboardingReplacementPending = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    root.onboardingStatusIsError = false
+    if (root.onboardingStage === "verify") {
+      root.onboardingInspectionPending = false
+      root.onboardingStatusText = "Shortcut saved. The final step verifies it from the desktop."
+      Qt.callLater(function() { onboardingView.forceActiveFocus() })
+      return
+    }
+    if (root.onboardingInspectionPending
+        && root.lastOnboardingInspection === root.onboardingHotkey) return
+    root.inspectOnboardingHotkey()
+    Qt.callLater(function() { onboardingView.forceActiveFocus() })
+  }
+
+  function inspectOnboardingHotkey() {
+    if (!root.onboardingOpen || !root.onboardingHotkey || root.onboardingInspectionPending) return
+    root.lastOnboardingInspection = root.onboardingHotkey
+    root.onboardingInspectionPending = true
+    root.onboardingReplacementPending = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    root.onboardingStatusIsError = false
+    root.onboardingStatusText = "Checking whether this shortcut is available…"
+    if (!appHotkeyProvider.inspectLauncherHotkey(root.onboardingHotkey)) {
+      root.onboardingInspectionPending = false
+      root.onboardingStatusIsError = true
+      root.onboardingStatusText = "Could not inspect this shortcut. Try again in a moment."
+    }
+  }
+
+  function beginOnboardingRecording() {
+    if (appHotkeyProvider.busy) return
+    appHotkeyProvider.cancelPending()
+    root.onboardingReplacementPending = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    root.onboardingRecording = true
+    root.onboardingStatusIsError = false
+    root.onboardingStatusText = "Preparing secure shortcut capture…"
+    Qt.callLater(function() { onboardingView.forceActiveFocus() })
+  }
+
+  function recordOnboardingHotkey(event) {
+    if (!root.onboardingRecording || event.isAutoRepeat) return
+    event.accepted = true
+    if (!shortcutInhibitor.active) {
+      root.onboardingStatusText = "Preparing secure shortcut capture…"
+      return
+    }
+    var noGlobalModifier = (event.modifiers
+      & (Qt.MetaModifier | Qt.ControlModifier | Qt.AltModifier)) === 0
+    if (event.key === Qt.Key_Escape && noGlobalModifier) {
+      root.onboardingRecording = false
+      root.inspectOnboardingHotkey()
+      return
+    }
+    var chord = root.hotkeyFromEvent(event)
+    if (!chord) return
+    if (noGlobalModifier) {
+      root.onboardingStatusIsError = true
+      root.onboardingStatusText = "Include Super, Ctrl, or Alt to avoid a bare global key."
+      return
+    }
+    root.onboardingHotkey = chord
+    root.onboardingRecording = false
+    root.onboardingExistingLauncherBinding = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    root.inspectOnboardingHotkey()
+  }
+
+  function applyOnboardingHotkey() {
+    if (root.onboardingInspectionPending || appHotkeyProvider.busy) return
+    if (root.onboardingReplacementBlocked) return
+    if (root.onboardingReplacementPending) {
+      root.onboardingStatusText = "Replacing the existing shortcut…"
+      root.onboardingStatusIsError = false
+      if (!appHotkeyProvider.confirmPendingConflict()) {
+        root.onboardingStatusIsError = true
+        root.onboardingStatusText = "Could not replace the existing shortcut."
+      }
+      return
+    }
+    if (root.onboardingExistingLauncherBinding) {
+      root.finishOnboardingShortcutSetup()
+      return
+    }
+    root.onboardingStatusText = root.onboardingReplacesMenu
+      ? "Moving Omarchy Menu and applying the launcher shortcut…"
+      : "Applying shortcut…"
+    root.onboardingStatusIsError = false
+    var requested = root.onboardingReplacesMenu
+      ? appHotkeyProvider.requestReplaceMenuWithLauncher(
+          root.onboardingHotkey, appHotkeyProvider.menuFallbackHotkey)
+      : appHotkeyProvider.requestSetLauncher(root.onboardingHotkey)
+    if (!requested) {
+      root.onboardingStatusIsError = true
+      root.onboardingStatusText = "Could not apply this shortcut."
+    }
+  }
+
+  function finishOnboardingShortcutSetup() {
+    stateStore.setOnboarding("verify", root.onboardingHotkey, false)
+    root.onboardingRecording = false
+    root.onboardingInspectionPending = false
+    root.onboardingReplacementPending = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    root.onboardingStatusIsError = false
+    root.onboardingStatusText = "Shortcut saved. The final step verifies it from the desktop."
+    Qt.callLater(function() { onboardingView.forceActiveFocus() })
+  }
+
+  function tryOnboardingShortcut() {
+    root.showOsd("󰌌", "Press " + root.onboardingHotkey + " to reopen Omalauncher")
+    root.dismiss()
+  }
+
+  function continueOnboardingWithoutVerification() {
+    root.forceOnboarding = false
+    root.onboardingRecording = false
+    root.onboardingInspectionPending = false
+    root.onboardingReplacesMenu = false
+    root.onboardingReplacementBlocked = false
+    stateStore.setOnboarding("complete", root.onboardingHotkey, true)
+    root.rebuildResults()
+    Qt.callLater(function() { searchInput.forceActiveFocus() })
+  }
+
+  function skipOnboarding() {
+    if (!root.onboardingCanSkip) return
+    appHotkeyProvider.cancelPending()
+    root.forceOnboarding = false
+    root.onboardingRecording = false
+    root.onboardingInspectionPending = false
+    stateStore.setOnboarding("complete", "", false)
+    root.rebuildResults()
+    Qt.callLater(function() { searchInput.forceActiveFocus() })
+  }
+
+  function restartOnboarding() {
+    root.forceOnboarding = true
+    stateStore.setOnboarding("pending",
+      appHotkeyProvider.launcherHotkey || "SUPER + SPACE", false)
+  }
+
   function open(payloadJson) {
     root.openMeasurementStartedAt = Date.now()
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (error) { payload = ({}) }
+    root.openSource = String(payload.source || "")
+    root.forceOnboarding = String(payload.route || "") === "onboarding"
     var targetScreen = root.focusedScreen()
     if (targetScreen) panel.screen = targetScreen
     root.resetActionPanel()
     root.warningPanelOpen = false
     root.compactExpanded = false
-    root.activeRoute = "root"
-    root.navigationStack = []
+    var requestedRoute = String(payload.route || "")
+    root.activeRoute = requestedRoute === "settings" ? "settings" : "root"
+    root.navigationStack = requestedRoute === "settings" ? ["root"] : []
     root.opened = true
     root.setSearchTextSilently(String(payload.query || ""))
     root.selectedIndex = 0
@@ -239,7 +438,8 @@ Item {
     shellPluginProvider.refresh()
     commandCatalogProvider.refreshIfStale()
     Qt.callLater(function() {
-      searchInput.forceActiveFocus()
+      root.syncOnboardingForOpen()
+      if (!root.onboardingOpen) searchInput.forceActiveFocus()
       if (root.opened && root.openMeasurementStartedAt > 0) {
         root.lastWarmOpenMs = Math.max(0, Date.now() - root.openMeasurementStartedAt)
       }
@@ -251,6 +451,7 @@ Item {
     root.warningPanelOpen = false
     root.compactExpanded = false
     root.opened = false
+    root.onboardingRecording = false
     root.activeRoute = "root"
     root.navigationStack = []
     root.setSearchTextSilently("")
@@ -528,6 +729,19 @@ Item {
     return output
   }
 
+  function settingsContext() {
+    return {
+      calculatorSettled: calculatorProvider.backendSettled,
+      calculatorAvailable: calculatorProvider.backendAvailable,
+      fileSearchSettled: fileSearchProvider.backendSettled,
+      fileSearchAvailable: fileSearchProvider.backendAvailable,
+      commonScopes: fileSearchProvider.commonScopes,
+      launcherHotkey: appHotkeyProvider.launcherHotkey,
+      onboardingHotkey: stateStore.onboarding.hotkey,
+      productVersion: root.productVersion
+    }
+  }
+
   function managementRecords() {
     var preferences = stateStore.preferences || ({})
     var fileScopes = Array.isArray(preferences.fileSearchScopes)
@@ -713,6 +927,26 @@ Item {
       results = fileSearchProvider.records
     } else if (root.activeRoute === "root" && query && calculatorProvider.records.length > 0) {
       results = calculatorProvider.records.concat(results).slice(0, 50)
+    }
+    if (root.activeRoute === "root" && !query
+        && stateStore.onboarding && stateStore.onboarding.showCoach === true) {
+      results = [{
+        id: "omalauncher:onboarding-coach",
+        type: "launcher-command",
+        kind: "onboarding-coach",
+        title: "You’re ready — try searching for Settings",
+        breadcrumb: "Omalauncher",
+        description: "Press Enter to see how quickly commands appear",
+        icon: "󰌌",
+        iconFont: "",
+        appIcon: "",
+        appId: "",
+        route: "root",
+        parentRoute: "root",
+        section: "Getting Started",
+        providerPriority: -3,
+        order: -10
+      }].concat(results)
     }
     var sections = {}
     for (var i = 0; i < results.length; i++) {
@@ -1274,6 +1508,11 @@ Item {
 
   function recordHotkey(event) {
     if (event.isAutoRepeat) return
+    event.accepted = true
+    if (!shortcutInhibitor.active) {
+      root.hotkeyEditorError = "Preparing secure shortcut capture…"
+      return
+    }
     var noGlobalModifier = (event.modifiers & (Qt.MetaModifier | Qt.ControlModifier | Qt.AltModifier)) === 0
     if (event.key === Qt.Key_Escape && noGlobalModifier) {
       root.closeHotkeyEditor()
@@ -1556,6 +1795,14 @@ Item {
 
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
+    if (row.resultKind === "onboarding-coach") {
+      stateStore.dismissOnboardingCoach()
+      root.setSearchTextSilently("settings")
+      root.selectedIndex = 0
+      root.rebuildResults()
+      Qt.callLater(function() { searchInput.forceActiveFocus() })
+      return
+    }
     if (row.resultKind === "open-settings") {
       root.setActiveRoute("settings", true)
       return
@@ -1570,6 +1817,17 @@ Item {
         stateStore.setPreference(settingKey, nextSettingValue)
         root.showOsd("", row.title + " " + (nextSettingValue ? "enabled" : "disabled"))
         root.rebuildResults()
+      }
+      return
+    }
+    if (row.resultKind === "settings-open-launcher-hotkey"
+        || row.resultKind === "settings-run-onboarding") {
+      root.restartOnboarding()
+      return
+    }
+    if (row.resultKind === "settings-remove-launcher-hotkey") {
+      if (!appHotkeyProvider.requestRemoveLauncher()) {
+        root.showOsd("", "Could not remove the launcher shortcut")
       }
       return
     }
@@ -1906,10 +2164,12 @@ Item {
 
   StateStore {
     id: stateStore
+    onLoadedChanged: root.syncOnboardingForOpen()
     onSnapshotChanged: {
       root.rebuildCachedRecords()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
+      root.syncOnboardingForOpen()
     }
   }
 
@@ -1950,6 +2210,8 @@ Item {
   AppHotkeyProvider {
     id: appHotkeyProvider
     onEntriesChanged: if (root.actionPanelOpen) root.rebuildActions()
+    onLauncherHotkeyChanged: if (root.activeRoute === "settings" || root.activeRoute === "root")
+      root.rebuildResults()
     onConflictDetected: function(appId, title, hotkey, existingDescription) {
       root.pendingConfirmationAction = "replace-hotkey"
       root.pendingConfirmationTarget = root.actionTarget
@@ -1968,12 +2230,117 @@ Item {
       root.showOsd("󰌌", "Application hotkey removed")
       if (root.actionPanelOpen) root.rebuildActions()
     }
+    onLauncherHotkeyInspected: function(hotkey, existingDescription, namedLauncher,
+        namedMenu, menuFallbackHotkey, menuFallbackDescription, menuFallbackIsLauncher) {
+      if (!root.onboardingOpen || hotkey !== root.onboardingHotkey) return
+      root.onboardingInspectionPending = false
+      root.onboardingExistingLauncherBinding = namedLauncher
+      root.onboardingReplacementPending = false
+      root.onboardingReplacesMenu = namedMenu
+      root.onboardingReplacementBlocked = namedMenu
+        && (menuFallbackHotkey === hotkey
+          || (!!menuFallbackDescription && !menuFallbackIsLauncher))
+      root.onboardingStatusIsError = root.onboardingReplacementBlocked
+        || (!!existingDescription && !namedLauncher && !namedMenu)
+      if (namedLauncher) {
+        root.onboardingStatusText = "Omalauncher already uses this shortcut. You can keep it."
+      } else if (namedMenu && root.onboardingReplacementBlocked) {
+        root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
+          + " as its fallback, but it is used by “" + menuFallbackDescription
+          + "”. Record a different launcher shortcut."
+      } else if (namedMenu) {
+        root.onboardingStatusText = "Recommended — Omalauncher will use " + hotkey
+          + ", and Omarchy Menu will move to " + menuFallbackHotkey + "."
+      } else if (existingDescription) {
+        root.onboardingStatusText = "Currently used by “" + existingDescription
+          + "”. You’ll be asked before it is replaced."
+      } else {
+        root.onboardingStatusText = "Available — no existing Hyprland binding uses this shortcut."
+      }
+    }
+    onLauncherConflictDetected: function(hotkey, existingDescription, namedLauncher,
+        namedMenu, menuFallbackHotkey, menuFallbackDescription, menuFallbackIsLauncher) {
+      if (!root.onboardingOpen) return
+      if (namedLauncher) {
+        appHotkeyProvider.cancelPending()
+        root.onboardingExistingLauncherBinding = true
+        root.onboardingReplacementPending = false
+        root.onboardingStatusIsError = false
+        root.onboardingStatusText = "Omalauncher already uses this shortcut. You can keep it."
+        return
+      }
+      if (namedMenu) {
+        root.onboardingReplacesMenu = true
+        root.onboardingReplacementBlocked = menuFallbackHotkey === hotkey
+          || (!!menuFallbackDescription && !menuFallbackIsLauncher)
+        if (root.onboardingReplacementBlocked) {
+          appHotkeyProvider.cancelPending()
+          root.onboardingReplacementPending = false
+          root.onboardingStatusIsError = true
+          root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
+            + " as its fallback, but it is used by “" + menuFallbackDescription
+            + "”. Record a different launcher shortcut."
+          return
+        }
+        root.onboardingReplacementPending = true
+        root.onboardingStatusIsError = false
+        root.onboardingStatusText = "Confirm to use " + hotkey
+          + " for Omalauncher and move Omarchy Menu to " + menuFallbackHotkey + "."
+        return
+      }
+      root.onboardingReplacementPending = true
+      root.onboardingStatusIsError = true
+      root.onboardingStatusText = hotkey + " is assigned to “" + existingDescription
+        + "”. Choose Replace existing shortcut to confirm."
+    }
+    onLauncherHotkeyApplied: function(hotkey, replacedDescription) {
+      root.onboardingHotkey = hotkey
+      if (root.onboardingOpen) root.finishOnboardingShortcutSetup()
+      else root.showOsd("󰌌", "Launcher shortcut set: " + hotkey)
+      if (root.activeRoute === "settings") root.rebuildResults()
+    }
+    onLauncherHotkeyRemoved: function() {
+      stateStore.setOnboarding("complete", "", false)
+      root.showOsd("󰌌", "Launcher shortcut removed")
+      if (root.activeRoute === "settings") root.rebuildResults()
+    }
     onMutationFailed: function(message) {
-      if (root.hotkeyEditorOpen) {
+      if (root.onboardingOpen) {
+        root.onboardingInspectionPending = false
+        root.onboardingStatusIsError = true
+        root.onboardingStatusText = message
+        Qt.callLater(function() { onboardingView.forceActiveFocus() })
+      } else if (root.hotkeyEditorOpen) {
         root.hotkeyEditorError = message
         Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
       } else {
         root.showOsd("", message)
+      }
+    }
+  }
+
+  ShortcutInhibitor {
+    id: shortcutInhibitor
+    enabled: root.hotkeyEditorOpen || root.onboardingRecording
+    window: panel
+    onActiveChanged: {
+      if (!active) return
+      if (root.onboardingRecording) {
+        root.onboardingStatusText = "Press the shortcut you want to use."
+        Qt.callLater(function() { onboardingView.forceActiveFocus() })
+      } else if (root.hotkeyEditorOpen) {
+        root.hotkeyEditorError = ""
+        Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
+      }
+    }
+    onCancelled: {
+      if (root.onboardingRecording) {
+        root.onboardingRecording = false
+        root.onboardingStatusIsError = true
+        root.onboardingStatusText = "Shortcut capture was denied by the compositor."
+      }
+      if (root.hotkeyEditorOpen) {
+        root.hotkeyEditorError = "Shortcut capture was denied by the compositor"
       }
     }
   }
@@ -2108,8 +2475,38 @@ Item {
       onClicked: root.dismiss()
     }
 
+    Onboarding {
+      id: onboardingView
+      visible: root.onboardingOpen
+      z: 100
+      width: Math.max(1, Math.min(Style.space(680), panel.width - Style.gapsOut * 2))
+      height: Math.max(1, Math.min(Style.space(480), panel.height - Style.gapsOut * 2))
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: Math.max(Style.gapsOut,
+        Math.min(panel.height - height - Style.gapsOut, Math.round(panel.height * 0.16)))
+      stage: root.onboardingStage
+      hotkey: root.onboardingHotkey
+      statusText: root.onboardingStatusText
+      statusIsError: root.onboardingStatusIsError
+      recording: root.onboardingRecording
+      captureActive: shortcutInhibitor.active
+      busy: appHotkeyProvider.busy || root.onboardingInspectionPending
+      canSkip: root.onboardingCanSkip
+      existingLauncherBinding: root.onboardingExistingLauncherBinding
+      replacementPending: root.onboardingReplacementPending
+      replacesMenu: root.onboardingReplacesMenu
+      replacementBlocked: root.onboardingReplacementBlocked
+      onRecordRequested: root.beginOnboardingRecording()
+      onApplyRequested: root.applyOnboardingHotkey()
+      onTryRequested: root.tryOnboardingShortcut()
+      onContinueRequested: root.continueOnboardingWithoutVerification()
+      onSkipRequested: root.skipOnboarding()
+      onKeyPressed: function(event) { root.recordOnboardingHotkey(event) }
+    }
+
     Rectangle {
       id: card
+      visible: !root.onboardingOpen
       readonly property int desiredHeight: Math.max(
         Math.max(
           root.compactCollapsed
