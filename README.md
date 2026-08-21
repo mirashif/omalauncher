@@ -67,7 +67,7 @@ Press `Ctrl+K` to search an application's actions. Running applications expose
 quit and restart controls, while supported desktop applications can be
 uninstalled after confirmation.
 
-![The Visual Studio Code Action Panel showing open, quit, restart, configure, and uninstall actions](assets/preview.png)
+![The Visual Studio Code Action Panel showing open, quit, restart, configure, and uninstall actions](preview.png)
 
 ### Search the live shell, menu, and CLI together
 
