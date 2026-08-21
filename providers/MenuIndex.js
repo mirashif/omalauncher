@@ -407,7 +407,8 @@ function buildCommandRecords(merged, whenResults, checkedResults) {
       sourceAction: entry.action,
       checked: !!(checkedResults && checkedResults[entry.id]),
       searchText: normalizeSearchText(searchParts.join(" ")),
-      providerPriority: 1,
+      section: "Omarchy Commands",
+      providerPriority: 2,
       order: entry.order
     })
   }

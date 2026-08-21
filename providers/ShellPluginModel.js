@@ -208,7 +208,7 @@ function buildRecords(manifests, options) {
             coveredCommandRoutes: COVERED_COMMAND_ROUTES[id] || [],
             emptyVisible: metadata["emptyVisible"] !== false,
             section: "Shell Features",
-            providerPriority: 2,
+            providerPriority: 1,
             order: i
         })
     }

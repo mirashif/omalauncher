@@ -100,6 +100,7 @@ function buildApplicationRecords(entries, options) {
       id: "application:" + appId,
       type: "application",
       kind: "application",
+      section: "Applications",
       title: title,
       breadcrumb: "",
       description: description,

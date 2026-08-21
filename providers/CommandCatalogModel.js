@@ -279,7 +279,7 @@ function buildRecords(commands) {
                 requiresSudo: false,
                 emptyVisible: true,
                 section: "Shell Features",
-                providerPriority: 2,
+                providerPriority: 1,
                 order: i
             })
         }
