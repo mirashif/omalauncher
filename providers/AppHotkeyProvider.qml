@@ -178,6 +178,7 @@ Item {
     } else if (root.pendingMode === "set-launcher") {
       entries = AppHotkeyModel.removeHotkey(entries, root.pendingHotkey)
       launcher = root.pendingHotkey
+      menu = ""
     } else {
       entries = AppHotkeyModel.setEntry(
         entries, root.pendingAppId, root.pendingTitle, root.pendingHotkey)
@@ -211,7 +212,7 @@ Item {
     var currentSource = bindingsFile.text()
     return root.applyMutation("remove-launcher", currentSource,
       AppHotkeyModel.updateBindingsSource(currentSource,
-        AppHotkeyModel.parseManagedEntries(currentSource), ""))
+        AppHotkeyModel.parseManagedEntries(currentSource), "", ""))
   }
 
   function applyMutation(mode, expectedSource, source) {
@@ -264,7 +265,8 @@ Item {
       var namedMenu = AppHotkeyModel.isNamedMenuBinding(
         conflictCheckOutput.text, root.pendingHotkey)
       var fallback = root.pendingMenuHotkey || AppHotkeyModel.MENU_FALLBACK_HOTKEY
-      var fallbackConflict = AppHotkeyModel.conflictDescription(conflictCheckOutput.text, fallback)
+      var fallbackConflict = AppHotkeyModel.externalConflictDescription(
+        conflictCheckOutput.text, fallback, root.launcherHotkey, root.menuHotkey)
       var fallbackIsLauncher = AppHotkeyModel.isNamedLauncherBinding(
         conflictCheckOutput.text, fallback)
 
@@ -322,8 +324,9 @@ Item {
         AppHotkeyModel.isNamedLauncherBinding(availabilityCheckOutput.text, chord),
         AppHotkeyModel.isNamedMenuBinding(availabilityCheckOutput.text, chord),
         AppHotkeyModel.MENU_FALLBACK_HOTKEY,
-        AppHotkeyModel.conflictDescription(
-          availabilityCheckOutput.text, AppHotkeyModel.MENU_FALLBACK_HOTKEY),
+        AppHotkeyModel.externalConflictDescription(
+          availabilityCheckOutput.text, AppHotkeyModel.MENU_FALLBACK_HOTKEY,
+          root.launcherHotkey, root.menuHotkey),
         AppHotkeyModel.isNamedLauncherBinding(
           availabilityCheckOutput.text, AppHotkeyModel.MENU_FALLBACK_HOTKEY))
     }

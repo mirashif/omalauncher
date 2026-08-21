@@ -63,7 +63,31 @@ test("replacing the stock menu shortcut gives Omarchy Menu a fallback chord", ()
 
   const withoutLauncher = AppHotkeyModel.updateBindingsSource(updated, {}, "")
   assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(withoutLauncher), "")
-  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(withoutLauncher), "SUPER + R")
+  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(withoutLauncher), "")
+  assert.equal(withoutLauncher, "-- My bindings\n")
+
+  const movedLauncher = AppHotkeyModel.updateBindingsSource(
+    updated, {}, "SUPER + X")
+  assert.equal(AppHotkeyModel.parseManagedLauncherHotkey(movedLauncher), "SUPER + X")
+  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(movedLauncher), "")
+
+  const applicationEntries = AppHotkeyModel.setEntry(
+    {}, "org.example.Launcher", "Example", "SUPER + SPACE")
+  const transferredToApplication = AppHotkeyModel.updateBindingsSource(
+    updated, applicationEntries, "")
+  assert.equal(AppHotkeyModel.parseManagedMenuHotkey(transferredToApplication), "SUPER + R")
+})
+
+test("managed menu fallbacks are not reported as external conflicts", () => {
+  const rows = JSON.stringify([
+    { modmask: 64, key: "SPACE", description: "Omarchy menu", dispatcher: "__lua" },
+    { modmask: 64, key: "R", description: "Omarchy menu", dispatcher: "__lua" }
+  ])
+
+  assert.equal(AppHotkeyModel.externalConflictDescription(
+    rows, "SUPER + R", "", "SUPER + R"), "")
+  assert.equal(AppHotkeyModel.externalConflictDescription(
+    rows, "SUPER + SPACE", "", "SUPER + R"), "Omarchy menu")
 })
 
 test("owned hotkeys can transfer between the launcher and applications", () => {

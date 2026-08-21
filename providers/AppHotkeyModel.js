@@ -11,6 +11,7 @@ var LAUNCHER_TITLE = "Omalauncher"
 var LAUNCHER_COMMAND = "omarchy-shell shell toggle io.github.omalauncher '{\"source\":\"hotkey\"}'"
 var MENU_TITLE = "Omarchy menu"
 var MENU_COMMAND = "omarchy-menu toggle"
+var MENU_PRIMARY_HOTKEY = "SUPER + SPACE"
 var MENU_FALLBACK_HOTKEY = "SUPER + R"
 
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
@@ -255,6 +256,13 @@ function managedBlock(entries, launcherHotkey, menuHotkey) {
     var byHotkey = String(leftEntry ? leftEntry.hotkey : "").localeCompare(String(rightEntry ? rightEntry.hotkey : ""))
     return byHotkey || left.localeCompare(right)
   })
+  var primaryMenuHotkeyIsManaged = launcherChord === MENU_PRIMARY_HOTKEY
+  for (var ownerIndex = 0; ownerIndex < ids.length && !primaryMenuHotkeyIsManaged; ownerIndex++) {
+    var ownerEntry = source[ids[ownerIndex] || ""]
+    primaryMenuHotkeyIsManaged = !!ownerEntry
+      && normalizeHotkey(ownerEntry.hotkey) === MENU_PRIMARY_HOTKEY
+  }
+  if (!primaryMenuHotkeyIsManaged) menuChord = ""
   if (ids.length === 0 && !safeGlobalHotkey(launcherChord) && !safeGlobalHotkey(menuChord)) return ""
   var lines = [BEGIN_MARKER]
   if (safeGlobalHotkey(launcherChord)) {
@@ -386,6 +394,23 @@ function isNamedMenuBinding(json, hotkey) {
   return false
 }
 
+/**
+ * Returns only conflicts not already owned by OmaLauncher's managed block.
+ * @param {unknown} json
+ * @param {unknown} hotkey
+ * @param {unknown} launcherHotkey
+ * @param {unknown} menuHotkey
+ * @returns {string}
+ */
+function externalConflictDescription(json, hotkey, launcherHotkey, menuHotkey) {
+  var target = normalizeHotkey(hotkey)
+  var description = conflictDescription(json, target)
+  if (!description) return ""
+  if (target === normalizeHotkey(launcherHotkey) && isNamedLauncherBinding(json, target)) return ""
+  if (target === normalizeHotkey(menuHotkey) && isNamedMenuBinding(json, target)) return ""
+  return description
+}
+
 /** @returns {string} */
 function mutationScript() {
   return [
@@ -445,6 +470,7 @@ if (typeof module !== "undefined") {
     LAUNCHER_COMMAND: LAUNCHER_COMMAND,
     MENU_TITLE: MENU_TITLE,
     MENU_COMMAND: MENU_COMMAND,
+    MENU_PRIMARY_HOTKEY: MENU_PRIMARY_HOTKEY,
     MENU_FALLBACK_HOTKEY: MENU_FALLBACK_HOTKEY,
     cleanAppId: cleanAppId,
     normalizeHotkey: normalizeHotkey,
@@ -463,6 +489,7 @@ if (typeof module !== "undefined") {
     conflictDescription: conflictDescription,
     isNamedLauncherBinding: isNamedLauncherBinding,
     isNamedMenuBinding: isNamedMenuBinding,
+    externalConflictDescription: externalConflictDescription,
     mutationScript: mutationScript,
     mutationRequest: mutationRequest
   }
