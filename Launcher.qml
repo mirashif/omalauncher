@@ -50,9 +50,6 @@ Item {
   property var navigationStack: []
   property int selectedIndex: 0
   property int resultSectionCount: 0
-  property int queryHistoryIndex: -1
-  property string queryHistoryDraft: ""
-  property bool applyingQueryHistory: false
   property bool suppressSearchChange: false
   property bool compactExpanded: false
   property bool actionPanelOpen: false
@@ -428,7 +425,6 @@ Item {
     root.opened = true
     root.setSearchTextSilently(String(payload.query || ""))
     root.selectedIndex = 0
-    root.resetQueryHistoryNavigation()
     root.rebuildResults()
     if (root.openMeasurementStartedAt > 0) {
       root.lastWarmOpenMs = Math.max(0, Date.now() - root.openMeasurementStartedAt)
@@ -456,7 +452,6 @@ Item {
     root.navigationStack = []
     root.setSearchTextSilently("")
     root.selectedIndex = 0
-    root.resetQueryHistoryNavigation()
   }
 
   function dismiss() {
@@ -1075,36 +1070,10 @@ Item {
     root.revealActionSelection()
   }
 
-  function resetQueryHistoryNavigation() {
-    root.queryHistoryIndex = -1
-    root.queryHistoryDraft = ""
-  }
-
   function setSearchTextSilently(value) {
     root.suppressSearchChange = true
     searchInput.text = String(value || "")
     root.suppressSearchChange = false
-  }
-
-  function cycleQueryHistory(older) {
-    var history = stateStore.queryHistory || []
-    if (history.length === 0) return false
-    if (root.queryHistoryIndex < 0) {
-      if (!older) return false
-      root.queryHistoryDraft = String(searchInput.text || "")
-      root.queryHistoryIndex = 0
-    } else if (older) {
-      root.queryHistoryIndex = Math.min(history.length - 1, root.queryHistoryIndex + 1)
-    } else {
-      root.queryHistoryIndex -= 1
-    }
-
-    root.applyingQueryHistory = true
-    searchInput.text = root.queryHistoryIndex < 0
-      ? root.queryHistoryDraft : String(history[root.queryHistoryIndex] || "")
-    root.applyingQueryHistory = false
-    searchInput.selectAll()
-    return true
   }
 
   function popToRoot() {
@@ -1113,7 +1082,6 @@ Item {
     root.navigationStack = []
     root.setSearchTextSilently("")
     root.selectedIndex = 0
-    root.resetQueryHistoryNavigation()
     root.rebuildResults()
     Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
@@ -2714,7 +2682,6 @@ Item {
           Accessible.searchEdit: true
           onTextChanged: {
             if (root.suppressSearchChange) return
-            if (!root.applyingQueryHistory) root.resetQueryHistoryNavigation()
             if (SettingsModel.isInputRoute(root.activeRoute)) root.settingsInputError = ""
             if (!searchInput.text) root.compactExpanded = false
             root.selectedIndex = 0
@@ -2768,12 +2735,11 @@ Item {
               root.goBack()
               event.accepted = true
             } else if (event.key === Qt.Key_Up) {
-              if (root.selectedIndex === 0) root.cycleQueryHistory(true)
-              else root.moveSelection(-1)
+              root.moveSelection(-1)
               event.accepted = true
             } else if (event.key === Qt.Key_Down) {
               if (root.compactCollapsed) root.compactExpanded = true
-              else if (!root.cycleQueryHistory(false)) root.moveSelection(1)
+              else root.moveSelection(1)
               event.accepted = true
             } else if (event.key === Qt.Key_PageUp) {
               root.moveSelection(-root.maximumVisibleRows)
