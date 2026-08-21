@@ -1873,7 +1873,7 @@ Item {
       return
     }
     if (row.resultKind === "settings-add-suggested-scope") {
-      root.validateSettingsScope(row.settingValue)
+      root.validateSettingsScope(row.settingValue, true)
       return
     }
     if (row.resultKind === "settings-open-ignore") {
@@ -1881,7 +1881,7 @@ Item {
       return
     }
     if (row.resultKind === "settings-save-scope") {
-      root.validateSettingsScope(row.settingValue)
+      root.validateSettingsScope(row.settingValue, false)
       return
     }
     if (row.resultKind === "settings-save-ignore") {
@@ -1889,8 +1889,9 @@ Item {
       return
     }
     if (row.resultKind === "settings-remove-scope") {
+      var removedFolderName = FileSearchModel.basename(row.settingValue) || "folder"
       stateStore.removeFileScope(row.settingValue)
-      root.showOsd("󰈞", "Removed file search scope")
+      root.showOsd("󰈞", "Removed " + removedFolderName + " from file search")
       root.rebuildResults()
       return
     }
@@ -2002,17 +2003,21 @@ Item {
     Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 
-  function validateSettingsScope(value) {
+  function validateSettingsScope(value, addImmediately) {
     if (root.settingsInputBusy) return
-    root.settingsScopeSuggested = root.activeRoute === "settings"
+    root.settingsScopeSuggested = addImmediately === true
     var candidate = String(value || "").trim()
     if (!candidate || candidate.charAt(0) !== "/") {
       root.settingsInputError = "Enter an absolute directory path"
+      if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
+      root.settingsScopeSuggested = false
       root.rebuildResults()
       return
     }
     if (candidate === "/") {
       root.settingsInputError = "The filesystem root cannot be a search scope"
+      if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
+      root.settingsScopeSuggested = false
       root.rebuildResults()
       return
     }
@@ -2122,13 +2127,13 @@ Item {
     if (row.resultKind === "settings-open-launcher-hotkey") return "Configure"
     if (row.resultKind === "settings-run-onboarding") return "Open Setup"
     if (row.resultKind === "settings-remove-launcher-hotkey") return "Remove"
-    if (row.resultKind === "settings-open-scope") return "Add Scope"
-    if (row.resultKind === "settings-add-suggested-scope") return "Add Scope"
+    if (row.resultKind === "settings-open-scope") return "Add Folder"
+    if (row.resultKind === "settings-add-suggested-scope") return "Add Folder"
     if (row.resultKind === "settings-open-ignore") return "Add Ignore"
-    if (row.resultKind === "settings-save-scope") return "Add Directory"
+    if (row.resultKind === "settings-save-scope") return "Add Folder"
     if (row.resultKind === "settings-save-ignore") return "Add Pattern"
-    if (row.resultKind === "settings-remove-scope"
-        || row.resultKind === "settings-remove-ignore") return "Remove"
+    if (row.resultKind === "settings-remove-scope") return "Remove Folder"
+    if (row.resultKind === "settings-remove-ignore") return "Remove"
     if (row.resultKind === "settings-open-reset-providers"
         || row.resultKind === "settings-open-reset-personalization") return "Review Reset"
     if (row.resultKind === "settings-confirm-reset-providers"
@@ -2188,7 +2193,7 @@ Item {
       onRead: function(data) { scopeRealpathProc.output += data }
     }
     onExited: function(exitCode, exitStatus) {
-      if (root.activeRoute !== "settings-scope" && root.activeRoute !== "settings") return
+      if (!SettingsModel.scopeValidationApplies(root.activeRoute, root.settingsScopeSuggested)) return
       var canonical = String(scopeRealpathProc.output || "").trim()
       if (exitCode !== 0 || exitStatus !== 0 || !canonical || canonical === "/") {
         root.settingsInputBusy = false
@@ -2196,6 +2201,7 @@ Item {
           ? "The filesystem root cannot be a search scope"
           : "Directory does not exist"
         if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
+        root.settingsScopeSuggested = false
         root.rebuildResults()
         return
       }
@@ -2214,18 +2220,22 @@ Item {
       onRead: function(data) { scopeTypeProc.output += data }
     }
     onExited: function(exitCode, exitStatus) {
-      if (root.activeRoute !== "settings-scope" && root.activeRoute !== "settings") return
+      if (!SettingsModel.scopeValidationApplies(root.activeRoute, root.settingsScopeSuggested)) return
       root.settingsInputBusy = false
       if (exitCode !== 0 || exitStatus !== 0 || String(scopeTypeProc.output || "").trim() !== "directory") {
         root.settingsInputError = "Search scopes must be existing directories"
         if (root.settingsScopeSuggested) root.showOsd("", root.settingsInputError)
+        root.settingsScopeSuggested = false
         root.rebuildResults()
         return
       }
       var canonical = String(scopeTypeProc.canonical || "")
+      var folderName = FileSearchModel.basename(canonical) || "folder"
       var existed = stateStore.preferences.fileSearchScopes.indexOf(canonical) >= 0
       stateStore.addFileScope(canonical)
-      root.showOsd("󰈞", existed ? "Search scope already configured" : "Added file search scope")
+      root.showOsd("󰈞", existed
+        ? folderName + " is already included"
+        : "Added " + folderName + " to file search")
       if (root.settingsScopeSuggested) {
         root.settingsScopeSuggested = false
         root.settingsInputError = ""
@@ -2687,8 +2697,8 @@ Item {
           anchors.rightMargin: root.providerWarning ? Style.space(42) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
           color: root.foreground
-          selectionColor: root.selectedText
-          selectedTextColor: root.selectedBackground
+          selectionColor: root.selectedBackground
+          selectedTextColor: root.selectedText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
           clip: true

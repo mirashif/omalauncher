@@ -10,8 +10,8 @@ test("search selection uses the theme selected-state contrast pair", () => {
   const searchInput = /TextInput \{\s*id: searchInput[\s\S]*?Accessible\.role: Accessible\.EditableText/.exec(launcher)
 
   assert.ok(searchInput)
-  assert.match(searchInput[0], /selectionColor: root\.selectedText/)
-  assert.match(searchInput[0], /selectedTextColor: root\.selectedBackground/)
+  assert.match(searchInput[0], /selectionColor: root\.selectedBackground/)
+  assert.match(searchInput[0], /selectedTextColor: root\.selectedText/)
 })
 
 test("up and down rotate through search results instead of query history", () => {
@@ -37,4 +37,13 @@ test("Calculate is discoverable and starts an equals-prefixed expression", () =>
   assert.match(launcher, /if \(row\.resultKind === "open-calculator"\) \{[\s\S]*?setSearchTextSilently\("= "\)/)
   assert.match(launcher, /if \(row\.resultKind === "open-calculator"\) return "Start Calculating"/)
   assert.match(launcher, /row\.resultKind === "calculator-ready"/)
+})
+
+test("suggested folders add immediately from root search", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+  const suggestedScopeAction = /if \(row\.resultKind === "settings-add-suggested-scope"\) \{([\s\S]*?)\n\s*\}/.exec(launcher)
+
+  assert.ok(suggestedScopeAction)
+  assert.match(suggestedScopeAction[1], /validateSettingsScope\(row\.settingValue, true\)/)
+  assert.equal((launcher.match(/SettingsModel\.scopeValidationApplies/g) || []).length, 2)
 })

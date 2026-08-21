@@ -48,10 +48,10 @@ function record(id, kind, title, description, icon, order, section, key, value) 
     appIcon: "",
     appId: "",
     aliases: [],
-    keywords: ["omalauncher", "settings", settingKey, settingValue],
+    keywords: ["omalauncher", "settings", kind, settingKey, settingValue],
     route: "",
     parentRoute: "settings",
-    searchText: [title, description, "omalauncher settings", settingKey, settingValue].join(" "),
+    searchText: [title, description, "omalauncher settings", kind, settingKey, settingValue].join(" "),
     providerPriority: -2,
     order: order,
     section: section,
@@ -106,8 +106,8 @@ function settingsRecords(preferences, context) {
       calculatorDescription, "", 2, "Providers", "calculatorEnabled", ""),
     record("omalauncher:setting-file-search", "settings-toggle", "Scoped File Search",
       fileDescription, "󰈞", 3, "Providers", "fileSearchEnabled", ""),
-    record("omalauncher:setting-add-scope", "settings-open-scope", "Add File Search Scope",
-      "Choose an existing directory", "", 4, "File Search", "", "")
+    record("omalauncher:setting-add-scope", "settings-open-scope", "Add Folder",
+      "Enter an existing folder path", "", 4, "File Search", "", "")
   ]
 
   if (text(status.launcherHotkey)) {
@@ -126,7 +126,7 @@ function settingsRecords(preferences, context) {
       suggestion,
       "󰈞",
       5 + suggestionIndex,
-      "Suggested Scopes",
+      "Suggested Folders",
       "fileSearchScopes",
       suggestion
     ))
@@ -136,11 +136,11 @@ function settingsRecords(preferences, context) {
     records.push(record(
       "omalauncher:setting-scope:" + scopeIndex,
       "settings-remove-scope",
-      "Remove " + pathName(scopes[scopeIndex]),
+      pathName(scopes[scopeIndex]),
       text(scopes[scopeIndex]),
       "",
       20 + scopeIndex,
-      "File Search Scopes",
+      "Included Folders",
       "fileSearchScopes",
       scopes[scopeIndex]
     ))
@@ -236,11 +236,11 @@ function inputRecords(route, query, error, busy) {
     return [record(
       "omalauncher:setting-save-scope",
       "settings-save-scope",
-      busy ? "Validating Directory…" : (value ? "Add Directory" : "Enter a Directory Path"),
-      text(error) || value || "Type an absolute path, then press Enter",
+      busy ? "Checking Folder…" : (value ? "Add Folder" : "Enter a Folder Path"),
+      text(error) || value || "Type an absolute folder path, then press Enter",
       busy ? "" : "",
       0,
-      "File Search Scope",
+      "Add Folder",
       "fileSearchScopes",
       value
     )]
@@ -297,13 +297,22 @@ function isConfirmationRoute(route) {
   return value === "settings-reset-providers" || value === "settings-reset-personalization"
 }
 
+/**
+ * @param {unknown} route
+ * @param {unknown} addImmediately
+ * @returns {boolean}
+ */
+function scopeValidationApplies(route, addImmediately) {
+  return addImmediately === true || text(route) === "settings-scope"
+}
+
 /** @param {unknown} route @returns {string} */
 function routeTitle(route) {
   /** @type {StringMap} */
   var titles = {
     settings: "Omalauncher Settings",
     "settings-about": "About Omalauncher",
-    "settings-scope": "Add File Search Scope",
+    "settings-scope": "Add Folder to File Search",
     "settings-ignore": "Add File Ignore Pattern",
     "settings-reset-providers": "Reset Provider Settings",
     "settings-reset-personalization": "Reset Personalization"
@@ -321,6 +330,7 @@ if (typeof module !== "undefined") {
     isRoute: isRoute,
     isInputRoute: isInputRoute,
     isConfirmationRoute: isConfirmationRoute,
+    scopeValidationApplies: scopeValidationApplies,
     routeTitle: routeTitle
   }
 }

@@ -20,12 +20,14 @@ test("settings expose provider toggles and configured file rules", () => {
   })
   const fileToggle = rows.find(row => row.settingKey === "fileSearchEnabled")
   const calculatorToggle = rows.find(row => row.settingKey === "calculatorEnabled")
+  const addScope = rows.find(row => row.kind === "settings-open-scope")
   const scope = rows.find(row => row.kind === "settings-remove-scope")
   const ignore = rows.find(row => row.kind === "settings-remove-ignore")
   const suggested = rows.find(row => row.kind === "settings-add-suggested-scope")
   const launcherHotkey = rows.find(row => row.kind === "settings-open-launcher-hotkey")
   assert.ok(fileToggle)
   assert.ok(calculatorToggle)
+  assert.ok(addScope)
   assert.ok(scope)
   assert.ok(ignore)
   assert.ok(suggested)
@@ -34,11 +36,15 @@ test("settings expose provider toggles and configured file rules", () => {
   assert.equal(fileToggle.description, "Enabled · Try f report · 1 scope · fd unavailable")
   assert.equal(calculatorToggle.description, "Enabled · Try = 12 * 8")
   assert.equal(fileToggle.breadcrumb, "")
-  assert.equal(scope.title, "Remove Documents")
+  assert.equal(addScope.title, "Add Folder")
+  assert.equal(addScope.description, "Enter an existing folder path")
+  assert.equal(scope.title, "Documents")
+  assert.equal(scope.section, "Included Folders")
   assert.equal(scope.settingValue, "/home/test/Documents")
   assert.equal(ignore.title, "Remove node_modules")
   assert.equal(ignore.settingValue, "node_modules")
   assert.equal(suggested.settingValue, "/home/test/Downloads")
+  assert.equal(suggested.section, "Suggested Folders")
   assert.equal(launcherHotkey.description, "SUPER + R")
   assert.equal(rows.some(row => row.kind === "settings-remove-launcher-hotkey"), true)
   assert.equal(rows.some(row => row.kind === "settings-open-reset-personalization"), true)
@@ -61,6 +67,16 @@ test("launcher settings are searchable directly from root", () => {
   assert.equal(results[0].title, "Launcher Shortcut")
   assert.equal(results[0].breadcrumb, "Omalauncher Settings")
   assert.equal(rows.every(row => row.emptyVisible === false), true)
+})
+
+test("configured folders remain searchable as removal actions", () => {
+  const preferences = StateModel.emptyPreferences()
+  preferences.fileSearchScopes = ["/home/test/Documents"]
+  const rows = SettingsModel.rootSearchRecords(preferences, {}).map(SearchEngine.prepareRecord)
+  const results = SearchEngine.search(rows, "remove documents")
+
+  assert.equal(results[0].kind, "settings-remove-scope")
+  assert.equal(results[0].title, "Documents")
 })
 
 test("about route exposes product details, compatibility, and project links", () => {
@@ -91,8 +107,18 @@ test("settings input routes preserve literal values and validation errors", () =
   const ignore = SettingsModel.inputRecords("settings-ignore", "*.tmp", "", false)[0]
 
   assert.equal(scope.settingValue, "/home/test/My Files")
+  assert.equal(scope.title, "Add Folder")
+  assert.equal(scope.section, "Add Folder")
   assert.equal(invalid.description, "Use an absolute path")
   assert.equal(ignore.settingValue, "*.tmp")
+  assert.equal(SettingsModel.routeTitle("settings-scope"), "Add Folder to File Search")
+})
+
+test("immediate folder validation remains valid outside Settings", () => {
+  assert.equal(SettingsModel.scopeValidationApplies("root", true), true)
+  assert.equal(SettingsModel.scopeValidationApplies("settings", true), true)
+  assert.equal(SettingsModel.scopeValidationApplies("settings-scope", false), true)
+  assert.equal(SettingsModel.scopeValidationApplies("root", false), false)
 })
 
 test("reset routes require a separate confirmation choice", () => {
