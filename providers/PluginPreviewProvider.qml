@@ -76,7 +76,7 @@ Item {
     root.loading = false
     root.ready = true
     root.error = String(message || "Plugin preview is unavailable")
-    console.warn("Omalauncher: " + root.error)
+    console.warn("OmaLauncher: " + root.error)
   }
 
   function showCachedPreview(requestGeneration) {

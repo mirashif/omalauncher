@@ -161,7 +161,7 @@ function readyRecord() {
  */
 function disabledRecord() {
   return statusRecord("", "calculator-unavailable", "Calculator Disabled",
-    "Enable Calculator Results in Omalauncher Settings", "")
+    "Enable Calculator Results in OmaLauncher Settings", "")
 }
 
 /**

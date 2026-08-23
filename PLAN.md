@@ -1,14 +1,14 @@
-# Omalauncher Product Plan
+# OmaLauncher Product Plan
 
-Status: v0.10.0 implemented and validated locally
+Status: v1.2.0 implemented and validated locally
 
-Last updated: 2026-08-21
+Last updated: 2026-08-24
 
 Target: Omarchy 4 / Quattro with Quickshell 0.3
 
 ## Product direction
 
-Omalauncher is a keyboard-first command palette for Omarchy. It combines
+OmaLauncher is a keyboard-first command palette for Omarchy. It combines
 installed applications, the nested Omarchy command menu, live summonable shell
 features, and the CLI catalog in one searchable surface while preserving each
 source's execution and confirmation contracts.
@@ -21,7 +21,7 @@ The product should remain:
 4. Safe around commands, expressions, paths, and plugin updates.
 5. Additive: the stock Omarchy launchers remain available as fallbacks.
 
-## Current release: v0.10.0
+## Current release: v1.2.0
 
 ### First-run access
 
@@ -31,7 +31,7 @@ The product should remain:
   existing global binding does not fire while a new chord is recorded.
 - Conflict inspection, explicit replacement, atomic backup, Hyprland reload,
   config-error validation, rollback, and concurrent-edit protection.
-- Recommended atomic shortcut swap: Omalauncher takes `SUPER + SPACE` while
+- Recommended atomic shortcut swap: OmaLauncher takes `SUPER + SPACE` while
   Omarchy Menu moves to the validated `SUPER + R` fallback.
 - Right-side Omarchy bar widget with left-click launcher access and right-click
   Settings.
@@ -56,6 +56,9 @@ The product should remain:
 
 - Searchable Action Panel with shallow submenus and a stock-menu fallback.
 - Favorite reordering, alias editing, hide/unhide, and ranking reset actions.
+- Set, change, and remove managed global shortcuts for stable applications,
+  shell features, static menu entries, reviewed direct CLI commands, and
+  launcher or plugin navigation.
 - In-launcher Settings for launcher behavior and provider configuration.
 - Versioned state with independent preferences and onboarding state.
 - Confirmed resets for provider settings and personalization.
@@ -98,16 +101,17 @@ The product should remain:
 - File search is disabled and unconfigured by default. It never scans `/`, all
   of `$HOME`, file contents, or every root-search keystroke implicitly.
 - Calculator and file results remain ephemeral and outside learned ranking.
-- Omalauncher edits only its marked Hyprland hotkey block, using backup,
+- OmaLauncher edits only its marked Hyprland hotkey block, using backup,
   reload, validation, rollback, and race protection. Other configuration is
   preserved byte-for-byte.
 - No file below `/usr/share/omarchy` is modified.
-- Launcher and per-application hotkeys share one owned block so a chord cannot
-  be claimed by both. Numbered activation remains launcher-local.
+- Launcher and per-result global shortcuts share one owned block so a chord
+  cannot be claimed twice. Legacy application records migrate in place;
+  numbered activation remains launcher-local.
 
 ## Quality contract
 
-The release check currently covers 135 Node tests, manifest validation, QML
+The release check currently covers 172 Node tests, manifest validation, QML
 linting, a clean install/remove smoke test, and whitespace validation.
 
 ```bash

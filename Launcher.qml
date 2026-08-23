@@ -145,7 +145,7 @@ Item {
     userSourceError,
     guardError,
     appProviderError,
-    appHotkeyProvider.error,
+    globalShortcutProvider.error,
     shellFeaturesError,
     cliCatalogError,
     pluginCatalogError
@@ -177,9 +177,9 @@ Item {
       detail: appProviderError ? "Retry rebuilds the desktop application index." : ""
     },
     {
-      provider: "Application hotkeys",
-      error: appHotkeyProvider.error,
-      detail: appHotkeyProvider.error ? "Bindings: " + appHotkeyProvider.bindingsPath : ""
+      provider: "Global shortcuts",
+      error: globalShortcutProvider.error,
+      detail: globalShortcutProvider.error ? "Bindings: " + globalShortcutProvider.bindingsPath : ""
     },
     {
       provider: "Shell features",
@@ -301,7 +301,7 @@ Item {
     if (!root.onboardingOpen) return
     var onboarding = stateStore.onboarding || ({})
     var savedHotkey = String(onboarding.hotkey || "")
-    root.onboardingHotkey = savedHotkey || appHotkeyProvider.launcherHotkey || "SUPER + SPACE"
+    root.onboardingHotkey = savedHotkey || globalShortcutProvider.launcherHotkey || "SUPER + SPACE"
     root.onboardingRecording = false
     root.onboardingExistingLauncherBinding = false
     root.onboardingReplacementPending = false
@@ -335,7 +335,7 @@ Item {
     root.onboardingReplacementBlocked = false
     root.onboardingStatusIsError = false
     root.onboardingStatusText = "Checking whether this shortcut is available…"
-    if (!appHotkeyProvider.inspectLauncherHotkey(root.onboardingHotkey)) {
+    if (!globalShortcutProvider.inspectLauncherHotkey(root.onboardingHotkey)) {
       root.onboardingInspectionPending = false
       root.onboardingStatusIsError = true
       root.onboardingStatusText = "Could not inspect this shortcut. Try again in a moment."
@@ -343,8 +343,8 @@ Item {
   }
 
   function beginOnboardingRecording() {
-    if (appHotkeyProvider.busy) return
-    appHotkeyProvider.cancelPending()
+    if (globalShortcutProvider.busy) return
+    globalShortcutProvider.cancelPending()
     root.onboardingReplacementPending = false
     root.onboardingReplacesMenu = false
     root.onboardingReplacementBlocked = false
@@ -384,12 +384,12 @@ Item {
   }
 
   function applyOnboardingHotkey() {
-    if (root.onboardingInspectionPending || appHotkeyProvider.busy) return
+    if (root.onboardingInspectionPending || globalShortcutProvider.busy) return
     if (root.onboardingReplacementBlocked) return
     if (root.onboardingReplacementPending) {
       root.onboardingStatusText = "Replacing the existing shortcut…"
       root.onboardingStatusIsError = false
-      if (!appHotkeyProvider.confirmPendingConflict()) {
+      if (!globalShortcutProvider.confirmPendingConflict()) {
         root.onboardingStatusIsError = true
         root.onboardingStatusText = "Could not replace the existing shortcut."
       }
@@ -404,9 +404,9 @@ Item {
       : "Applying shortcut…"
     root.onboardingStatusIsError = false
     var requested = root.onboardingReplacesMenu
-      ? appHotkeyProvider.requestReplaceMenuWithLauncher(
-          root.onboardingHotkey, appHotkeyProvider.menuFallbackHotkey)
-      : appHotkeyProvider.requestSetLauncher(root.onboardingHotkey)
+      ? globalShortcutProvider.requestReplaceMenuWithLauncher(
+          root.onboardingHotkey, globalShortcutProvider.menuFallbackHotkey)
+      : globalShortcutProvider.requestSetLauncher(root.onboardingHotkey)
     if (!requested) {
       root.onboardingStatusIsError = true
       root.onboardingStatusText = "Could not apply this shortcut."
@@ -437,7 +437,7 @@ Item {
   }
 
   function tryOnboardingShortcut() {
-    root.showOsd("󰌌", "Press " + root.onboardingHotkey + " to reopen Omalauncher")
+    root.showOsd("󰌌", "Press " + root.onboardingHotkey + " to reopen OmaLauncher")
     root.dismiss()
   }
 
@@ -454,7 +454,7 @@ Item {
 
   function skipOnboarding() {
     if (!root.onboardingCanSkip) return
-    appHotkeyProvider.cancelPending()
+    globalShortcutProvider.cancelPending()
     root.forceOnboarding = false
     root.onboardingRecording = false
     root.onboardingInspectionPending = false
@@ -466,7 +466,7 @@ Item {
   function restartOnboarding() {
     root.forceOnboarding = true
     stateStore.setOnboarding("pending",
-      appHotkeyProvider.launcherHotkey || "SUPER + SPACE", false)
+      globalShortcutProvider.launcherHotkey || "SUPER + SPACE", false)
   }
 
   function open(payloadJson) {
@@ -482,8 +482,9 @@ Item {
     root.warningPanelOpen = false
     root.compactExpanded = false
     var requestedRoute = String(payload.route || "")
-    var initialRoute = requestedRoute === "settings" ? "settings"
-      : (PluginCatalogModel.isRoute(requestedRoute) ? requestedRoute : "root")
+    var initialRoute = requestedRoute === "files" || requestedRoute === "hidden"
+        || SettingsModel.isRoute(requestedRoute) || PluginCatalogModel.isRoute(requestedRoute)
+      ? requestedRoute : "root"
     root.activeRoute = initialRoute
     root.navigationStack = initialRoute === "root" ? [] : ["root"]
     root.opened = true
@@ -612,7 +613,7 @@ Item {
         status: String(stateStore.onboarding.status || "pending"),
         hotkey: root.onboardingHotkey,
         accessibleName: String(onboardingView.Accessible.name || ""),
-        busy: appHotkeyProvider.busy || root.onboardingInspectionPending,
+        busy: globalShortcutProvider.busy || root.onboardingInspectionPending,
         statusText: root.onboardingStatusText,
         replacesMenu: root.onboardingReplacesMenu,
         replacementPending: root.onboardingReplacementPending,
@@ -752,7 +753,7 @@ Item {
   function applyParsedSource(parsed, isDefault) {
     if (parsed.error) {
       var sourceName = isDefault ? root.defaultMenuPath : root.userMenuPath
-      console.warn("Omalauncher: menu JSONC parse failed at " + sourceName + ": " + parsed.error)
+      console.warn("OmaLauncher: menu JSONC parse failed at " + sourceName + ": " + parsed.error)
       if (isDefault) {
         root.defaultSourceSettled = true
         if (root.defaultSourceLoaded) root.guardEvaluationSettled = true
@@ -833,7 +834,7 @@ Item {
       fileSearchAvailable: fileSearchProvider.backendAvailable,
       dependencyInstallRunning: dependencyInstallProcess.running,
       commonScopes: fileSearchProvider.commonScopes,
-      launcherHotkey: appHotkeyProvider.launcherHotkey,
+      launcherHotkey: globalShortcutProvider.launcherHotkey,
       onboardingHotkey: stateStore.onboarding.hotkey,
       productVersion: root.productVersion,
       creatorWebsiteUrl: root.creatorWebsiteUrl,
@@ -876,8 +877,8 @@ Item {
       id: "omalauncher:settings",
       type: "launcher-command",
       kind: "open-settings",
-      title: "Omalauncher Settings",
-      breadcrumb: "Omalauncher",
+      title: "OmaLauncher Settings",
+      breadcrumb: "OmaLauncher",
       description: "Configure launcher behavior and providers",
       icon: "",
       iconFont: "",
@@ -917,7 +918,7 @@ Item {
       type: "launcher-command",
       kind: "toggle-compact",
       title: root.compactMode ? "Disable Compact Mode" : "Enable Compact Mode",
-      breadcrumb: "Omalauncher",
+      breadcrumb: "OmaLauncher",
       description: "Show only the search field until interaction begins",
       icon: root.compactMode ? "" : "",
       iconFont: "",
@@ -935,8 +936,8 @@ Item {
       id: "omalauncher:about",
       type: "launcher-command",
       kind: "settings-open-about",
-      title: "About Omalauncher",
-      breadcrumb: "Omalauncher",
+      title: "About OmaLauncher",
+      breadcrumb: "OmaLauncher",
       description: (root.productVersion ? "Version " + root.productVersion + " · " : "")
         + "Project details and links",
       icon: "󰋼",
@@ -964,7 +965,7 @@ Item {
       type: "launcher-command",
       kind: "manage-hidden",
       title: "Manage Hidden Results",
-      breadcrumb: "Omalauncher",
+      breadcrumb: "OmaLauncher",
       description: "Review and restore results hidden from search",
       icon: "",
       iconFont: "",
@@ -1024,8 +1025,7 @@ Item {
 
   function assignedShortcutForResult(result) {
     var row = result || ({})
-    var managedHotkey = String(row.type || "") === "application"
-      ? appHotkeyProvider.hotkeyFor(String(row.appId || "")) : ""
+    var managedHotkey = globalShortcutProvider.hotkeyFor(row)
     return shortcutBindingProvider.shortcutFor({
       title: String(row.title || ""),
       route: String(row.route || ""),
@@ -1120,7 +1120,7 @@ Item {
         type: "launcher-command",
         kind: "onboarding-coach",
         title: "You’re ready — try searching for Settings",
-        breadcrumb: "Omalauncher",
+        breadcrumb: "OmaLauncher",
         description: "Press Enter to see how quickly commands appear",
         icon: "󰌌",
         iconFont: "",
@@ -1349,7 +1349,7 @@ Item {
   }
 
   function menuTitle(route) {
-    if (route === "root") return "Omalauncher"
+    if (route === "root") return "OmaLauncher"
     if (route === "apps") return "Apps"
     if (route === "files") return "Files"
     if (route === "hidden") return "Hidden Results"
@@ -1358,7 +1358,7 @@ Item {
       return PluginCatalogModel.routeTitle(pluginCatalogProvider.catalog, route)
     }
     var entry = root.menuItems[route]
-    return entry ? String(entry.title || entry.label || route) : String(route || "Omalauncher")
+    return entry ? String(entry.title || entry.label || route) : String(route || "OmaLauncher")
   }
 
   function setActiveRoute(route, pushHistory) {
@@ -1579,7 +1579,7 @@ Item {
   }
 
   function resetActionPanel() {
-    if (root.pendingConfirmationAction === "replace-hotkey") appHotkeyProvider.cancelPending()
+    if (root.pendingConfirmationAction === "replace-hotkey") globalShortcutProvider.cancelPending()
     root.actionPanelOpen = false
     root.actionTarget = ({})
     root.actionSelectedIndex = 0
@@ -1638,16 +1638,16 @@ Item {
       usage: stateStore.usage,
       alias: stateStore.aliasFor(root.actionTarget.resultId),
       hidden: stateStore.isHidden(root.actionTarget.resultId),
+      canConfigureAlias: root.canPersonalizeResult(root.actionTarget),
       favoriteIndex: stateStore.favorites.indexOf(root.actionTarget.resultId),
       favoriteCount: stateStore.favorites.length,
       canUninstall: root.actionTarget.resultType === "application"
         && appProvider.canRemoveApplications,
       canResolveDesktopEntry: root.actionTarget.resultType === "application"
         && appProvider.canResolveDesktopEntries,
-      canConfigureHotkeys: root.actionTarget.resultType === "application"
-        && appHotkeyProvider.ready && !appHotkeyProvider.error,
-      hotkey: root.actionTarget.resultType === "application"
-        ? appHotkeyProvider.hotkeyFor(root.actionTarget.appId) : "",
+      canConfigureShortcut: globalShortcutProvider.ready && !globalShortcutProvider.error
+        && globalShortcutProvider.canAssign(root.actionTarget),
+      shortcut: globalShortcutProvider.hotkeyFor(root.actionTarget),
       applicationRunning: root.actionTarget.resultType === "application"
         && appRuntimeProvider.matchesTarget(
           root.actionTarget.appId, root.actionTarget.startupClass)
@@ -1826,7 +1826,7 @@ Item {
 
   function openHotkeyEditor() {
     root.hotkeyEditorError = ""
-    root.recordedHotkey = appHotkeyProvider.hotkeyFor(root.actionTarget.appId)
+    root.recordedHotkey = globalShortcutProvider.hotkeyFor(root.actionTarget)
     root.hotkeyEditorOpen = true
     Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
   }
@@ -1843,13 +1843,12 @@ Item {
       root.hotkeyEditorError = "Press the hotkey you want to assign"
       return
     }
-    if (appHotkeyProvider.busy) {
+    if (globalShortcutProvider.busy) {
       root.hotkeyEditorError = "Another hotkey change is still running"
       return
     }
     root.hotkeyEditorError = "Checking current Hyprland bindings…"
-    if (!appHotkeyProvider.requestSet(
-        root.actionTarget.appId, root.actionTarget.title, root.recordedHotkey)) {
+    if (!globalShortcutProvider.requestSet(root.actionTarget, root.recordedHotkey)) {
       if (!root.hotkeyEditorError) root.hotkeyEditorError = "Could not assign this hotkey"
     }
   }
@@ -1908,7 +1907,7 @@ Item {
     root.actionConfirmationMessage = ""
     root.actionConfirmationConfirmText = "Confirm"
     if (canceledAction === "replace-hotkey" && preserveProviderPending !== true) {
-      appHotkeyProvider.cancelPending()
+      globalShortcutProvider.cancelPending()
     }
     if (root.hotkeyEditorOpen) Qt.callLater(function() { hotkeyRecorder.forceActiveFocus() })
     else if (root.actionPanelOpen) Qt.callLater(function() { actionSearchInput.forceActiveFocus() })
@@ -1920,7 +1919,7 @@ Item {
     root.cancelActionConfirmation(true)
     if (actionId === "replace-hotkey") {
       root.hotkeyEditorError = "Applying hotkey…"
-      if (!appHotkeyProvider.confirmPendingConflict()) {
+      if (!globalShortcutProvider.confirmPendingConflict()) {
         root.hotkeyEditorError = "Could not replace the existing binding"
       }
       return
@@ -1976,9 +1975,9 @@ Item {
       root.copyText(target.appId, "Copied application ID")
       return
     }
-    if (selectedActionId === "remove-hotkey") {
-      if (!appHotkeyProvider.requestRemove(target.appId)) {
-        root.showOsd("", "Could not remove this application hotkey")
+    if (selectedActionId === "remove-shortcut") {
+      if (!globalShortcutProvider.requestRemove(target)) {
+        root.showOsd("", "Could not remove this global shortcut")
       }
       return
     }
@@ -2360,7 +2359,7 @@ Item {
       return
     }
     if (row.resultKind === "settings-confirm-remove-shortcut") {
-      if (!appHotkeyProvider.requestRemoveLauncher()) {
+      if (!globalShortcutProvider.requestRemoveLauncher()) {
         root.showOsd("", "Could not remove the launcher shortcut")
       } else {
         root.goBack()
@@ -2816,15 +2815,15 @@ Item {
     }
   }
 
-  AppHotkeyProvider {
-    id: appHotkeyProvider
+  GlobalShortcutProvider {
+    id: globalShortcutProvider
     onEntriesChanged: {
       if (root.opened) root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
     }
     onLauncherHotkeyChanged: if (root.settingsRoute || root.activeRoute === "root")
       root.rebuildResults()
-    onConflictDetected: function(appId, title, hotkey, existingDescription) {
+    onShortcutConflictDetected: function(targetKey, title, hotkey, existingDescription) {
       root.pendingConfirmationAction = "replace-hotkey"
       root.pendingConfirmationTarget = root.actionTarget
       root.actionConfirmationMessage = hotkey + " is currently assigned to “"
@@ -2833,15 +2832,15 @@ Item {
       actionConfirmationDialog.selectedIndex = 0
       root.actionConfirmationOpen = true
     }
-    onHotkeyApplied: function(appId, hotkey, replacedDescription) {
+    onShortcutApplied: function(targetKey, hotkey, replacedDescription) {
       root.closeHotkeyEditor()
-      root.showOsd("󰌌", "Hotkey set: " + hotkey)
+      root.showOsd("󰌌", "Global shortcut set: " + hotkey)
       shortcutBindingProvider.refresh()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
     }
-    onHotkeyRemoved: function(appId) {
-      root.showOsd("󰌌", "Application hotkey removed")
+    onShortcutRemoved: function(targetKey) {
+      root.showOsd("󰌌", "Global shortcut removed")
       shortcutBindingProvider.refresh()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
@@ -2859,13 +2858,13 @@ Item {
       root.onboardingStatusIsError = root.onboardingReplacementBlocked
         || (!!existingDescription && !namedLauncher && !namedMenu)
       if (namedLauncher) {
-        root.onboardingStatusText = "Omalauncher already uses this shortcut. You can keep it."
+        root.onboardingStatusText = "OmaLauncher already uses this shortcut. You can keep it."
       } else if (namedMenu && root.onboardingReplacementBlocked) {
         root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
           + " as its fallback, but it is used by “" + menuFallbackDescription
           + "”. Record a different launcher shortcut."
       } else if (namedMenu) {
-        root.onboardingStatusText = "Recommended — Omalauncher will use " + hotkey
+        root.onboardingStatusText = "Recommended — OmaLauncher will use " + hotkey
           + ", and Omarchy Menu will move to " + menuFallbackHotkey + "."
       } else if (existingDescription) {
         root.onboardingStatusText = "Currently used by “" + existingDescription
@@ -2878,11 +2877,11 @@ Item {
         namedMenu, menuFallbackHotkey, menuFallbackDescription, menuFallbackIsLauncher) {
       if (!root.onboardingOpen) return
       if (namedLauncher) {
-        appHotkeyProvider.cancelPending()
+        globalShortcutProvider.cancelPending()
         root.onboardingExistingLauncherBinding = true
         root.onboardingReplacementPending = false
         root.onboardingStatusIsError = false
-        root.onboardingStatusText = "Omalauncher already uses this shortcut. You can keep it."
+        root.onboardingStatusText = "OmaLauncher already uses this shortcut. You can keep it."
         return
       }
       if (namedMenu) {
@@ -2890,7 +2889,7 @@ Item {
         root.onboardingReplacementBlocked = menuFallbackHotkey === hotkey
           || (!!menuFallbackDescription && !menuFallbackIsLauncher)
         if (root.onboardingReplacementBlocked) {
-          appHotkeyProvider.cancelPending()
+          globalShortcutProvider.cancelPending()
           root.onboardingReplacementPending = false
           root.onboardingStatusIsError = true
           root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
@@ -2901,7 +2900,7 @@ Item {
         root.onboardingReplacementPending = true
         root.onboardingStatusIsError = false
         root.onboardingStatusText = "Confirm to use " + hotkey
-          + " for Omalauncher and move Omarchy Menu to " + menuFallbackHotkey + "."
+          + " for OmaLauncher and move Omarchy Menu to " + menuFallbackHotkey + "."
         return
       }
       root.onboardingReplacementPending = true
@@ -3061,7 +3060,7 @@ Item {
       root.showOsd(installed ? "󰏗" : "", installed
         ? "Optional tools installed"
         : "Optional tool installation did not finish")
-      if (installed) console.info("Omalauncher: optional tool command completed: "
+      if (installed) console.info("OmaLauncher: optional tool command completed: "
         + DependencyModel.commandText(installedPackages))
     }
   }
@@ -3076,7 +3075,7 @@ Item {
       root.defaultSourceSettled = true
       if (root.defaultSourceLoaded) root.guardEvaluationSettled = true
       root.defaultSourceError = "Could not load the Omarchy command menu"
-      console.warn("Omalauncher: default menu load failed: " + error)
+      console.warn("OmaLauncher: default menu load failed: " + error)
     }
     onFileChanged: reload()
   }
@@ -3132,7 +3131,7 @@ Item {
           }
           root.guardsReady = true
           root.guardEvaluationSettled = true
-          console.warn("Omalauncher: menu visibility batch failed; unavailable commands remain hidden")
+          console.warn("OmaLauncher: menu visibility batch failed; unavailable commands remain hidden")
         }
       }
       if (completion.restart) Qt.callLater(root.evaluateGuards)
@@ -3174,7 +3173,7 @@ Item {
       statusIsError: root.onboardingStatusIsError
       recording: root.onboardingRecording
       captureActive: shortcutInhibitor.active
-      busy: appHotkeyProvider.busy || root.onboardingInspectionPending
+      busy: globalShortcutProvider.busy || root.onboardingInspectionPending
         || dependencyInstallProcess.running
       canSkip: root.onboardingCanSkip
       existingLauncherBinding: root.onboardingExistingLauncherBinding
@@ -3228,7 +3227,7 @@ Item {
       border.width: Math.max(1, Style.space(1))
       border.color: root.borderColor
       Accessible.role: Accessible.Dialog
-      Accessible.name: "Omalauncher"
+      Accessible.name: "OmaLauncher"
 
       MouseArea {
         anchors.fill: parent
@@ -3957,7 +3956,7 @@ Item {
           width: footerAboutContent.implicitWidth
           height: parent.height
           Accessible.role: Accessible.Button
-          Accessible.name: root.aboutMenuOpen ? "Close Omalauncher menu" : "Open Omalauncher menu"
+          Accessible.name: root.aboutMenuOpen ? "Close OmaLauncher menu" : "Open OmaLauncher menu"
           Accessible.description: "Press Control Shift K"
           Accessible.onPressAction: root.toggleAboutMenu()
 
@@ -4129,7 +4128,7 @@ Item {
         border.width: Math.max(1, Style.space(1))
         border.color: root.borderColor
         Accessible.role: Accessible.PopupMenu
-        Accessible.name: "Omalauncher menu"
+        Accessible.name: "OmaLauncher menu"
 
         MouseArea {
           anchors.fill: parent
@@ -4147,7 +4146,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: Style.space(16)
             anchors.verticalCenter: parent.verticalCenter
-            text: "Omalauncher"
+            text: "OmaLauncher"
             color: root.foreground
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.title
@@ -4179,7 +4178,7 @@ Item {
           section.criteria: ViewSection.FullString
           focus: root.aboutMenuOpen
           Accessible.role: Accessible.List
-          Accessible.name: "Omalauncher commands"
+          Accessible.name: "OmaLauncher commands"
 
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) {
@@ -4788,7 +4787,7 @@ Item {
           border.color: root.borderColor
           focus: visible
           Accessible.role: Accessible.Dialog
-          Accessible.name: "Set hotkey for " + String(root.actionTarget.title || "")
+          Accessible.name: "Set global shortcut for " + String(root.actionTarget.title || "")
           Accessible.description: "Press a global hotkey, then Enter to save"
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) { root.recordHotkey(event) }
@@ -4807,7 +4806,8 @@ Item {
 
             Text {
               width: parent.width
-              text: appHotkeyProvider.hotkeyFor(root.actionTarget.appId) ? "Change Hotkey" : "Set Hotkey"
+              text: globalShortcutProvider.hotkeyFor(root.actionTarget)
+                ? "Change Global Shortcut" : "Set Global Shortcut"
               color: root.foreground
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.title

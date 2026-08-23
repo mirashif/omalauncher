@@ -26,7 +26,7 @@ rsync -a --exclude=.git --exclude=node_modules "$project_dir/" "$source_repo/"
 git -C "$source_repo" init -q
 git -C "$source_repo" add -A
 git -C "$source_repo" \
-  -c user.name="Omalauncher Smoke Test" \
+  -c user.name="OmaLauncher Smoke Test" \
   -c user.email="smoke-test@localhost" \
   commit -qm "Package smoke test"
 

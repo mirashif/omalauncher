@@ -135,7 +135,7 @@ test("launcher settings are searchable directly from root", () => {
 
   assert.equal(results[0].kind, "settings-open-launcher-hotkey")
   assert.equal(results[0].title, "Change Launcher Shortcut")
-  assert.equal(results[0].breadcrumb, "Omalauncher Settings")
+  assert.equal(results[0].breadcrumb, "OmaLauncher Settings")
   assert.equal(rows.every(row => row.emptyVisible === false), true)
 })
 
@@ -158,7 +158,7 @@ test("about route exposes a product hero and project links", () => {
     "about-open-url",
     "about-open-url"
   ])
-  assert.equal(rows[0].title, "Omalauncher v0.10.0")
+  assert.equal(rows[0].title, "OmaLauncher v0.10.0")
   assert.equal(rows[0].controlType, "hero")
   assert.equal(rows[0].trailingText, "Omarchy 4 · Quickshell 0.3")
   assert.equal(rows[1].title, "Mir Ashif")
@@ -170,7 +170,7 @@ test("about route exposes a product hero and project links", () => {
   assert.equal(rows[3].settingValue, "https://github.com/mirashif/omalauncher/issues")
   assert.equal(rows[4].settingValue, "https://github.com/mirashif/omalauncher/blob/main/LICENSE")
   assert.equal(SettingsModel.isRoute("settings-about"), true)
-  assert.equal(SettingsModel.routeTitle("settings-about"), "About Omalauncher")
+  assert.equal(SettingsModel.routeTitle("settings-about"), "About OmaLauncher")
 })
 
 test("folder input keeps suggestions out of the main settings page", () => {

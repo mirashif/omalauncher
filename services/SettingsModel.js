@@ -123,7 +123,7 @@ function settingsRecords(preferences, context) {
 
   return [
     record("omalauncher:setting-shortcut-page", "settings-open-shortcut", "Launcher Shortcut",
-      "Open Omalauncher from anywhere", "󰌌", 0, "General", "", "", {
+      "Open OmaLauncher from anywhere", "󰌌", 0, "General", "", "", {
         controlType: "navigation",
         trailingText: launcherHotkey || "Not set",
         targetRoute: "settings-shortcut"
@@ -161,7 +161,7 @@ function settingsRecords(preferences, context) {
         controlType: "navigation",
         targetRoute: "settings-reset"
       }),
-    record("omalauncher:setting-about", "settings-open-about", "About Omalauncher",
+    record("omalauncher:setting-about", "settings-open-about", "About OmaLauncher",
       "Project details, compatibility, and links", "󰋼", 30, "About", "", "", {
         controlType: "navigation",
         trailingText: version ? "v" + version.replace(/^v/i, "") : "",
@@ -279,7 +279,7 @@ function shortcutRecords(context) {
   if (text(status.launcherHotkey)) {
     records.push(record("omalauncher:setting-remove-launcher-hotkey",
       "settings-open-remove-launcher-hotkey", "Remove Launcher Shortcut",
-      "Omalauncher will remain available from the bar", "", 20, "Setup", "", "", {
+      "OmaLauncher will remain available from the bar", "", 20, "Setup", "", "", {
         controlType: "navigation",
         trailingText: "Remove",
         targetRoute: "settings-remove-shortcut",
@@ -429,7 +429,7 @@ function rootSearchRecords(preferences, context) {
     var sourceRecord = source[i]
     if (!sourceRecord || sourceRecord.kind === "settings-open-about") continue
     var copy = /** @type {SettingRecord} */ (Object.assign({}, sourceRecord))
-    copy.breadcrumb = "Omalauncher Settings"
+    copy.breadcrumb = "OmaLauncher Settings"
     copy.section = "Launcher Settings"
     copy.emptyVisible = false
     records.push(copy)
@@ -446,7 +446,7 @@ function aboutRecords(context) {
   var version = text(values.productVersion)
   var creatorWebsiteUrl = text(values.creatorWebsiteUrl) || "https://mirashif.com"
   var repositoryUrl = text(values.repositoryUrl) || "https://github.com/mirashif/omalauncher"
-  var productTitle = "Omalauncher" + (version ? " v" + version.replace(/^v/i, "") : "")
+  var productTitle = "OmaLauncher" + (version ? " v" + version.replace(/^v/i, "") : "")
   return [
     record("omalauncher:about-product", "about-copy-details", productTitle,
       "A keyboard-first command palette for Omarchy", "󰋼", 0, "", "about",
@@ -528,7 +528,7 @@ function confirmationRecords(route) {
   var title = shortcut ? "Remove Launcher Shortcut"
     : (providers ? "Reset Provider Settings" : "Reset Personalization")
   var description = shortcut
-    ? "You will need to open Omalauncher from the bar until another shortcut is configured"
+    ? "You will need to open OmaLauncher from the bar until another shortcut is configured"
     : (providers
         ? "Restore provider defaults and remove configured folders and ignore patterns"
         : "Clear favorites, aliases, hidden results, history, and learned ranking")
@@ -603,7 +603,7 @@ function routeTitle(route) {
     "settings-dependencies": "Optional Features",
     "settings-file-search": "File Search",
     "settings-reset": "Data and Reset",
-    "settings-about": "About Omalauncher",
+    "settings-about": "About OmaLauncher",
     "settings-scope": "Add Folder",
     "settings-ignore": "Add Ignore Pattern",
     "settings-remove-shortcut": "Remove Launcher Shortcut",

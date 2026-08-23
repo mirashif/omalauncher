@@ -101,7 +101,7 @@ wait_for_stats() {
     fi
     sleep 0.05
   done
-  fail "Omalauncher diagnostics did not become available"
+  fail "OmaLauncher diagnostics did not become available"
 }
 
 wait_for_stats_matching() {
@@ -137,7 +137,7 @@ wait_for_plugin() {
     fi
     sleep 0.05
   done
-  fail "Omalauncher was not discovered as an enabled plugin"
+  fail "OmaLauncher was not discovered as an enabled plugin"
 }
 
 mkdir -p "$plugin_dir" "$test_home/.config/hypr" "$stub_bin" "$test_omarchy"
@@ -230,7 +230,7 @@ jq -e '
   .stateReady == true
   and .onboarding.visible == true
   and .onboarding.stage == "pending"
-  and .onboarding.accessibleName == "Welcome to Omalauncher"
+  and .onboarding.accessibleName == "Welcome to OmaLauncher"
 ' <<<"$stats" >/dev/null || fail "empty state did not present pending onboarding"
 
 printf '%s\n' '✓ empty state opens Welcome Setup'
@@ -278,8 +278,8 @@ wait_for_stats_matching '
   .launcherOpen == false
   and .onboarding.visible == false
   and .onboarding.status == "verify"
-' "the verification action did not close Omalauncher" >/dev/null
-printf '%s\n' '✓ verification closes Omalauncher'
+' "the verification action did not close OmaLauncher" >/dev/null
+printf '%s\n' '✓ verification closes OmaLauncher'
 demo_pause
 
 ipc shell summon "$plugin_id" '{"source":"hotkey"}' >/dev/null

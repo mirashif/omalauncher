@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "com.mirashif.omalauncher",
-  "name": "Omalauncher",
-  "version": "1.1.0",
+  "name": "OmaLauncher",
+  "version": "1.2.0",
   "author": "Mir Ashif",
   "license": "MIT",
   "description": "A keyboard-first command palette for Omarchy.",
@@ -16,7 +16,7 @@
     "barWidget": "LauncherBar.qml"
   },
   "barWidget": {
-    "displayName": "Omalauncher",
+    "displayName": "OmaLauncher",
     "description": "Open the launcher or jump directly to its settings.",
     "category": "Compositor",
     "allowMultiple": false,

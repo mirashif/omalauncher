@@ -84,7 +84,7 @@ test("settings use location-first headers and route-aware footer guidance", () =
   assert.match(launcher, /function secondaryFooterShortcut\(\)[\s\S]*?root\.settingsRoute[\s\S]*?return "Esc"/)
 })
 
-test("settings and About cannot be personalized through global shortcuts", () => {
+test("settings and About remain excluded from aliases and favorites", () => {
   const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
 
   assert.match(launcher, /function canPersonalizeResult\(row\)/)

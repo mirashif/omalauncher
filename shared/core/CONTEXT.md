@@ -1,6 +1,6 @@
-# Omalauncher Core
+# OmaLauncher Core
 
-Omalauncher Core owns deterministic records and decisions shared by launcher
+OmaLauncher Core owns deterministic records and decisions shared by launcher
 surfaces. It does not fetch remote data or change the installed system.
 
 ## Plugins

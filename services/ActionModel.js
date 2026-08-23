@@ -176,54 +176,56 @@ function actionsForResult(result, context, route) {
 
   if (activeRoute === "configure") {
     var currentAlias = text(state.alias)
-    var currentHotkey = application ? text(state.hotkey) : ""
-    actions.push(action(
-      "set-alias",
-      currentAlias ? "Change Alias" : "Set Alias",
-      currentAlias || resultTitle,
-      "",
-      "󰌌",
-      ["alias", "keyword", "rename", "configure"],
-      0,
-      "Alias",
-      "editor",
-      "alias"
-    ))
-    if (currentAlias) {
+    var currentShortcut = text(state.shortcut)
+    if (state.canConfigureAlias === true) {
       actions.push(action(
-        "remove-alias",
-        "Remove Alias",
-        currentAlias,
+        "set-alias",
+        currentAlias ? "Change Alias" : "Set Alias",
+        currentAlias || resultTitle,
         "",
-        "",
-        ["alias", "remove", "delete", "clear"],
-        1,
-        "Alias"
+        "󰌌",
+        ["alias", "keyword", "rename", "configure"],
+        actions.length,
+        "Alias",
+        "editor",
+        "alias"
       ))
+      if (currentAlias) {
+        actions.push(action(
+          "remove-alias",
+          "Remove Alias",
+          currentAlias,
+          "",
+          "",
+          ["alias", "remove", "delete", "clear"],
+          actions.length,
+          "Alias"
+        ))
+      }
     }
-    if (application && state.canConfigureHotkeys === true) {
+    if (state.canConfigureShortcut === true) {
       actions.push(action(
-        "set-hotkey",
-        currentHotkey ? "Change Hotkey" : "Set Hotkey",
-        currentHotkey || "Launch this application from anywhere",
+        "set-shortcut",
+        currentShortcut ? "Change Global Shortcut" : "Set Global Shortcut",
+        currentShortcut || "Open this result from anywhere",
         "",
         "󰌌",
         ["hotkey", "shortcut", "keyboard", "binding", "configure"],
         actions.length,
-        "Hotkey",
+        "Shortcut",
         "editor",
         "hotkey"
       ))
-      if (currentHotkey) {
+      if (currentShortcut) {
         actions.push(action(
-          "remove-hotkey",
-          "Remove Hotkey",
-          currentHotkey,
+          "remove-shortcut",
+          "Remove Global Shortcut",
+          currentShortcut,
           "",
           "",
           ["hotkey", "shortcut", "remove", "delete", "clear"],
           actions.length,
-          "Hotkey"
+          "Shortcut"
         ))
       }
     }
@@ -246,7 +248,23 @@ function actionsForResult(result, context, route) {
     "Primary"
   ))
 
-  if (hiddenManager || compactToggle || settingsCommand) return actions
+  if (hiddenManager || compactToggle || settingsCommand) {
+    if (state.canConfigureShortcut === true) {
+      actions.push(action(
+        "configure-actions",
+        "Configure Shortcut",
+        state.shortcut ? "Shortcut: " + text(state.shortcut) : "Assign a global shortcut",
+        "",
+        "󰌌",
+        ["configure", "hotkey", "shortcut", "keyboard", "binding"],
+        actions.length,
+        "Configure",
+        "submenu",
+        "configure"
+      ))
+    }
+    return actions
+  }
 
   if (application && state.applicationRunning === true) {
     actions.push(action(
@@ -333,7 +351,11 @@ function actionsForResult(result, context, route) {
     application ? "Configure Application"
       : ((stockCommand || cliCommand) ? "Configure Command" : "Configure Result"),
     state.alias ? "Alias: " + text(state.alias)
-      : (application && state.hotkey ? "Hotkey: " + text(state.hotkey) : "Set a search alias"),
+      : (state.shortcut ? "Shortcut: " + text(state.shortcut)
+        : (state.canConfigureShortcut === true
+          ? (state.canConfigureAlias === true
+            ? "Set an alias or global shortcut" : "Assign a global shortcut")
+          : "Set a search alias")),
     "",
     "",
     ["configure", "alias", "keyword", "hotkey", "shortcut", "settings"],

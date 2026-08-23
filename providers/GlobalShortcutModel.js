@@ -1,13 +1,16 @@
-// Pure helpers for Omarchy/Hyprland per-application hotkeys. The generated
-// block is the only part of bindings.lua that Omalauncher owns.
+// Pure global-shortcut policy and Omarchy/Hyprland binding generation. The
+// generated block is the only part of bindings.lua that OmaLauncher owns.
 
-/** @typedef {import("../types/models").AppHotkeyEntry} AppHotkeyEntry */
-/** @typedef {import("../types/models").AppHotkeyMap} AppHotkeyMap */
+/** @typedef {import("../types/models").GlobalShortcutTarget} GlobalShortcutTarget */
+/** @typedef {import("../types/models").GlobalShortcutEntry} GlobalShortcutEntry */
+/** @typedef {import("../types/models").GlobalShortcutMap} GlobalShortcutMap */
 /** @typedef {import("../types/models").HotkeyMutationRequest} HotkeyMutationRequest */
 
-var BEGIN_MARKER = "-- BEGIN OMALAUNCHER APP HOTKEYS (managed)"
-var END_MARKER = "-- END OMALAUNCHER APP HOTKEYS"
-var LAUNCHER_TITLE = "Omalauncher"
+var BEGIN_MARKER = "-- BEGIN OMALAUNCHER GLOBAL SHORTCUTS (managed)"
+var END_MARKER = "-- END OMALAUNCHER GLOBAL SHORTCUTS"
+var LEGACY_BEGIN_MARKER = "-- BEGIN OMALAUNCHER APP HOTKEYS (managed)"
+var LEGACY_END_MARKER = "-- END OMALAUNCHER APP HOTKEYS"
+var LAUNCHER_TITLE = "OmaLauncher"
 var LAUNCHER_COMMAND = "omarchy-shell shell toggle com.mirashif.omalauncher '{\"source\":\"hotkey\"}'"
 var MENU_TITLE = "Omarchy menu"
 var MENU_COMMAND = "omarchy-menu toggle"
@@ -24,10 +27,234 @@ function isUnknownArray(value) {
   return Array.isArray(value)
 }
 
+/**
+ * @param {unknown} source
+ * @returns {{ begin: number, end: number, beginMarker: string, endMarker: string }}
+ */
+function managedBounds(source) {
+  var text = String(source || "")
+  var markerPairs = [
+    [BEGIN_MARKER, END_MARKER],
+    [LEGACY_BEGIN_MARKER, LEGACY_END_MARKER]
+  ]
+  for (var i = 0; i < markerPairs.length; i++) {
+    var pair = markerPairs[i] || []
+    var beginMarker = String(pair[0] || "")
+    var endMarker = String(pair[1] || "")
+    var begin = text.indexOf(beginMarker)
+    var end = begin < 0 ? -1 : text.indexOf(endMarker, begin + beginMarker.length)
+    if (begin >= 0 && end >= 0) return {
+      begin: begin, end: end, beginMarker: beginMarker, endMarker: endMarker
+    }
+  }
+  return { begin: -1, end: -1, beginMarker: "", endMarker: "" }
+}
+
 /** @param {unknown} value @returns {string} */
 function cleanAppId(value) {
   var id = String(value || "").trim().replace(/\.desktop$/, "")
   return !id || id.indexOf("/") >= 0 || /[\r\n\0]/.test(id) ? "" : id
+}
+
+/** @param {unknown} value @returns {string} */
+function cleanTargetKey(value) {
+  var key = String(value || "").trim()
+  return !key || key.length > 512 || /[\r\n\0]/.test(key) ? "" : key
+}
+
+/** @param {unknown} value @param {string} fallback @returns {string} */
+function cleanTitle(value, fallback) {
+  var title = String(value || "").trim().replace(/[\r\n\t]+/g, " ")
+  if (title.length > 256) title = title.slice(0, 256)
+  return title || fallback
+}
+
+/** @param {unknown} value @returns {string} */
+function cleanPluginId(value) {
+  var id = String(value || "").trim()
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) && id.indexOf("..") < 0 ? id : ""
+}
+
+/** @param {unknown} value @returns {string} */
+function cleanRoute(value) {
+  var route = String(value || "").trim()
+  return route.length <= 512 && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(route)
+    && route.indexOf("..") < 0 ? route : ""
+}
+
+/** @param {unknown} value @returns {string} */
+function cleanObjectJson(value) {
+  try {
+    /** @type {unknown} */
+    var parsed = typeof value === "string" ? JSON.parse(value || "{}") : value
+    if (!isRecord(parsed)) return ""
+    var encoded = JSON.stringify(parsed)
+    return encoded.length <= 4096 ? encoded : ""
+  } catch (error) { return "" }
+}
+
+/** @param {unknown} value @returns {string[]} */
+function cleanArgv(value) {
+  var source = value
+  if (typeof source === "string") {
+    try { source = JSON.parse(source) } catch (error) { return [] }
+  }
+  if (!isUnknownArray(source) || source.length === 0 || source.length > 32) return []
+  /** @type {string[]} */
+  var argv = []
+  for (var i = 0; i < source.length; i++) {
+    var argument = source[i]
+    if (typeof argument !== "string" || !argument || argument.length > 512
+        || /[\r\n\0]/.test(argument)) return []
+    argv.push(argument)
+  }
+  return argv[0] === "omarchy" ? argv : []
+}
+
+/** @param {unknown} value @returns {string} */
+function cleanLauncherPayload(value) {
+  var encoded = cleanObjectJson(value)
+  if (!encoded) return ""
+  /** @type {unknown} */
+  var parsedPayload
+  try { parsedPayload = JSON.parse(encoded) } catch (error) { return "" }
+  if (!isRecord(parsedPayload)) return ""
+  var payload = parsedPayload
+  var keys = Object.keys(payload).sort()
+  var route = cleanRoute(payload["route"])
+  var query = String(payload["query"] || "")
+  var routeAllowed = route === "files" || route === "hidden"
+    || /^settings(?:-[A-Za-z0-9-]+)?$/.test(route)
+    || /^plugins(?:-(?:installed|available|built-in)|-detail:[A-Za-z0-9._-]+)?$/.test(route)
+  var queryAllowed = query === "= "
+  if ((!routeAllowed && !queryAllowed) || (route && query)) return ""
+  var expectedKeys = route ? ["route", "source"] : ["query", "source"]
+  if (keys.join("\u0000") !== expectedKeys.sort().join("\u0000")) return ""
+  if (String(payload["source"] || "") !== "hotkey") return ""
+  return JSON.stringify(route ? { source: "hotkey", route: route } : { source: "hotkey", query: query })
+}
+
+/**
+ * @param {GlobalShortcutTarget | null | undefined} value
+ * @returns {GlobalShortcutTarget | null}
+ */
+function normalizeTarget(value) {
+  var source = value || /** @type {GlobalShortcutTarget} */ ({})
+  var key = cleanTargetKey(source.key)
+  var kind = String(source.kind || "")
+  var title = cleanTitle(source.title, key)
+  if (!key || !title) return null
+  if (kind === "application") {
+    var appId = cleanAppId(source.appId)
+    return appId ? { key: key, kind: "application", title: title, appId: appId } : null
+  }
+  if (kind === "shell-plugin") {
+    var pluginId = cleanPluginId(source.pluginId)
+    var payloadJson = cleanObjectJson(source.payloadJson)
+    return pluginId && payloadJson
+      ? { key: key, kind: "shell-plugin", title: title,
+        pluginId: pluginId, payloadJson: payloadJson } : null
+  }
+  if (kind === "shell-ipc") {
+    return Array.isArray(source.argv)
+      && source.argv.join("\u0000") === "omarchy-shell\u0000notifications\u0000showHistory"
+      ? { key: key, kind: "shell-ipc", title: title,
+        argv: ["omarchy-shell", "notifications", "showHistory"] } : null
+  }
+  if (kind === "menu") {
+    var route = cleanRoute(source.route)
+    return route ? { key: key, kind: "menu", title: title, route: route } : null
+  }
+  if (kind === "cli") {
+    var argv = cleanArgv(source.argv)
+    return argv.length > 0 ? { key: key, kind: "cli", title: title, argv: argv } : null
+  }
+  if (kind === "launcher") {
+    var launcherPayload = cleanLauncherPayload(source.payloadJson)
+    return launcherPayload ? { key: key, kind: "launcher", title: title,
+      payloadJson: launcherPayload } : null
+  }
+  return null
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} result
+ * @returns {GlobalShortcutTarget | null}
+ */
+function targetForResult(result) {
+  var row = result || {}
+  var key = cleanTargetKey(row["resultId"] || row["id"])
+  var type = String(row["resultType"] || row["type"] || "")
+  var kind = String(row["resultKind"] || row["kind"] || "")
+  var title = cleanTitle(row["title"], key)
+  if (!key || !title) return null
+
+  if (type === "application") return normalizeTarget({
+    key: key, kind: "application", title: title, appId: String(row["appId"] || "")
+  })
+  if (type === "shell-plugin" && String(row["executionKind"] || "") === "shell-plugin") {
+    return normalizeTarget({
+      key: key, kind: "shell-plugin", title: title,
+      pluginId: String(row["sourcePluginId"] || ""),
+      payloadJson: String(row["shellPayloadJson"] || "{}")
+    })
+  }
+  if (type === "shell-plugin" && String(row["executionKind"] || "") === "shell-ipc") {
+    /** @type {unknown} */
+    var shellArgv
+    try { shellArgv = JSON.parse(String(row["commandArgvJson"] || "[]")) } catch (error) { return null }
+    if (!isUnknownArray(shellArgv) || shellArgv.length !== 3
+        || shellArgv[0] !== "omarchy-shell" || shellArgv[1] !== "notifications"
+        || shellArgv[2] !== "showHistory") return null
+    return normalizeTarget({
+      key: key, kind: "shell-ipc", title: title,
+      argv: ["omarchy-shell", "notifications", "showHistory"]
+    })
+  }
+  if (type === "omarchy-command") return normalizeTarget({
+    key: key, kind: "menu", title: title,
+    route: String(row["targetRoute"] || row["route"] || "")
+  })
+  if (type === "omarchy-cli" && String(row["executionKind"] || "") === "cli-direct"
+      && row["requiresSudo"] !== true) {
+    var cliArgv = cleanArgv(row["commandArgvJson"])
+    if (cliArgv.length === 0 || String(row["commandRoute"] || "") !== cliArgv.join(" ")) return null
+    return normalizeTarget({ key: key, kind: "cli", title: title, argv: cliArgv })
+  }
+
+  var route = ""
+  var query = ""
+  if (kind === "plugin-open-route" || kind === "plugin-open-details" || kind === "open-plugins")
+    route = String(row["targetRoute"] || row["route"] || "plugins")
+  else if (kind === "open-settings") route = "settings"
+  else if (kind === "open-files") route = "files"
+  else if (kind === "manage-hidden") route = "hidden"
+  else if (kind === "open-calculator") query = "= "
+  else if (kind.indexOf("settings-open-") === 0)
+    route = String(row["targetRoute"] || row["route"] || "")
+  if (!route && !query) return null
+  return normalizeTarget({
+    key: key, kind: "launcher", title: title,
+    payloadJson: JSON.stringify(route
+      ? { source: "hotkey", route: route } : { source: "hotkey", query: query })
+  })
+}
+
+/** @param {GlobalShortcutTarget | null | undefined} value @returns {string} */
+function commandForTarget(value) {
+  var target = normalizeTarget(value)
+  if (!target) return ""
+  if (target.kind === "application")
+    return "uwsm-app -- gtk-launch " + shellQuote(String(target.appId || "") + ".desktop")
+  if (target.kind === "shell-plugin")
+    return "omarchy-shell shell summon " + shellQuote(target.pluginId)
+      + " " + shellQuote(target.payloadJson)
+  if (target.kind === "menu") return "omarchy menu summon " + shellQuote(target.route)
+  if (target.kind === "launcher")
+    return "omarchy-shell shell summon com.mirashif.omalauncher " + shellQuote(target.payloadJson)
+  if (target.kind === "shell-ipc" || target.kind === "cli")
+    return (target.argv || []).map(shellQuote).join(" ")
+  return ""
 }
 
 /** @param {unknown} value @returns {string} */
@@ -109,30 +336,35 @@ function shellQuote(value) {
   return "'" + String(value || "").replace(/'/g, "'\\''") + "'"
 }
 
-/** @param {unknown} source @returns {AppHotkeyMap} */
+/** @param {unknown} source @returns {GlobalShortcutMap} */
 function parseManagedEntries(source) {
   var text = String(source || "")
-  var begin = text.indexOf(BEGIN_MARKER)
-  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
-  /** @type {AppHotkeyMap} */
+  var bounds = managedBounds(text)
+  /** @type {GlobalShortcutMap} */
   var entries = {}
-  if (begin < 0 || end < 0) return entries
-  var lines = text.slice(begin + BEGIN_MARKER.length, end).split(/\r?\n/)
+  if (bounds.begin < 0 || bounds.end < 0) return entries
+  var lines = text.slice(
+    bounds.begin + bounds.beginMarker.length, bounds.end).split(/\r?\n/)
   for (var i = 0; i < lines.length; i++) {
-    var match = /^\s*-- app: (\{.*\})\s*$/.exec(lines[i] || "")
-    if (!match) continue
+    var shortcutMatch = /^\s*-- shortcut: (\{.*\})\s*$/.exec(lines[i] || "")
+    var legacyMatch = /^\s*-- app: (\{.*\})\s*$/.exec(lines[i] || "")
+    if (!shortcutMatch && !legacyMatch) continue
     try {
+      var metadataJson = String((shortcutMatch ? shortcutMatch[1]
+        : (legacyMatch ? legacyMatch[1] : "{}")) || "{}")
       /** @type {unknown} */
-      var parsed = JSON.parse(match[1] || "{}")
+      var parsed = JSON.parse(metadataJson)
       if (!isRecord(parsed)) continue
-      var appId = cleanAppId(parsed["id"])
       var hotkey = normalizeHotkey(parsed["hotkey"])
-      if (!appId || !safeGlobalHotkey(hotkey)) continue
-      entries[appId] = {
-        appId: appId,
-        title: String(parsed["title"] || appId).trim() || appId,
-        hotkey: hotkey
-      }
+      var target = legacyMatch ? normalizeTarget({
+        key: "application:" + cleanAppId(parsed["id"]),
+        kind: "application",
+        title: String(parsed["title"] || parsed["id"] || ""),
+        appId: String(parsed["id"] || "")
+      }) : normalizeTarget(/** @type {GlobalShortcutTarget} */ (
+        /** @type {unknown} */ (parsed)))
+      if (!target || !safeGlobalHotkey(hotkey)) continue
+      entries = setEntry(entries, target, hotkey)
     } catch (error) { }
   }
   return entries
@@ -141,10 +373,10 @@ function parseManagedEntries(source) {
 /** @param {unknown} source @returns {string} */
 function parseManagedLauncherHotkey(source) {
   var text = String(source || "")
-  var begin = text.indexOf(BEGIN_MARKER)
-  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
-  if (begin < 0 || end < 0) return ""
-  var lines = text.slice(begin + BEGIN_MARKER.length, end).split(/\r?\n/)
+  var bounds = managedBounds(text)
+  if (bounds.begin < 0 || bounds.end < 0) return ""
+  var lines = text.slice(
+    bounds.begin + bounds.beginMarker.length, bounds.end).split(/\r?\n/)
   for (var i = 0; i < lines.length; i++) {
     var match = /^\s*-- launcher: (\{.*\})\s*$/.exec(lines[i] || "")
     if (!match) continue
@@ -162,10 +394,10 @@ function parseManagedLauncherHotkey(source) {
 /** @param {unknown} source @returns {string} */
 function parseManagedMenuHotkey(source) {
   var text = String(source || "")
-  var begin = text.indexOf(BEGIN_MARKER)
-  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
-  if (begin < 0 || end < 0) return ""
-  var lines = text.slice(begin + BEGIN_MARKER.length, end).split(/\r?\n/)
+  var bounds = managedBounds(text)
+  if (bounds.begin < 0 || bounds.end < 0) return ""
+  var lines = text.slice(
+    bounds.begin + bounds.beginMarker.length, bounds.end).split(/\r?\n/)
   for (var i = 0; i < lines.length; i++) {
     var match = /^\s*-- menu: (\{.*\})\s*$/.exec(lines[i] || "")
     if (!match) continue
@@ -180,53 +412,52 @@ function parseManagedMenuHotkey(source) {
   return ""
 }
 
-/** @param {AppHotkeyMap | null | undefined} entries @returns {AppHotkeyMap} */
+/** @param {GlobalShortcutMap | null | undefined} entries @returns {GlobalShortcutMap} */
 function copyEntries(entries) {
-  /** @type {AppHotkeyMap} */
+  /** @type {GlobalShortcutMap} */
   var copy = {}
   var source = entries || {}
   var ids = Object.keys(source)
   for (var i = 0; i < ids.length; i++) {
     var entry = source[ids[i] || ""]
-    if (entry) copy[entry.appId] = {
-      appId: entry.appId,
-      title: entry.title,
-      hotkey: entry.hotkey
-    }
+    if (!entry) continue
+    var target = normalizeTarget(entry)
+    var hotkey = entry ? normalizeHotkey(entry.hotkey) : ""
+    if (target && safeGlobalHotkey(hotkey))
+      copy[target.key] = Object.assign({}, target, { hotkey: hotkey })
   }
   return copy
 }
 
 /**
- * @param {AppHotkeyMap | null | undefined} entries
- * @param {unknown} appId
- * @param {unknown} title
+ * @param {GlobalShortcutMap | null | undefined} entries
+ * @param {GlobalShortcutTarget | null | undefined} target
  * @param {unknown} hotkey
- * @returns {AppHotkeyMap}
+ * @returns {GlobalShortcutMap}
  */
-function setEntry(entries, appId, title, hotkey) {
-  var id = cleanAppId(appId)
+function setEntry(entries, target, hotkey) {
+  var normalized = normalizeTarget(target)
   var chord = normalizeHotkey(hotkey)
   var next = copyEntries(entries)
-  if (!id || !safeGlobalHotkey(chord)) return next
+  if (!normalized || !safeGlobalHotkey(chord)) return next
   var ids = Object.keys(next)
   for (var i = 0; i < ids.length; i++) {
     var existing = next[ids[i] || ""]
-    if (existing && (existing.appId === id || existing.hotkey === chord)) delete next[existing.appId]
+    if (existing && (existing.key === normalized.key || existing.hotkey === chord)) delete next[existing.key]
   }
-  next[id] = { appId: id, title: String(title || id).trim() || id, hotkey: chord }
+  next[normalized.key] = Object.assign({}, normalized, { hotkey: chord })
   return next
 }
 
-/** @param {AppHotkeyMap | null | undefined} entries @param {unknown} appId @returns {AppHotkeyMap} */
-function removeEntry(entries, appId) {
+/** @param {GlobalShortcutMap | null | undefined} entries @param {unknown} targetKey @returns {GlobalShortcutMap} */
+function removeEntry(entries, targetKey) {
   var next = copyEntries(entries)
-  var id = cleanAppId(appId)
-  if (id) delete next[id]
+  var key = cleanTargetKey(targetKey)
+  if (key) delete next[key]
   return next
 }
 
-/** @param {AppHotkeyMap | null | undefined} entries @param {unknown} hotkey @returns {AppHotkeyMap} */
+/** @param {GlobalShortcutMap | null | undefined} entries @param {unknown} hotkey @returns {GlobalShortcutMap} */
 function removeHotkey(entries, hotkey) {
   var next = copyEntries(entries)
   var chord = normalizeHotkey(hotkey)
@@ -234,13 +465,13 @@ function removeHotkey(entries, hotkey) {
   var ids = Object.keys(next)
   for (var i = 0; i < ids.length; i++) {
     var entry = next[ids[i] || ""]
-    if (entry && entry.hotkey === chord) delete next[entry.appId]
+    if (entry && entry.hotkey === chord) delete next[entry.key]
   }
   return next
 }
 
 /**
- * @param {AppHotkeyMap | null | undefined} entries
+ * @param {GlobalShortcutMap | null | undefined} entries
  * @param {unknown} [launcherHotkey]
  * @param {unknown} [menuHotkey]
  * @returns {string}
@@ -280,16 +511,17 @@ function managedBlock(entries, launcherHotkey, menuHotkey) {
   for (var i = 0; i < ids.length; i++) {
     var entry = source[ids[i] || ""]
     if (!entry) continue
-    var appId = cleanAppId(entry.appId)
+    var target = normalizeTarget(entry)
     var hotkey = normalizeHotkey(entry.hotkey)
-    if (!appId || !safeGlobalHotkey(hotkey)
+    var command = commandForTarget(target)
+    if (!target || !command || !safeGlobalHotkey(hotkey)
         || hotkey === launcherChord || hotkey === menuChord) continue
-    var title = String(entry.title || appId).trim() || appId
-    lines.push("-- app: " + JSON.stringify({ id: appId, title: title, hotkey: hotkey }))
+    var metadata = Object.assign({}, target, { hotkey: hotkey })
+    lines.push("-- shortcut: " + JSON.stringify(metadata))
     lines.push("hl.unbind(" + luaQuote(hotkey) + ")")
     lines.push("o.bind(" + luaQuote(hotkey) + ", "
-      + luaQuote(title + " (Omalauncher)") + ", "
-      + luaQuote("uwsm-app -- gtk-launch " + shellQuote(appId + ".desktop")) + ")")
+      + luaQuote(target.title + " (OmaLauncher)") + ", "
+      + luaQuote(command) + ")")
   }
   lines.push(END_MARKER)
   return lines.join("\n")
@@ -297,7 +529,7 @@ function managedBlock(entries, launcherHotkey, menuHotkey) {
 
 /**
  * @param {unknown} source
- * @param {AppHotkeyMap | null | undefined} entries
+ * @param {GlobalShortcutMap | null | undefined} entries
  * @param {unknown} [launcherHotkey]
  * @param {unknown} [menuHotkey]
  * @returns {string}
@@ -308,12 +540,11 @@ function updateBindingsSource(source, entries, launcherHotkey, menuHotkey) {
     ? parseManagedLauncherHotkey(text) : normalizeHotkey(launcherHotkey)
   var menuChord = menuHotkey === undefined
     ? parseManagedMenuHotkey(text) : normalizeHotkey(menuHotkey)
-  var begin = text.indexOf(BEGIN_MARKER)
-  var end = begin < 0 ? -1 : text.indexOf(END_MARKER, begin + BEGIN_MARKER.length)
+  var bounds = managedBounds(text)
   var block = managedBlock(entries, launcherChord, menuChord)
-  if (begin >= 0 && end >= 0) {
-    var lineStart = text.lastIndexOf("\n", begin - 1) + 1
-    var lineEnd = text.indexOf("\n", end + END_MARKER.length)
+  if (bounds.begin >= 0 && bounds.end >= 0) {
+    var lineStart = text.lastIndexOf("\n", bounds.begin - 1) + 1
+    var lineEnd = text.indexOf("\n", bounds.end + bounds.endMarker.length)
     if (lineEnd < 0) lineEnd = text.length
     else lineEnd += 1
     var before = text.slice(0, lineStart)
@@ -473,6 +704,10 @@ if (typeof module !== "undefined") {
     MENU_PRIMARY_HOTKEY: MENU_PRIMARY_HOTKEY,
     MENU_FALLBACK_HOTKEY: MENU_FALLBACK_HOTKEY,
     cleanAppId: cleanAppId,
+    cleanTargetKey: cleanTargetKey,
+    normalizeTarget: normalizeTarget,
+    targetForResult: targetForResult,
+    commandForTarget: commandForTarget,
     normalizeHotkey: normalizeHotkey,
     safeGlobalHotkey: safeGlobalHotkey,
     luaQuote: luaQuote,

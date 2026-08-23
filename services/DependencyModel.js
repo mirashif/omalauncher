@@ -66,7 +66,7 @@ function terminalCommand(packages) {
   return [
     "xdg-terminal-exec",
     "--app-id=org.omarchy.terminal",
-    "--title=Install Omalauncher optional tools",
+    "--title=Install OmaLauncher optional tools",
     "omarchy",
     "pkg",
     "add"

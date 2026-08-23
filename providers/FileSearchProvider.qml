@@ -57,12 +57,12 @@ Item {
     if (!root.activeRequest) return
     if (!root.providerEnabled) {
       root.records = [FileSearchModel.statusRecord(
-        "disabled", "File Search Disabled", "Enable it in Omalauncher Settings", "settings-file-search")]
+        "disabled", "File Search Disabled", "Enable it in OmaLauncher Settings", "settings-file-search")]
       return
     }
     if (root.scopes.length === 0) {
       root.records = [FileSearchModel.statusRecord(
-        "unconfigured", "No File Search Scopes", "Add a directory in Omalauncher Settings", "settings-file-search")]
+        "unconfigured", "No File Search Scopes", "Add a directory in OmaLauncher Settings", "settings-file-search")]
       return
     }
     if (!root.backendSettled) {

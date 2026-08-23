@@ -68,4 +68,4 @@ if git -C "$project_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git -C "$project_dir" diff --check
 fi
 
-echo "Omalauncher release checks passed."
+echo "OmaLauncher release checks passed."

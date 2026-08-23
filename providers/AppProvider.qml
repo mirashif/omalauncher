@@ -38,7 +38,7 @@ Item {
       for (var j = 0; j < values.length; j++) entries.push(values[j])
     } catch (sourceError) {
       root.error = "Installed applications are unavailable"
-      console.warn("Omalauncher: DesktopEntries fallback failed: " + sourceError)
+      console.warn("OmaLauncher: DesktopEntries fallback failed: " + sourceError)
     }
     return entries
   }
@@ -52,7 +52,7 @@ Item {
       root.records = []
       root.ready = true
       root.error = "Could not build the application index"
-      console.warn("Omalauncher: application index failed: " + refreshError)
+      console.warn("OmaLauncher: application index failed: " + refreshError)
     }
   }
 
@@ -87,7 +87,7 @@ Item {
       try { entry = DesktopEntries.byId(id + ".desktop") } catch (secondError) { }
     }
     if (!entry || typeof entry.execute !== "function") {
-      console.warn("Omalauncher: application entry disappeared before launch: " + id)
+      console.warn("OmaLauncher: application entry disappeared before launch: " + id)
       root.refresh()
       return false
     }

@@ -51,7 +51,7 @@ test("shell feature index includes summonable panels, overlays, and live panel w
 
 test("disabled, internal, opted-out, and launcher-self plugins are excluded", () => {
   const manifests = {
-    omalauncher: { name: "Omalauncher", kinds: ["menu"] },
+    omalauncher: { name: "OmaLauncher", kinds: ["menu"] },
     "omarchy.menu": { name: "Default Menu", kinds: ["menu"] },
     "example.disabled": { name: "Disabled", kinds: ["panel"] },
     "example.optout": { name: "Private", kinds: ["panel"], omalauncher: false }

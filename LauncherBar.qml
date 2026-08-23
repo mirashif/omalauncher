@@ -18,7 +18,7 @@ BarWidget {
     bar: root.bar
     text: ""
     slotSize: Style.bar.iconSlot
-    tooltipText: "Omalauncher"
+    tooltipText: "OmaLauncher"
     onPressed: function(button) {
       if (!root.bar) return
       if (button === Qt.RightButton) {

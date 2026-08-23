@@ -1,12 +1,12 @@
-# Contributing to Omalauncher
+# Contributing to OmaLauncher
 
-Thanks for helping improve Omalauncher. This guide covers local installation,
+Thanks for helping improve OmaLauncher. This guide covers local installation,
 validation, and the implementation details intentionally kept out of the
 user-facing README.
 
 ## Local development setup
 
-Omalauncher targets Omarchy 4.0 and Quickshell 0.3. Copy a checkout into the
+OmaLauncher targets Omarchy 4.0 and Quickshell 0.3. Copy a checkout into the
 third-party plugin directory:
 
 ```bash
@@ -174,7 +174,7 @@ Personalization is written atomically to:
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
 ```
 
-Omalauncher delegates static menu execution through `omarchy menu summon
+OmaLauncher delegates static menu execution through `omarchy menu summon
 <route>`, shell features through the injected shell API, and reviewed CLI
 execution through literal argument arrays. It does not modify files below
 `/usr/share/omarchy`.

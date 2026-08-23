@@ -637,7 +637,7 @@ function rootSearchRecords() {
   var browse = record("plugin-catalog:search:browse", "plugin-open-route",
     "Omarchy Plugins", "Search, discover, install, remove plugins.",
     "󰀻", -4, "Launcher", "navigation")
-  browse.breadcrumb = "Omalauncher"
+  browse.breadcrumb = "OmaLauncher"
   browse.targetRoute = "plugins"
   browse.route = "plugins"
   browse.parentRoute = "root"
@@ -650,7 +650,7 @@ function rootSearchRecords() {
   var installed = record("plugin-catalog:search:installed", "plugin-open-route",
     "Installed Plugins", "Enable, disable, update, or remove plugins on this system.",
     "󰏖", -3, "Launcher", "navigation")
-  installed.breadcrumb = "Omalauncher › Plugins"
+  installed.breadcrumb = "OmaLauncher › Plugins"
   installed.targetRoute = "plugins-installed"
   installed.route = "plugins-installed"
   installed.exactKeywords = ["plugins"]
@@ -660,7 +660,7 @@ function rootSearchRecords() {
   var discover = record("plugin-catalog:search:discover", "plugin-open-route",
     "Discover Plugins", "Search installable community plugins from the marketplace.",
     "󰚰", -2, "Launcher", "navigation")
-  discover.breadcrumb = "Omalauncher › Plugins"
+  discover.breadcrumb = "OmaLauncher › Plugins"
   discover.targetRoute = "plugins-available"
   discover.route = "plugins-available"
   discover.aliases = ["plugin marketplace", "available plugins"]
@@ -671,7 +671,7 @@ function rootSearchRecords() {
   var builtIn = record("plugin-catalog:search:built-in", "plugin-open-route",
     "Built-in Plugins", "Browse the plugins included with Omarchy.",
     "󰏖", -1, "Launcher", "navigation")
-  builtIn.breadcrumb = "Omalauncher › Plugins"
+  builtIn.breadcrumb = "OmaLauncher › Plugins"
   builtIn.targetRoute = "plugins-built-in"
   builtIn.route = "plugins-built-in"
   builtIn.aliases = ["builtin plugins", "first-party plugins"]

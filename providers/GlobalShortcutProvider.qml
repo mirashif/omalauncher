@@ -1,10 +1,10 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import "AppHotkeyModel.js" as AppHotkeyModel
+import "GlobalShortcutModel.js" as GlobalShortcutModel
 
-// Owns only Omalauncher's marked block in the user's Hyprland bindings file.
-// AppHotkeyModel keeps parsing and mutation generation testable outside QML.
+// Owns only OmaLauncher's marked block in the user's Hyprland bindings file.
+// GlobalShortcutModel keeps parsing and mutation generation testable outside QML.
 Item {
   id: root
   visible: false
@@ -12,14 +12,14 @@ Item {
   readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME")
     || (Quickshell.env("HOME") + "/.config")
   readonly property string bindingsPath: configHome + "/hypr/bindings.lua"
-  readonly property string menuFallbackHotkey: AppHotkeyModel.MENU_FALLBACK_HOTKEY
+  readonly property string menuFallbackHotkey: GlobalShortcutModel.MENU_FALLBACK_HOTKEY
   property var entries: ({})
   property string launcherHotkey: ""
   property string menuHotkey: ""
   property bool ready: false
   property bool busy: false
   property string error: ""
-  property string pendingAppId: ""
+  property var pendingTarget: ({})
   property string pendingTitle: ""
   property string pendingHotkey: ""
   property string pendingMenuHotkey: ""
@@ -27,34 +27,44 @@ Item {
   property string pendingMode: ""
   property string pendingSource: ""
 
-  signal conflictDetected(string appId, string title, string hotkey, string existingDescription)
+  signal shortcutConflictDetected(string targetKey, string title, string hotkey,
+    string existingDescription)
   signal launcherConflictDetected(string hotkey, string existingDescription, bool namedLauncher,
     bool namedMenu, string menuFallbackHotkey, string menuFallbackDescription,
     bool menuFallbackIsLauncher)
   signal launcherHotkeyInspected(string hotkey, string existingDescription, bool namedLauncher,
     bool namedMenu, string menuFallbackHotkey, string menuFallbackDescription,
     bool menuFallbackIsLauncher)
-  signal hotkeyApplied(string appId, string hotkey, string replacedDescription)
-  signal hotkeyRemoved(string appId)
+  signal shortcutApplied(string targetKey, string hotkey, string replacedDescription)
+  signal shortcutRemoved(string targetKey)
   signal launcherHotkeyApplied(string hotkey, string replacedDescription)
   signal launcherHotkeyRemoved()
   signal mutationFailed(string message)
 
   function hydrate(source) {
-    root.entries = AppHotkeyModel.parseManagedEntries(source)
-    root.launcherHotkey = AppHotkeyModel.parseManagedLauncherHotkey(source)
-    root.menuHotkey = AppHotkeyModel.parseManagedMenuHotkey(source)
+    root.entries = GlobalShortcutModel.parseManagedEntries(source)
+    root.launcherHotkey = GlobalShortcutModel.parseManagedLauncherHotkey(source)
+    root.menuHotkey = GlobalShortcutModel.parseManagedMenuHotkey(source)
     root.ready = true
     root.error = ""
   }
 
-  function hotkeyFor(appId) {
-    var entry = root.entries[String(appId || "")]
+  function targetFor(result) {
+    return GlobalShortcutModel.targetForResult(result)
+  }
+
+  function canAssign(result) {
+    return root.targetFor(result) !== null
+  }
+
+  function hotkeyFor(result) {
+    var target = root.targetFor(result)
+    var entry = target ? root.entries[String(target.key || "")] : null
     return entry ? String(entry.hotkey || "") : ""
   }
 
   function clearPending() {
-    root.pendingAppId = ""
+    root.pendingTarget = ({})
     root.pendingTitle = ""
     root.pendingHotkey = ""
     root.pendingMenuHotkey = ""
@@ -67,28 +77,28 @@ Item {
     if (!root.busy) root.clearPending()
   }
 
-  function requestSet(appId, title, hotkey) {
+  function requestSet(result, hotkey) {
     if (root.busy || !root.ready) return false
-    var chord = AppHotkeyModel.normalizeHotkey(hotkey)
-    if (!AppHotkeyModel.safeGlobalHotkey(chord)) {
+    var chord = GlobalShortcutModel.normalizeHotkey(hotkey)
+    if (!GlobalShortcutModel.safeGlobalHotkey(chord)) {
       root.mutationFailed("Hotkeys need Super, Ctrl, or Alt plus one key")
       return false
     }
-    var id = AppHotkeyModel.cleanAppId(appId)
-    if (!id) {
-      root.mutationFailed("This application does not have a usable desktop ID")
+    var target = root.targetFor(result)
+    if (!target) {
+      root.mutationFailed("This result cannot own a global shortcut")
       return false
     }
     if (root.menuHotkey === chord) {
       root.mutationFailed("This shortcut is reserved for Omarchy Menu")
       return false
     }
-    if (root.hotkeyFor(id) === chord) {
-      root.hotkeyApplied(id, chord, "")
+    if (root.hotkeyFor(result) === chord) {
+      root.shortcutApplied(String(target.key || ""), chord, "")
       return true
     }
-    root.pendingAppId = id
-    root.pendingTitle = String(title || id)
+    root.pendingTarget = target
+    root.pendingTitle = String(target.title || target.key || "Result")
     root.pendingHotkey = chord
     root.pendingConflict = ""
     root.pendingMode = "set"
@@ -100,8 +110,8 @@ Item {
 
   function inspectLauncherHotkey(hotkey) {
     if (root.busy || availabilityCheck.running) return false
-    var chord = AppHotkeyModel.normalizeHotkey(hotkey)
-    if (!AppHotkeyModel.safeGlobalHotkey(chord)) {
+    var chord = GlobalShortcutModel.normalizeHotkey(hotkey)
+    if (!GlobalShortcutModel.safeGlobalHotkey(chord)) {
       root.mutationFailed("Hotkeys need Super, Ctrl, or Alt plus one key")
       return false
     }
@@ -113,8 +123,8 @@ Item {
 
   function requestSetLauncher(hotkey) {
     if (root.busy || !root.ready) return false
-    var chord = AppHotkeyModel.normalizeHotkey(hotkey)
-    if (!AppHotkeyModel.safeGlobalHotkey(chord)) {
+    var chord = GlobalShortcutModel.normalizeHotkey(hotkey)
+    if (!GlobalShortcutModel.safeGlobalHotkey(chord)) {
       root.mutationFailed("Hotkeys need Super, Ctrl, or Alt plus one key")
       return false
     }
@@ -126,8 +136,8 @@ Item {
       root.launcherHotkeyApplied(chord, "")
       return true
     }
-    root.pendingAppId = ""
-    root.pendingTitle = AppHotkeyModel.LAUNCHER_TITLE
+    root.pendingTarget = ({})
+    root.pendingTitle = GlobalShortcutModel.LAUNCHER_TITLE
     root.pendingHotkey = chord
     root.pendingConflict = ""
     root.pendingMode = "set-launcher"
@@ -139,15 +149,15 @@ Item {
 
   function requestReplaceMenuWithLauncher(hotkey, menuHotkey) {
     if (root.busy || !root.ready) return false
-    var chord = AppHotkeyModel.normalizeHotkey(hotkey)
-    var fallback = AppHotkeyModel.normalizeHotkey(menuHotkey)
-    if (!AppHotkeyModel.safeGlobalHotkey(chord)
-        || !AppHotkeyModel.safeGlobalHotkey(fallback) || chord === fallback) {
+    var chord = GlobalShortcutModel.normalizeHotkey(hotkey)
+    var fallback = GlobalShortcutModel.normalizeHotkey(menuHotkey)
+    if (!GlobalShortcutModel.safeGlobalHotkey(chord)
+        || !GlobalShortcutModel.safeGlobalHotkey(fallback) || chord === fallback) {
       root.mutationFailed("Could not prepare a safe Omarchy Menu shortcut")
       return false
     }
-    root.pendingAppId = ""
-    root.pendingTitle = AppHotkeyModel.LAUNCHER_TITLE
+    root.pendingTarget = ({})
+    root.pendingTitle = GlobalShortcutModel.LAUNCHER_TITLE
     root.pendingHotkey = chord
     root.pendingMenuHotkey = fallback
     root.pendingConflict = ""
@@ -161,62 +171,62 @@ Item {
   function confirmPendingConflict() {
     if (root.busy || (root.pendingMode !== "set" && root.pendingMode !== "set-launcher"
         && root.pendingMode !== "set-launcher-menu")) return false
-    if (root.pendingMode === "set" && !root.pendingAppId) return false
+    if (root.pendingMode === "set" && !String(root.pendingTarget.key || "")) return false
     return root.applySet()
   }
 
   function applySet() {
     var currentSource = bindingsFile.text()
-    var entries = AppHotkeyModel.parseManagedEntries(currentSource)
-    var launcher = AppHotkeyModel.parseManagedLauncherHotkey(currentSource)
-    var menu = AppHotkeyModel.parseManagedMenuHotkey(currentSource)
+    var entries = GlobalShortcutModel.parseManagedEntries(currentSource)
+    var launcher = GlobalShortcutModel.parseManagedLauncherHotkey(currentSource)
+    var menu = GlobalShortcutModel.parseManagedMenuHotkey(currentSource)
     if (root.pendingMode === "set-launcher-menu") {
-      entries = AppHotkeyModel.removeHotkey(entries, root.pendingHotkey)
-      entries = AppHotkeyModel.removeHotkey(entries, root.pendingMenuHotkey)
+      entries = GlobalShortcutModel.removeHotkey(entries, root.pendingHotkey)
+      entries = GlobalShortcutModel.removeHotkey(entries, root.pendingMenuHotkey)
       launcher = root.pendingHotkey
       menu = root.pendingMenuHotkey
     } else if (root.pendingMode === "set-launcher") {
-      entries = AppHotkeyModel.removeHotkey(entries, root.pendingHotkey)
+      entries = GlobalShortcutModel.removeHotkey(entries, root.pendingHotkey)
       launcher = root.pendingHotkey
       menu = ""
     } else {
-      entries = AppHotkeyModel.setEntry(
-        entries, root.pendingAppId, root.pendingTitle, root.pendingHotkey)
+      entries = GlobalShortcutModel.setEntry(entries, root.pendingTarget, root.pendingHotkey)
       if (launcher === root.pendingHotkey) launcher = ""
     }
     return root.applyMutation(
       root.pendingMode, currentSource,
-      AppHotkeyModel.updateBindingsSource(currentSource, entries, launcher, menu))
+      GlobalShortcutModel.updateBindingsSource(currentSource, entries, launcher, menu))
   }
 
-  function requestRemove(appId) {
+  function requestRemove(result) {
     if (root.busy || !root.ready) return false
-    var id = AppHotkeyModel.cleanAppId(appId)
-    if (!id || !root.hotkeyFor(id)) return false
-    root.pendingAppId = id
-    root.pendingTitle = ""
+    var target = root.targetFor(result)
+    if (!target || !root.hotkeyFor(result)) return false
+    root.pendingTarget = target
+    root.pendingTitle = String(target.title || target.key || "")
     root.pendingHotkey = ""
     root.pendingConflict = ""
     var currentSource = bindingsFile.text()
     return root.applyMutation("remove", currentSource,
-      AppHotkeyModel.updateBindingsSource(currentSource,
-        AppHotkeyModel.removeEntry(AppHotkeyModel.parseManagedEntries(currentSource), id)))
+      GlobalShortcutModel.updateBindingsSource(currentSource,
+        GlobalShortcutModel.removeEntry(
+          GlobalShortcutModel.parseManagedEntries(currentSource), target.key)))
   }
 
   function requestRemoveLauncher() {
     if (root.busy || !root.ready || !root.launcherHotkey) return false
-    root.pendingAppId = ""
-    root.pendingTitle = AppHotkeyModel.LAUNCHER_TITLE
+    root.pendingTarget = ({})
+    root.pendingTitle = GlobalShortcutModel.LAUNCHER_TITLE
     root.pendingHotkey = root.launcherHotkey
     root.pendingConflict = ""
     var currentSource = bindingsFile.text()
     return root.applyMutation("remove-launcher", currentSource,
-      AppHotkeyModel.updateBindingsSource(currentSource,
-        AppHotkeyModel.parseManagedEntries(currentSource), "", ""))
+      GlobalShortcutModel.updateBindingsSource(currentSource,
+        GlobalShortcutModel.parseManagedEntries(currentSource), "", ""))
   }
 
   function applyMutation(mode, expectedSource, source) {
-    var request = AppHotkeyModel.mutationRequest(root.bindingsPath, expectedSource, source)
+    var request = GlobalShortcutModel.mutationRequest(root.bindingsPath, expectedSource, source)
     if (!request.active) {
       root.mutationFailed("Could not prepare the Hyprland binding update")
       root.clearPending()
@@ -259,15 +269,15 @@ Item {
         root.clearPending()
         return
       }
-      var conflict = AppHotkeyModel.conflictDescription(conflictCheckOutput.text, root.pendingHotkey)
-      var namedLauncher = AppHotkeyModel.isNamedLauncherBinding(
+      var conflict = GlobalShortcutModel.conflictDescription(conflictCheckOutput.text, root.pendingHotkey)
+      var namedLauncher = GlobalShortcutModel.isNamedLauncherBinding(
         conflictCheckOutput.text, root.pendingHotkey)
-      var namedMenu = AppHotkeyModel.isNamedMenuBinding(
+      var namedMenu = GlobalShortcutModel.isNamedMenuBinding(
         conflictCheckOutput.text, root.pendingHotkey)
-      var fallback = root.pendingMenuHotkey || AppHotkeyModel.MENU_FALLBACK_HOTKEY
-      var fallbackConflict = AppHotkeyModel.externalConflictDescription(
+      var fallback = root.pendingMenuHotkey || GlobalShortcutModel.MENU_FALLBACK_HOTKEY
+      var fallbackConflict = GlobalShortcutModel.externalConflictDescription(
         conflictCheckOutput.text, fallback, root.launcherHotkey, root.menuHotkey)
-      var fallbackIsLauncher = AppHotkeyModel.isNamedLauncherBinding(
+      var fallbackIsLauncher = GlobalShortcutModel.isNamedLauncherBinding(
         conflictCheckOutput.text, fallback)
 
       if (root.pendingMode === "set-launcher-menu") {
@@ -297,7 +307,8 @@ Item {
           root.launcherConflictDetected(root.pendingHotkey, conflict, namedLauncher,
             namedMenu, fallback, fallbackConflict, fallbackIsLauncher)
         } else {
-          root.conflictDetected(root.pendingAppId, root.pendingTitle, root.pendingHotkey, conflict)
+          root.shortcutConflictDetected(String(root.pendingTarget.key || ""),
+            root.pendingTitle, root.pendingHotkey, conflict)
         }
         return
       }
@@ -320,15 +331,15 @@ Item {
       }
       root.launcherHotkeyInspected(
         chord,
-        AppHotkeyModel.conflictDescription(availabilityCheckOutput.text, chord),
-        AppHotkeyModel.isNamedLauncherBinding(availabilityCheckOutput.text, chord),
-        AppHotkeyModel.isNamedMenuBinding(availabilityCheckOutput.text, chord),
-        AppHotkeyModel.MENU_FALLBACK_HOTKEY,
-        AppHotkeyModel.externalConflictDescription(
-          availabilityCheckOutput.text, AppHotkeyModel.MENU_FALLBACK_HOTKEY,
+        GlobalShortcutModel.conflictDescription(availabilityCheckOutput.text, chord),
+        GlobalShortcutModel.isNamedLauncherBinding(availabilityCheckOutput.text, chord),
+        GlobalShortcutModel.isNamedMenuBinding(availabilityCheckOutput.text, chord),
+        GlobalShortcutModel.MENU_FALLBACK_HOTKEY,
+        GlobalShortcutModel.externalConflictDescription(
+          availabilityCheckOutput.text, GlobalShortcutModel.MENU_FALLBACK_HOTKEY,
           root.launcherHotkey, root.menuHotkey),
-        AppHotkeyModel.isNamedLauncherBinding(
-          availabilityCheckOutput.text, AppHotkeyModel.MENU_FALLBACK_HOTKEY))
+        GlobalShortcutModel.isNamedLauncherBinding(
+          availabilityCheckOutput.text, GlobalShortcutModel.MENU_FALLBACK_HOTKEY))
     }
   }
 
@@ -341,7 +352,7 @@ Item {
     onExited: function(exitCode, exitStatus) {
       root.busy = false
       var mode = root.pendingMode
-      var appId = root.pendingAppId
+      var targetKey = String(root.pendingTarget.key || "")
       var hotkey = root.pendingHotkey
       var conflict = root.pendingConflict
       if (exitCode !== 0 || exitStatus !== 0) {
@@ -355,11 +366,11 @@ Item {
       root.hydrate(root.pendingSource)
       root.clearPending()
       bindingsFile.reload()
-      if (mode === "remove") root.hotkeyRemoved(appId)
+      if (mode === "remove") root.shortcutRemoved(targetKey)
       else if (mode === "remove-launcher") root.launcherHotkeyRemoved()
       else if (mode === "set-launcher" || mode === "set-launcher-menu")
         root.launcherHotkeyApplied(hotkey, conflict)
-      else root.hotkeyApplied(appId, hotkey, conflict)
+      else root.shortcutApplied(targetKey, hotkey, conflict)
     }
   }
 }

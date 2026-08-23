@@ -83,7 +83,7 @@ test("an installed application outranks commands for an exact desktop keyword", 
   )
 })
 
-test("root search puts Omalauncher plugin navigation first for plugin and plugins", () => {
+test("root search puts OmaLauncher plugin navigation first for plugin and plugins", () => {
   const parsedMenu = MenuIndex.parseMenuJsonc(`{
     "setup": { "label": "Setup" },
     "setup.plugin": {

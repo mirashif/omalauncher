@@ -1,27 +1,27 @@
-# Omalauncher
+# OmaLauncher
 
 ## Omarchy Plugins — search, discover, install, remove plugins
 
-Omalauncher puts Omarchy Plugins first, then brings apps, nested menus, shell
+OmaLauncher puts Omarchy Plugins first, then brings apps, nested menus, shell
 features, and the CLI catalog into one keyboard-first search. Type what you
 mean—such as `plugins`, `clipboard`, or `browser default`—without remembering
 where it lives.
 
-**Built for Omarchy 4 · Current release: v1.1.0**
+**Built for Omarchy 4 · Current release: v1.2.0**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
 
-![Omalauncher touring plugin discovery, unified shell search, calculation, file actions, and application controls](assets/omalauncher-demo.gif)
+![OmaLauncher touring plugin shortcuts, unified shell search, calculation, file actions, and application controls](assets/omalauncher-demo.gif)
 
-_Search, discover, install, remove plugins—and search live Omarchy surfaces,
-calculate, work with files, and control applications without leaving the
-launcher._
+_Search, discover, install, remove plugins; assign global shortcuts; search
+live Omarchy surfaces; calculate; work with files; and control applications
+without leaving the launcher._
 
-## Why Omalauncher?
+## Why OmaLauncher?
 
 Omarchy provides hundreds of useful actions, but finding one can mean
-remembering a submenu, shortcut, panel, or terminal route. Omalauncher searches
+remembering a submenu, shortcut, panel, or terminal route. OmaLauncher searches
 applications, commands, and summonable shell features together.
 
 | Type what you remember | Find what you need |
@@ -47,11 +47,14 @@ when they can be used on the current system.
   every command lives in Omarchy.
 - **Make results yours.** Favorite and reorder important items, create your own
   search aliases, hide distractions, and recover hidden results at any time.
+- **Make stable actions instant.** Assign, change, or remove global shortcuts
+  for applications, shell features, Omarchy menu entries, safe direct CLI
+  commands, and launcher or plugin navigation.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
-- **See shortcuts before you act.** Results with an active Omarchy or
-  application hotkey show that chord in the list; numbered activation hints
-  remain on rows without an assigned global shortcut.
+- **See shortcuts before you act.** Results with an active Omarchy shortcut or
+  an OmaLauncher-managed global shortcut show that chord in the list; numbered
+  activation hints remain on rows without an assigned shortcut.
 - **Open it your way.** Use the Omarchy bar icon or choose a global shortcut
   during welcome setup.
 - **Get useful defaults.** An empty search shows favorites and recent items
@@ -80,14 +83,14 @@ The catalog hub shows live installed, discoverable, and built-in totals. It
 also surfaces recently added community plugins and keeps management actions
 available when the remote registry is offline.
 
-![Omalauncher's integrated plugin catalog with installed, discoverable, and built-in libraries](assets/plugin-catalog.png)
+![OmaLauncher's integrated plugin catalog with installed, discoverable, and built-in libraries](assets/plugin-catalog.png)
 
 ### Installed applications come first
 
 In this live Omarchy session, searching `vscode` puts the installed application
 first while keeping the related setup and CLI routes one shortcut away.
 
-![A live Omalauncher search for vscode with Visual Studio Code ranked before the related Omarchy command and CLI route](assets/real-world-vscode-search.png)
+![A live OmaLauncher search for vscode with Visual Studio Code ranked before the related Omarchy command and CLI route](assets/real-world-vscode-search.png)
 
 ### Control running applications
 
@@ -105,6 +108,21 @@ before anything runs.
 
 ![Searching for Clipboard shows the live shell overlay, the related Omarchy menu command, and the Omarchy CLI Share route](assets/shell-feature-search.png)
 
+### Give any stable action a global shortcut
+
+Open a result's Action Panel, choose **Configure**, then **Set Global
+Shortcut**. The same editor works for applications, shell features, static
+Omarchy menu entries, reviewed direct CLI commands, and launcher routes such as
+Settings, Files, and plugin pages. Existing assignments can be changed or
+removed from the same place.
+
+![Omarchy Plugins in Root Search with its Set Global Shortcut action](assets/personalization.png)
+
+OmaLauncher only owns the additional shortcuts it creates. Existing Omarchy
+shortcuts remain inherited and read-only. Transient file and calculator
+results, status rows, privileged or argument-taking CLI commands, and
+destructive plugin lifecycle actions intentionally cannot own a shortcut.
+
 ### Find local files without searching everywhere
 
 File search stays inside folders you explicitly choose. The Action Panel can
@@ -116,7 +134,7 @@ open the selected file, reveal it in the file manager, or copy its full path.
 
 Expressions beginning with `=` return a result that can be copied immediately.
 
-![Omalauncher calculating 12 times 8 and returning 96](assets/calculator.png)
+![OmaLauncher calculating 12 times 8 and returning 96](assets/calculator.png)
 
 ### Start with what matters to you
 
@@ -125,7 +143,7 @@ and commands. Number badges make the first ten results directly accessible
 from the keyboard. When a result already has a global shortcut—such as
 Clipboard's `SUPER + CTRL + V`—that assigned chord replaces its number badge.
 
-![Omalauncher's home showing recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
+![OmaLauncher's home showing recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
 
 ## More than app search
 
@@ -140,7 +158,7 @@ view is deliberately bounded. **Installed Plugins**, **Discover Plugins**, and
 **Built-in Plugins** are also first-class Root Search results.
 
 When a marketplace listing provides a screenshot, its detail hero shows a
-cached, aspect-preserving preview. Omalauncher fetches that image only after a
+cached, aspect-preserving preview. OmaLauncher fetches that image only after a
 detail route opens; a failed or missing preview falls back to the plugin icon.
 
 Plugin details expose the source repository, author, version, license, and the
@@ -150,7 +168,7 @@ that the repository's current default branch is unchanged. Community plugins
 run unsandboxed, so review the source before installing.
 
 Install, update, and remove actions open Omarchy's interactive flow in a visible
-terminal. Omalauncher never adds `--yes` to those lifecycle commands. Enable
+terminal. OmaLauncher never adds `--yes` to those lifecycle commands. Enable
 and disable use validated literal plugin IDs through Omarchy's own plugin CLI;
 catalog-provided command strings are never executed.
 
@@ -163,7 +181,7 @@ shell registry instead of being maintained as a second hard-coded menu.
 Notification History and the coding-agent picker are included as searchable
 first-class actions as well.
 
-Omalauncher also indexes `omarchy commands --json`. A small reviewed set of
+OmaLauncher also indexes `omarchy commands --json`. A small reviewed set of
 context-free commands can run directly; commands that need arguments,
 privileges, or more context open their `--help` in a terminal. Exact menu and
 shell duplicates appear only once. The CLI catalog, plugin registry, plugin
@@ -174,14 +192,14 @@ the provider retry action reloads them on demand.
 
 Enter an expression such as `= 12 * 8` or `= 10 km to mi`. The answer appears
 as a result and `Enter` copies it. Calculator support uses the optional `qalc`
-command from `libqalculate`; the rest of Omalauncher keeps working when it is
+command from `libqalculate`; the rest of OmaLauncher keeps working when it is
 not installed. Welcome setup and **Settings › Optional Features** can install
 it for you in a visible terminal.
 
 ### Scoped file search
 
 Search for files inside only the folders you choose. Enable the provider in
-`Omalauncher Settings`, add one or more folders, then open **Search Files** or
+`OmaLauncher Settings`, add one or more folders, then open **Search Files** or
 type a query such as `f report.pdf` from Root Search.
 
 File search is off by default, never accepts `/` as a scope, and uses the
@@ -191,7 +209,7 @@ Features** can install `fd` when it is missing.
 
 ### Settings inside the launcher
 
-Search for **Omalauncher Settings** to change the launcher shortcut, rerun
+Search for **OmaLauncher Settings** to change the launcher shortcut, rerun
 welcome setup, configure Compact Mode, numbered result shortcuts, calculator
 and file search, install or recheck optional feature tools, configure folder
 scopes and ignore patterns. Settings and
@@ -199,7 +217,7 @@ personalization resets require confirmation.
 
 ## Install
 
-Omalauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**.
+OmaLauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**.
 
 The required runtime is the standard Omarchy desktop stack: `omarchy`,
 `omarchy-shell`, Quickshell, Hyprland (`hyprctl`), `xdg-open`,
@@ -216,21 +234,21 @@ omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 
 ### 2. Complete welcome setup
 
-Click the Omalauncher search icon on the right side of the bar. Welcome setup
+Click the OmaLauncher search icon on the right side of the bar. Welcome setup
 suggests `SUPER + SPACE`, lets you record another chord, checks current
 Hyprland bindings, and asks explicitly before replacing a conflict. It then
 checks the optional calculator and scoped file-search tools. You can install
 anything missing in a visible terminal, or skip that step and add it later from
 **Settings › Optional Features**. The final step has you close and reopen
-Omalauncher with the shortcut so the setup is verified.
+OmaLauncher with the shortcut so the setup is verified.
 
 The recommended choice replaces the stock Omarchy Menu shortcut atomically:
-Omalauncher takes `SUPER + SPACE` and Omarchy Menu moves to `SUPER + R`. Setup
+OmaLauncher takes `SUPER + SPACE` and Omarchy Menu moves to `SUPER + R`. Setup
 checks that both chords are safe before changing either one, so the stock menu
 is never left without a shortcut. If you choose another available chord,
 existing Omarchy shortcuts stay where they are.
 
-Shortcut changes are written to Omalauncher's marked block in
+Shortcut changes are written to OmaLauncher's marked block in
 `~/.config/hypr/bindings.lua`. The previous file is backed up, Hyprland is
 reloaded and checked for configuration errors, and a failed change is rolled
 back automatically.
@@ -252,14 +270,14 @@ Press your chosen shortcut, type an application or command, and press `Enter`. U
 
 ## How it works
 
-1. Open Omalauncher and start typing.
+1. Open OmaLauncher and start typing.
 2. Applications, menu commands, live shell features, and CLI commands are
    searched together.
 3. The closest textual match wins; recent use helps order equally strong
    matches.
 4. Press `Enter` for the primary action, or `Ctrl+K` for everything else.
 
-Static Omarchy submenus and installed applications open inside Omalauncher.
+Static Omarchy submenus and installed applications open inside OmaLauncher.
 Summonable panels and overlays open through Omarchy Shell. Dynamic providers
 that cannot be reproduced safely—currently Fonts—open in the stock Omarchy
 menu instead.
@@ -272,12 +290,12 @@ These shortcuts cover the everyday search-and-run flow:
 | --- | --- |
 | `Enter` | Open or run the selected result |
 | `Ctrl+K` | Open or close the selected result's Action Panel |
-| `Ctrl+Shift+K` | Open or close the Omalauncher menu |
+| `Ctrl+Shift+K` | Open or close the OmaLauncher menu |
 | `Ctrl+,` | Open Settings |
 | `Ctrl+F` | Add or remove the selected favorite |
 | `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Open results 1–10, including off-screen results |
 | `Shift+Escape` | Return directly to Root Search |
-| `Ctrl+W` | Close Omalauncher immediately |
+| `Ctrl+W` | Close OmaLauncher immediately |
 | `Escape` | Close the current layer, clear search, go back, or close |
 
 <details>
@@ -291,7 +309,7 @@ These shortcuts cover the everyday search-and-run flow:
 | `Ctrl+Shift+,` | Configure the selected result |
 | `Ctrl+Shift+D` | Hide or restore the selected result |
 | `Ctrl+Shift+/` | Open the User Guide |
-| `Ctrl+Enter` | Open the selected static menu command's parent inside Omalauncher |
+| `Ctrl+Enter` | Open the selected static menu command's parent inside OmaLauncher |
 | `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
 | `Ctrl+Up/Down` | Jump between result or action sections |
 | `Ctrl+N/P` | Move to the next or previous result/action |
@@ -302,6 +320,8 @@ These shortcuts cover the everyday search-and-run flow:
 | `Backspace` or `Left` | Leave a submenu when its search is empty |
 
 Right-clicking a result opens the same Action Panel as `Ctrl+K`.
+Choose **Configure** to set, change, or remove its OmaLauncher-managed global
+shortcut when the result has a stable, repeatable action.
 
 </details>
 
@@ -313,6 +333,11 @@ locally at:
 ```text
 ${XDG_STATE_HOME:-~/.local/state}/omalauncher/state.json
 ```
+
+Managed global shortcuts live in one clearly marked block in
+`~/.config/hypr/bindings.lua`. OmaLauncher backs up the file, reloads and
+validates Hyprland, and rolls the change back if validation fails. Existing
+v1.1 application shortcuts migrate without losing their assignments.
 
 This state survives plugin updates and reinstalls. Calculator expressions and
 file results are not added to usage history.
@@ -348,7 +373,7 @@ omarchy restart shell
 
 ## Remove
 
-Remove the launcher shortcut from Omalauncher Settings first, then remove the
+Remove the launcher shortcut from OmaLauncher Settings first, then remove the
 plugin.
 
 ```bash
@@ -358,7 +383,7 @@ omarchy plugin remove com.mirashif.omalauncher
 
 Personalization remains at the state path above so it is available after a
 reinstall. Delete that directory separately only if you want a complete reset.
-Omalauncher never modifies packaged files below `/usr/share/omarchy`.
+OmaLauncher never modifies packaged files below `/usr/share/omarchy`.
 
 ## Troubleshooting
 
@@ -371,7 +396,7 @@ hyprctl reload
 hyprctl configerrors
 ```
 
-If a warning icon appears in Omalauncher, open it for provider-specific details.
+If a warning icon appears in OmaLauncher, open it for provider-specific details.
 Press `Enter` or `Ctrl+R` in that panel to reload applications, menus, shell
 features, the CLI catalog, checks, and launcher state.
 
@@ -411,6 +436,6 @@ features through [GitHub Issues](https://github.com/mirashif/omalauncher/issues)
 
 ## License
 
-Omalauncher is available under the [MIT License](LICENSE). It integrates with
+OmaLauncher is available under the [MIT License](LICENSE). It integrates with
 the installed Omarchy shell and theme APIs but does not redistribute Omarchy's
 packaged files.

@@ -26,7 +26,7 @@ Item {
     var parsed = StateModel.parseStateResult(raw)
     root.snapshot = parsed.state
     root.error = parsed.error
-    if (parsed.error) console.warn("Omalauncher: " + parsed.error + " at " + root.statePath)
+    if (parsed.error) console.warn("OmaLauncher: " + parsed.error + " at " + root.statePath)
     root.loaded = true
   }
 
@@ -160,7 +160,7 @@ Item {
       if (exitCode !== 0 || exitStatus !== 0) {
         root.error = "Favorites and usage history are unavailable"
         root.loaded = true
-        console.warn("Omalauncher: could not create state directory " + root.stateDir + "; using in-memory state")
+        console.warn("OmaLauncher: could not create state directory " + root.stateDir + "; using in-memory state")
         return
       }
       root.directoryReady = true
@@ -181,7 +181,7 @@ Item {
     onSaved: root.error = ""
     onSaveFailed: {
       root.error = "Favorites and usage history could not be saved"
-      console.warn("Omalauncher: state save failed at " + root.statePath)
+      console.warn("OmaLauncher: state save failed at " + root.statePath)
     }
   }
 

@@ -30,7 +30,7 @@ test("launcher shortcuts use exact modifier matching and keep text copy safe", (
   assert.match(launcher, /Qt\.Key_Backtab[\s\S]*?root\.goBack\(\)/)
 })
 
-test("footer provides a flat Omalauncher menu and action controls", () => {
+test("footer provides a flat OmaLauncher menu and action controls", () => {
   const footer = /Rectangle \{\s*id: footer[\s\S]*?\n      Rectangle \{\s*id: aboutMenuPanel/.exec(launcher)
 
   assert.ok(footer)
@@ -44,5 +44,5 @@ test("footer provides a flat Omalauncher menu and action controls", () => {
   assert.doesNotMatch(launcher, /Rectangle \{\s*id: footerControl/)
   assert.match(launcher, /id: aboutMenuPanel/)
   assert.match(launcher, /AboutMenuModel\.records/)
-  assert.match(launcher, /Accessible\.name: "Omalauncher menu"/)
+  assert.match(launcher, /Accessible\.name: "OmaLauncher menu"/)
 })

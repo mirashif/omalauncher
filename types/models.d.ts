@@ -172,9 +172,26 @@ export interface DesktopEntryResolutionRequest {
   command: string[];
 }
 
-export interface AppHotkeyEntry {
-  appId: string;
+export type GlobalShortcutKind =
+  | "application"
+  | "shell-plugin"
+  | "shell-ipc"
+  | "menu"
+  | "cli"
+  | "launcher";
+
+export interface GlobalShortcutTarget {
+  key: string;
+  kind: GlobalShortcutKind;
   title: string;
+  appId?: string;
+  route?: string;
+  pluginId?: string;
+  payloadJson?: string;
+  argv?: string[];
+}
+
+export interface GlobalShortcutEntry extends GlobalShortcutTarget {
   hotkey: string;
 }
 
@@ -203,7 +220,7 @@ export interface AboutMenuRecord {
   target: string;
 }
 
-export type AppHotkeyMap = Record<string, AppHotkeyEntry>;
+export type GlobalShortcutMap = Record<string, GlobalShortcutEntry>;
 
 export interface HotkeyMutationRequest {
   active: boolean;
@@ -400,10 +417,17 @@ export interface ActionInput {
   title?: string;
   description?: string;
   breadcrumb?: string;
+  route?: string;
   parentRoute?: string;
   targetRoute?: string;
   commandRoute?: string;
+  commandArgvJson?: string;
   executionKind?: string;
+  requiresSudo?: boolean;
+  sourcePluginId?: string;
+  shellPayloadJson?: string;
+  settingKey?: string;
+  settingValue?: string;
   calculatorExpression?: string;
   calculatorResult?: string;
   filePath?: string;
@@ -418,10 +442,11 @@ export interface ActionContext {
   favoriteCount?: number;
   alias?: string;
   hidden?: boolean;
+  canConfigureAlias?: boolean;
   canUninstall?: boolean;
   canResolveDesktopEntry?: boolean;
-  canConfigureHotkeys?: boolean;
-  hotkey?: string;
+  canConfigureShortcut?: boolean;
+  shortcut?: string;
   applicationRunning?: boolean;
 }
 

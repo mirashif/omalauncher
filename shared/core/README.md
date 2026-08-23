@@ -1,6 +1,6 @@
-# Omalauncher Core
+# OmaLauncher Core
 
-Pure JavaScript models shared by Omalauncher-family Quickshell plugins.
+Pure JavaScript models shared by OmaLauncher-family Quickshell plugins.
 
 The core has no QML, shell, filesystem, or installation-time dependencies. A
 consumer vendors a tagged version into `shared/core` with `git subtree`, making

@@ -44,7 +44,7 @@ function normalizedDescription(value) {
 
 /**
  * Converts Omarchy's display form (`SUPER CTRL + V`) into the canonical form
- * already used by Omalauncher's hotkey editor (`SUPER + CTRL + V`).
+ * already used by OmaLauncher's hotkey editor (`SUPER + CTRL + V`).
  * @param {unknown} value
  * @returns {string}
  */

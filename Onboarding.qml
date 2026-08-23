@@ -6,7 +6,7 @@ FocusScope {
   id: root
 
   Accessible.role: Accessible.Dialog
-  Accessible.name: "Welcome to Omalauncher"
+  Accessible.name: "Welcome to OmaLauncher"
   Accessible.description: stage === "verify"
     ? "Verify the selected launcher shortcut"
     : (stage === "dependencies"
@@ -98,7 +98,7 @@ FocusScope {
         ? "Your launcher shortcut is ready"
         : (root.dependenciesStage
             ? "Add the features you want"
-            : "Open Omalauncher from anywhere")
+            : "Open OmaLauncher from anywhere")
       color: Color.menu.text
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.title
@@ -110,7 +110,7 @@ FocusScope {
     Text {
       width: parent.width
       text: root.stage === "verify"
-        ? "Close Omalauncher, press the shortcut, and we’ll confirm everything works."
+        ? "Close OmaLauncher, press the shortcut, and we’ll confirm everything works."
         : (root.dependenciesStage
             ? "Install missing tools in a terminal now, or skip and add them later from Settings."
             : "Choose one memorable global shortcut. You can change it later in Settings.")

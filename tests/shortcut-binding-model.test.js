@@ -28,7 +28,7 @@ test("Omarchy display shortcuts parse into canonical chords", () => {
   })
 })
 
-test("shortcut resolution prefers managed app hotkeys and explicit plugin identities", () => {
+test("shortcut resolution prefers managed global shortcuts and explicit plugin identities", () => {
   const bindings = ShortcutBindingModel.parseBindings(sample)
   assert.equal(ShortcutBindingModel.shortcutForResult({
     title: "Clipboard",

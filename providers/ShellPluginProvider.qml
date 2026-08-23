@@ -57,7 +57,7 @@ Item {
       root.records = []
       root.error = "Could not build the shell feature index"
       root.ready = true
-      console.warn("Omalauncher: shell feature index failed: " + refreshError)
+      console.warn("OmaLauncher: shell feature index failed: " + refreshError)
     }
   }
 

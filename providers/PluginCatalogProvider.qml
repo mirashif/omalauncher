@@ -111,7 +111,7 @@ Item {
       var detail = String(catalogStderr.text || "").trim().replace(/\s+/g, " ")
       root.error = parseError || detail.slice(0, 220) || "Could not load the plugin catalog"
       root.rebuildCatalog()
-      console.warn("Omalauncher: plugin catalog refresh failed: " + root.error)
+      console.warn("OmaLauncher: plugin catalog refresh failed: " + root.error)
     }
     root.loading = false
     if (root.pendingRefresh) Qt.callLater(root.refresh)

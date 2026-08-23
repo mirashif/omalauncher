@@ -188,30 +188,69 @@ test("menu links use navigation actions", () => {
   assert.equal(actions[1].description, "Settings")
 })
 
-test("configure submenu exposes alias and application hotkey editing", () => {
+test("configure submenu exposes alias and global shortcut editing", () => {
   const result = {
     resultId: "application:brave-browser",
     resultType: "application",
     title: "Brave"
   }
   const empty = ActionModel.actionsForResult(result, {
-    alias: "", hidden: false, canConfigureHotkeys: true, hotkey: ""
+    alias: "", hidden: false, canConfigureAlias: true,
+    canConfigureShortcut: true, shortcut: ""
   }, "configure")
   const configured = ActionModel.actionsForResult(result, {
-    alias: "bb", hidden: true, canConfigureHotkeys: true, hotkey: "SUPER + B"
+    alias: "bb", hidden: true, canConfigureAlias: true,
+    canConfigureShortcut: true, shortcut: "SUPER + B"
   }, "configure")
 
-  assert.deepEqual(empty.map(action => action.id), ["set-alias", "set-hotkey"])
+  assert.deepEqual(empty.map(action => action.id), ["set-alias", "set-shortcut"])
   assert.equal(empty[0].kind, "editor")
   assert.equal(empty[1].target, "hotkey")
   assert.deepEqual(configured.map(action => action.id), [
-    "set-alias", "remove-alias", "set-hotkey", "remove-hotkey"
+    "set-alias", "remove-alias", "set-shortcut", "remove-shortcut"
   ])
   assert.equal(configured[0].description, "bb")
   const main = ActionModel.actionsForResult(result, { hidden: true })
   const visibilityAction = main.find(action => action.id === "toggle-hidden")
   assert.ok(visibilityAction)
   assert.equal(visibilityAction.title, "Unhide from Search")
+})
+
+test("non-application entries can expose shortcut-only configuration", () => {
+  const result = {
+    resultId: "shell:clipboard",
+    resultType: "shell-plugin",
+    executionKind: "shell-plugin",
+    title: "Clipboard"
+  }
+  const main = ActionModel.actionsForResult(result, {
+    canConfigureAlias: false,
+    canConfigureShortcut: true,
+    shortcut: ""
+  })
+  const configured = ActionModel.actionsForResult(result, {
+    canConfigureAlias: false,
+    canConfigureShortcut: true,
+    shortcut: "SUPER + CTRL + V"
+  }, "configure")
+
+  const configureAction = main.find(action => action.id === "configure-actions")
+  assert.ok(configureAction)
+  assert.equal(configureAction.description, "Assign a global shortcut")
+  assert.deepEqual(configured.map(action => action.id), ["set-shortcut", "remove-shortcut"])
+  assert.equal(configured[0].title, "Change Global Shortcut")
+})
+
+test("launcher navigation can expose global shortcut configuration", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "omalauncher:open-plugins",
+    resultType: "launcher-command",
+    resultKind: "open-plugins",
+    title: "Omarchy Plugins"
+  }, { canConfigureShortcut: true, shortcut: "" })
+
+  assert.deepEqual(actions.map(action => action.id), ["primary", "configure-actions"])
+  assert.equal(actions[1].title, "Configure Shortcut")
 })
 
 test("hidden-result manager exposes only its primary navigation action", () => {

@@ -36,10 +36,10 @@ function records(context) {
   var values = context || {}
   var repositoryUrl = text(values.repositoryUrl) || "https://github.com/mirashif/omalauncher"
   return [
-    record("settings", "Settings", "Customize Omalauncher", "", "Ctrl+,", "General", "route", "settings"),
+    record("settings", "Settings", "Customize OmaLauncher", "", "Ctrl+,", "General", "route", "settings"),
     record("shortcuts", "Keyboard Shortcuts", "View every launcher shortcut", "󰌌", "", "General", "url", repositoryUrl + "#keyboard-shortcuts"),
-    record("guide", "User Guide", "Read the Omalauncher guide", "󰋖", "Ctrl+Shift+/", "Help", "url", repositoryUrl + "#readme"),
-    record("about", "About Omalauncher", "Version, source, and project details", "󰋼", "", "Help", "route", "settings-about"),
+    record("guide", "User Guide", "Read the OmaLauncher guide", "󰋖", "Ctrl+Shift+/", "Help", "url", repositoryUrl + "#readme"),
+    record("about", "About OmaLauncher", "Version, source, and project details", "󰋼", "", "Help", "route", "settings-about"),
     record("report", "Report an Issue", "Open the GitHub issue tracker", "", "", "Help", "url", repositoryUrl + "/issues"),
     record("close", "Close Launcher", "Return to the desktop", "󰅖", "Ctrl+W", "Other", "close", "")
   ]

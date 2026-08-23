@@ -23,7 +23,7 @@ test("terminal installation command is literal, allowlisted, and visible", () =>
   assert.deepEqual(DependencyModel.terminalCommand(["fd", "libqalculate", "malicious; command"]), [
     "xdg-terminal-exec",
     "--app-id=org.omarchy.terminal",
-    "--title=Install Omalauncher optional tools",
+    "--title=Install OmaLauncher optional tools",
     "omarchy",
     "pkg",
     "add",

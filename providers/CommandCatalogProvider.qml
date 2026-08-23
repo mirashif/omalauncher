@@ -42,7 +42,7 @@ Item {
     } else {
       var detail = String(catalogStderr.text || "").trim()
       root.error = parsed.error || detail || "Could not load the Omarchy CLI catalog"
-      console.warn("Omalauncher: CLI catalog refresh failed: " + root.error)
+      console.warn("OmaLauncher: CLI catalog refresh failed: " + root.error)
     }
     root.ready = true
     if (root.pendingRefresh)
