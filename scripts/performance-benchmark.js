@@ -8,7 +8,7 @@ const { performance } = require("node:perf_hooks")
 const MenuIndex = require("../providers/MenuIndex.js")
 const CommandCatalogModel = require("../providers/CommandCatalogModel.js")
 const SourceMergeModel = require("../providers/SourceMergeModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 const StateModel = require("../services/StateModel.js")
 
 const OPEN_BUDGET_MS = 100

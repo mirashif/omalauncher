@@ -5,7 +5,7 @@ const path = require("node:path")
 const { execFileSync } = require("node:child_process")
 
 const MenuIndex = require("../providers/MenuIndex.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 const omarchyPath = process.env["OMARCHY_PATH"] || "/usr/share/omarchy"
 const userHome = process.env["HOME"] || ""

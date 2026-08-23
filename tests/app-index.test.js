@@ -1,8 +1,8 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const AppIndex = require("../providers/AppIndex.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const AppIndex = require("../shared/core/src/AppIndex.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 const entries = [
   {

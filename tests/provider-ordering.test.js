@@ -1,11 +1,12 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const AppIndex = require("../providers/AppIndex.js")
+const AppIndex = require("../shared/core/src/AppIndex.js")
 const CommandCatalogModel = require("../providers/CommandCatalogModel.js")
 const MenuIndex = require("../providers/MenuIndex.js")
+const PluginCatalogModel = require("../shared/core/src/PluginCatalogModel.js")
 const ShellPluginModel = require("../providers/ShellPluginModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 test("fully tied search results follow provider priority and expose their sections", () => {
   const application = AppIndex.buildApplicationRecords([
@@ -80,4 +81,33 @@ test("an installed application outranks commands for an exact desktop keyword", 
     results.map(record => record.type),
     ["application", "omarchy-command", "omarchy-cli"]
   )
+})
+
+test("root search puts Omalauncher plugin navigation first for plugin and plugins", () => {
+  const parsedMenu = MenuIndex.parseMenuJsonc(`{
+    "setup": { "label": "Setup" },
+    "setup.plugin": {
+      "label": "Plugins",
+      "aliases": ["plugin", "plugins"]
+    },
+    "setup.plugin.enable": {
+      "label": "Enable Plugin",
+      "action": "omarchy-menu-plugin enable"
+    }
+  }`)
+  assert.equal(parsedMenu.error, "")
+  const stockPlugins = MenuIndex.buildCommandRecords(
+    MenuIndex.mergeMenuSources(parsedMenu.items, []), {})
+    .find(record => record.route === "setup.plugin")
+  assert.ok(stockPlugins)
+  const records = [...PluginCatalogModel.rootSearchRecords(), stockPlugins]
+
+  for (const query of ["plugin", "plugins"]) {
+    const results = SearchEngine.search(records, query, {
+      usage: {
+        [stockPlugins.id]: { count: 10000, lastUsed: Date.now() }
+      }
+    })
+    assert.equal(results[0].id, "plugin-catalog:search:browse", query)
+  }
 })

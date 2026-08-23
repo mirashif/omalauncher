@@ -1,0 +1,17 @@
+{
+  "name": "omalauncher-core",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Shared pure JavaScript models for Omalauncher-family plugins.",
+  "author": "Mir Ashif (https://mirashif.com)",
+  "license": "MIT",
+  "scripts": {
+    "types": "tsc --project tsconfig.json && tsc --project tsconfig.tests.json",
+    "test": "node --test tests/*.test.js",
+    "validate": "npm run types && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^6.0.3"
+  }
+}

@@ -96,12 +96,15 @@ Omarchy shell.
 - `Launcher.qml` owns the launcher surface, routing, provider coordination, and
   execution handoff.
 - `providers/` adapts installed applications, Omarchy menus, live shell
-  features, the CLI catalog, calculator results, and scoped file searches into
-  searchable records.
+  features, the CLI catalog, plugin discovery, calculator results, and scoped
+  file searches into searchable records.
 - `services/` contains ranking, navigation, state migration, actions, layout,
-  highlighting, and status behavior. `services/SearchEngine.js` applies
+  highlighting, and status behavior. `shared/core/src/SearchEngine.js` applies
   deterministic semantic ranking; usage frequency and recency only break ties
   between equally strong matches.
+- `shared/core/` is vendored from the sibling `omalauncher-core` repository.
+  Make deterministic model changes there, run its validation, and then update
+  the complete snapshot here rather than editing the vendored files directly.
 - `tests/` exercises the provider and service models independently of the QML
   surface.
 

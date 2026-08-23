@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 
 const CommandCatalogModel = require("../providers/CommandCatalogModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 /** @param {unknown} commands @returns {string} */
 function catalog(commands) {

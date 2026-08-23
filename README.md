@@ -43,6 +43,12 @@ when they can be used on the current system.
   search aliases, hide distractions, and recover hidden results at any time.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
+- **Discover and manage plugins.** Search for **Omarchy Plugins** to
+  inspect installed, built-in, and installable community plugins without
+  leaving the launcher.
+- **See shortcuts before you act.** Results with an active Omarchy or
+  application hotkey show that chord in the list; numbered activation hints
+  remain on rows without an assigned global shortcut.
 - **Open it your way.** Use the Omarchy bar icon or choose a global shortcut
   during welcome setup.
 - **Get useful defaults.** An empty search shows favorites and recent items
@@ -94,11 +100,37 @@ Expressions beginning with `=` return a result that can be copied immediately.
 
 An empty search puts favorites first, followed by recently used applications
 and commands. Number badges make the first ten results directly accessible
-from the keyboard.
+from the keyboard. When a result already has a global shortcut—such as
+Clipboard's `SUPER + CTRL + V`—that assigned chord replaces its number badge.
 
 ![Omalauncher's personalized home showing favorites, recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
 
 ## More than app search
+
+### Plugin discovery and management
+
+Search for **Omarchy Plugins** to open a lazy-loaded catalog backed by
+the independent [Omarchy Plugins community registry](https://omarchyplugins.com/).
+Installed plugin controls remain available if the registry is offline. The
+catalog separates installed, discoverable, and built-in plugins; searches in
+**Discover** cover the complete remote catalog even though the initial browse
+view is deliberately bounded. **Installed Plugins**, **Discover Plugins**, and
+**Built-in Plugins** are also first-class Root Search results.
+
+When a marketplace listing provides a screenshot, its detail hero shows a
+cached, aspect-preserving preview. Omalauncher fetches that image only after a
+detail route opens; a failed or missing preview falls back to the plugin icon.
+
+Plugin details expose the source repository, author, version, license, and the
+registry's verification state. “Registry verified” means that the registry
+reviewed a recorded source snapshot—it is not a security audit or a guarantee
+that the repository's current default branch is unchanged. Community plugins
+run unsandboxed, so review the source before installing.
+
+Install, update, and remove actions open Omarchy's interactive flow in a visible
+terminal. Omalauncher never adds `--yes` to those lifecycle commands. Enable
+and disable use validated literal plugin IDs through Omarchy's own plugin CLI;
+catalog-provided command strings are never executed.
 
 ### Shell features and the complete CLI catalog
 
@@ -218,6 +250,8 @@ These shortcuts cover the everyday search-and-run flow:
 | --- | --- |
 | `Enter` | Open or run the selected result |
 | `Ctrl+K` | Open or close the selected result's Action Panel |
+| `Ctrl+Shift+K` | Open or close the Omalauncher menu |
+| `Ctrl+,` | Open Settings |
 | `Ctrl+F` | Add or remove the selected favorite |
 | `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Open results 1–10, including off-screen results |
 | `Shift+Escape` | Return directly to Root Search |
@@ -229,10 +263,19 @@ These shortcuts cover the everyday search-and-run flow:
 
 | Shortcut | What it does |
 | --- | --- |
+| `Ctrl+O` | Run the selected result's primary action |
+| `Ctrl+Shift+O` | Reveal a selected file or application's desktop entry |
+| `Ctrl+C` | Copy the selected result's path, command, result, or app ID when search text is not selected |
+| `Ctrl+Shift+,` | Configure the selected result |
+| `Ctrl+Shift+D` | Hide or restore the selected result |
+| `Ctrl+Shift+/` | Open the User Guide |
 | `Ctrl+Enter` | Open the selected static menu command's parent inside Omalauncher |
 | `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
 | `Ctrl+Up/Down` | Jump between result or action sections |
+| `Ctrl+N/P` | Move to the next or previous result/action |
+| `Alt+Up/Down` | Move one page through results/actions |
 | `Up/Down` | Move through results, wrapping at either end |
+| `Shift+Tab` | Leave the current nested route |
 | `Ctrl+Shift+C` | Enable or disable Compact Mode |
 | `Backspace` or `Left` | Leave a submenu when its search is empty |
 

@@ -4,11 +4,7 @@
     "noUncheckedIndexedAccess": false
   },
   "include": [
-    "providers/**/*.js",
-    "services/**/*.js",
-    "shared/core/src/**/*.js",
-    "shared/core/tests/**/*.js",
-    "shared/core/types/**/*.d.ts",
+    "src/**/*.js",
     "tests/**/*.js",
     "types/**/*.d.ts"
   ]
