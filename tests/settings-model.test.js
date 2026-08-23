@@ -20,7 +20,7 @@ function settingsContext() {
     fileSearchAvailable: false,
     calculatorSettled: true,
     calculatorAvailable: true,
-    launcherHotkey: "SUPER + R",
+    launcherHotkey: "Super + r",
     onboardingHotkey: "SUPER + R",
     commonScopes: ["/home/test/Documents", "/home/test/Downloads"],
     productVersion: "0.10.0",
@@ -50,7 +50,7 @@ test("settings root is concise and uses semantic controls", () => {
   assert.ok(reset)
   assert.ok(about)
   assert.equal(shortcut.controlType, "navigation")
-  assert.equal(shortcut.trailingText, "SUPER + R")
+  assert.equal(shortcut.trailingText, "SUPER+R")
   assert.equal(compact.controlType, "toggle")
   assert.equal(compact.checked, false)
   assert.equal(quickActivation.checked, true)
@@ -122,7 +122,7 @@ test("shortcut actions live on a dedicated page", () => {
   assert.ok(configure)
   assert.ok(setup)
   assert.ok(remove)
-  assert.equal(configure.trailingText, "SUPER + R")
+  assert.equal(configure.trailingText, "SUPER+R")
   assert.equal(setup.section, "Setup")
   assert.equal(remove.destructive, true)
   assert.equal(remove.targetRoute, "settings-remove-shortcut")

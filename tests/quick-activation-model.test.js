@@ -7,8 +7,8 @@ test("numbered activation maps the first ten ordinals to result indexes", () => 
   assert.equal(QuickActivationModel.resultIndex(1, 12, 10, true, true), 0)
   assert.equal(QuickActivationModel.resultIndex(9, 12, 10, true, true), 8)
   assert.equal(QuickActivationModel.resultIndex(10, 12, 10, true, true), 9)
-  assert.equal(QuickActivationModel.hintForIndex(4, 12, 10, true, true), "Ctrl+5")
-  assert.equal(QuickActivationModel.hintForIndex(9, 12, 10, true, true), "Ctrl+0")
+  assert.equal(QuickActivationModel.hintForIndex(4, 12, 10, true, true), "CTRL+5")
+  assert.equal(QuickActivationModel.hintForIndex(9, 12, 10, true, true), "CTRL+0")
 })
 
 test("missing and out-of-range ordinals are ignored", () => {

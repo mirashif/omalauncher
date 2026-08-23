@@ -30,3 +30,5 @@ short crossfades. The asset set contains no bundled third-party artwork.
 - `command-context.png` shows Spotify across the Omarchy menu and CLI catalog.
 - `personalization.png` shows Omarchy Plugins ranked first in Root Search with
   its global-shortcut configuration action.
+- `alias-search.png` shows a search alias as parenthesized inline text rather
+  than a badge or pill.

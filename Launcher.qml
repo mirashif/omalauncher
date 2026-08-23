@@ -251,7 +251,7 @@ Item {
   readonly property int footerHeight: Style.space(38)
   readonly property bool footerVisible: !compactCollapsed
   readonly property int effectiveFooterHeight: footerVisible ? footerHeight : 0
-  readonly property string aboutMenuShortcut: "Ctrl+Shift+K"
+  readonly property string aboutMenuShortcut: "CTRL+SHIFT+K"
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
   readonly property int heroExtraHeight: Style.space(64)
   readonly property int previewHeroExtraHeight: Style.space(380)
@@ -437,7 +437,8 @@ Item {
   }
 
   function tryOnboardingShortcut() {
-    root.showOsd("󰌌", "Press " + root.onboardingHotkey + " to reopen OmaLauncher")
+    root.showOsd("󰌌", "Press " + root.displayShortcut(root.onboardingHotkey)
+      + " to reopen OmaLauncher")
     root.dismiss()
   }
 
@@ -1647,7 +1648,7 @@ Item {
         && appProvider.canResolveDesktopEntries,
       canConfigureShortcut: globalShortcutProvider.ready && !globalShortcutProvider.error
         && globalShortcutProvider.canAssign(root.actionTarget),
-      shortcut: globalShortcutProvider.hotkeyFor(root.actionTarget),
+      shortcut: root.displayShortcut(globalShortcutProvider.hotkeyFor(root.actionTarget)),
       applicationRunning: root.actionTarget.resultType === "application"
         && appRuntimeProvider.matchesTarget(
           root.actionTarget.appId, root.actionTarget.startupClass)
@@ -2650,8 +2651,12 @@ Item {
     return root.primaryActionLabel()
   }
 
+  function displayShortcut(shortcut) {
+    return String(shortcut || "").trim().replace(/\s*\+\s*/g, "+").toUpperCase()
+  }
+
   function shortcutCue(shortcut) {
-    var value = String(shortcut || "")
+    var value = root.displayShortcut(shortcut)
     return value ? "[" + value + "]" : ""
   }
 
@@ -2663,7 +2668,7 @@ Item {
 
   function secondaryFooterShortcut() {
     if (root.settingsRoute || root.pluginCatalogRoute) return "Esc"
-    return "Ctrl+K"
+    return "CTRL+K"
   }
 
   function triggerFooterPrimary() {
@@ -2826,7 +2831,7 @@ Item {
     onShortcutConflictDetected: function(targetKey, title, hotkey, existingDescription) {
       root.pendingConfirmationAction = "replace-hotkey"
       root.pendingConfirmationTarget = root.actionTarget
-      root.actionConfirmationMessage = hotkey + " is currently assigned to “"
+      root.actionConfirmationMessage = root.displayShortcut(hotkey) + " is currently assigned to “"
         + existingDescription + "”. Replace it with “" + title + "”?"
       root.actionConfirmationConfirmText = "Replace"
       actionConfirmationDialog.selectedIndex = 0
@@ -2834,7 +2839,7 @@ Item {
     }
     onShortcutApplied: function(targetKey, hotkey, replacedDescription) {
       root.closeHotkeyEditor()
-      root.showOsd("󰌌", "Global shortcut set: " + hotkey)
+      root.showOsd("󰌌", "Global shortcut set: " + root.displayShortcut(hotkey))
       shortcutBindingProvider.refresh()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
@@ -2860,12 +2865,13 @@ Item {
       if (namedLauncher) {
         root.onboardingStatusText = "OmaLauncher already uses this shortcut. You can keep it."
       } else if (namedMenu && root.onboardingReplacementBlocked) {
-        root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
+        root.onboardingStatusText = "Omarchy Menu needs " + root.displayShortcut(menuFallbackHotkey)
           + " as its fallback, but it is used by “" + menuFallbackDescription
           + "”. Record a different launcher shortcut."
       } else if (namedMenu) {
-        root.onboardingStatusText = "Recommended — OmaLauncher will use " + hotkey
-          + ", and Omarchy Menu will move to " + menuFallbackHotkey + "."
+        root.onboardingStatusText = "Recommended — OmaLauncher will use "
+          + root.displayShortcut(hotkey) + ", and Omarchy Menu will move to "
+          + root.displayShortcut(menuFallbackHotkey) + "."
       } else if (existingDescription) {
         root.onboardingStatusText = "Currently used by “" + existingDescription
           + "”. You’ll be asked before it is replaced."
@@ -2892,26 +2898,28 @@ Item {
           globalShortcutProvider.cancelPending()
           root.onboardingReplacementPending = false
           root.onboardingStatusIsError = true
-          root.onboardingStatusText = "Omarchy Menu needs " + menuFallbackHotkey
+          root.onboardingStatusText = "Omarchy Menu needs " + root.displayShortcut(menuFallbackHotkey)
             + " as its fallback, but it is used by “" + menuFallbackDescription
             + "”. Record a different launcher shortcut."
           return
         }
         root.onboardingReplacementPending = true
         root.onboardingStatusIsError = false
-        root.onboardingStatusText = "Confirm to use " + hotkey
-          + " for OmaLauncher and move Omarchy Menu to " + menuFallbackHotkey + "."
+        root.onboardingStatusText = "Confirm to use " + root.displayShortcut(hotkey)
+          + " for OmaLauncher and move Omarchy Menu to "
+          + root.displayShortcut(menuFallbackHotkey) + "."
         return
       }
       root.onboardingReplacementPending = true
       root.onboardingStatusIsError = true
-      root.onboardingStatusText = hotkey + " is assigned to “" + existingDescription
+      root.onboardingStatusText = root.displayShortcut(hotkey) + " is assigned to “"
+        + existingDescription
         + "”. Choose Replace existing shortcut to confirm."
     }
     onLauncherHotkeyApplied: function(hotkey, replacedDescription) {
       root.onboardingHotkey = hotkey
       if (root.onboardingOpen) root.finishOnboardingShortcutSetup()
-      else root.showOsd("󰌌", "Launcher shortcut set: " + hotkey)
+      else root.showOsd("󰌌", "Launcher shortcut set: " + root.displayShortcut(hotkey))
       if (root.settingsRoute) root.rebuildResults()
     }
     onLauncherHotkeyRemoved: function() {
@@ -3168,7 +3176,7 @@ Item {
       y: Math.max(Style.gapsOut,
         Math.min(panel.height - height - Style.gapsOut, Math.round(panel.height * 0.16)))
       stage: root.onboardingStage
-      hotkey: root.onboardingHotkey
+      hotkey: root.displayShortcut(root.onboardingHotkey)
       statusText: root.onboardingStatusText
       statusIsError: root.onboardingStatusIsError
       recording: root.onboardingRecording
@@ -3577,7 +3585,8 @@ Item {
             + (resultRow.controlType === "toggle"
               ? (resultRow.settingChecked ? ", on" : ", off")
               : (resultRow.trailingText ? ", " + resultRow.trailingText : ""))
-            + (resultRow.assignedShortcut ? ", shortcut " + resultRow.assignedShortcut : "")
+            + (resultRow.assignedShortcut
+              ? ", shortcut " + root.displayShortcut(resultRow.assignedShortcut) : "")
           Accessible.description: resultRow.breadcrumb || resultRow.description
           Accessible.checked: resultRow.controlType === "toggle" && resultRow.settingChecked
           Accessible.focusable: true
@@ -3780,21 +3789,14 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(8)
 
-            Rectangle {
+            Text {
+              id: aliasCue
               visible: !resultRow.isSettingsRow && resultRow.userAlias.length > 0
-              width: aliasBadgeText.implicitWidth + Style.space(12)
-              height: Math.max(Style.space(22), aliasBadgeText.implicitHeight + Style.space(6))
-              radius: height / 2
-              color: root.foreground
-
-              Text {
-                id: aliasBadgeText
-                anchors.centerIn: parent
-                text: resultRow.userAlias
-                color: root.background
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-              }
+              text: "(" + resultRow.userAlias + ")"
+              color: resultRow.selected ? root.selectedText : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.Medium
             }
 
             Text {
@@ -4299,7 +4301,7 @@ Item {
               anchors.rightMargin: Style.space(12)
               anchors.verticalCenter: parent.verticalCenter
               width: implicitWidth
-              text: aboutMenuRow.shortcut
+              text: root.displayShortcut(aboutMenuRow.shortcut)
               color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
@@ -4633,7 +4635,7 @@ Item {
               anchors.rightMargin: Style.space(14)
               anchors.verticalCenter: parent.verticalCenter
               visible: actionRow.shortcut.length > 0
-              text: actionRow.shortcut
+              text: root.displayShortcut(actionRow.shortcut)
               color: root.secondaryText
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
@@ -4831,7 +4833,8 @@ Item {
 
               Text {
                 anchors.centerIn: parent
-                text: root.recordedHotkey || "Press your hotkey"
+                text: root.recordedHotkey
+                  ? root.displayShortcut(root.recordedHotkey) : "Press your hotkey"
                 color: root.recordedHotkey ? root.foreground : root.secondaryText
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body

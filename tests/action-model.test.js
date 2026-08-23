@@ -210,6 +210,7 @@ test("configure submenu exposes alias and global shortcut editing", () => {
     "set-alias", "remove-alias", "set-shortcut", "remove-shortcut"
   ])
   assert.equal(configured[0].description, "bb")
+  assert.equal(configured[2].description, "SUPER+B")
   const main = ActionModel.actionsForResult(result, { hidden: true })
   const visibilityAction = main.find(action => action.id === "toggle-hidden")
   assert.ok(visibilityAction)
@@ -231,7 +232,7 @@ test("non-application entries can expose shortcut-only configuration", () => {
   const configured = ActionModel.actionsForResult(result, {
     canConfigureAlias: false,
     canConfigureShortcut: true,
-    shortcut: "SUPER + CTRL + V"
+    shortcut: "Super + Ctrl + v"
   }, "configure")
 
   const configureAction = main.find(action => action.id === "configure-actions")
@@ -239,6 +240,7 @@ test("non-application entries can expose shortcut-only configuration", () => {
   assert.equal(configureAction.description, "Assign a global shortcut")
   assert.deepEqual(configured.map(action => action.id), ["set-shortcut", "remove-shortcut"])
   assert.equal(configured[0].title, "Change Global Shortcut")
+  assert.equal(configured[0].description, "SUPER+CTRL+V")
 })
 
 test("launcher navigation can expose global shortcut configuration", () => {

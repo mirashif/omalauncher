@@ -1,6 +1,6 @@
 {
   "name": "omalauncher",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "A keyboard-first command palette for Omarchy.",
   "author": "Mir Ashif (https://mirashif.com)",

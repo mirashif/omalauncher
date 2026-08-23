@@ -1,6 +1,6 @@
 # OmaLauncher Product Plan
 
-Status: v1.2.0 implemented and validated locally
+Status: v1.2.1 implemented and validated locally
 
 Last updated: 2026-08-24
 
@@ -21,7 +21,7 @@ The product should remain:
 4. Safe around commands, expressions, paths, and plugin updates.
 5. Additive: the stock Omarchy launchers remain available as fallbacks.
 
-## Current release: v1.2.0
+## Current release: v1.2.1
 
 ### First-run access
 
@@ -31,8 +31,8 @@ The product should remain:
   existing global binding does not fire while a new chord is recorded.
 - Conflict inspection, explicit replacement, atomic backup, Hyprland reload,
   config-error validation, rollback, and concurrent-edit protection.
-- Recommended atomic shortcut swap: OmaLauncher takes `SUPER + SPACE` while
-  Omarchy Menu moves to the validated `SUPER + R` fallback.
+- Recommended atomic shortcut swap: OmaLauncher takes `SUPER+SPACE` while
+  Omarchy Menu moves to the validated `SUPER+R` fallback.
 - Right-side Omarchy bar widget with left-click launcher access and right-click
   Settings.
 - Version 1 state schema with first-run setup and a one-time post-setup
@@ -49,7 +49,7 @@ The product should remain:
 - Favorites, recents, aliases, hidden-result recovery, and wrapping result
   navigation.
 - Native route navigation for static menus and applications.
-- `Ctrl+1` through `Ctrl+9`, plus `Ctrl+0` for result 10, including off-screen results.
+- `CTRL+1` through `CTRL+9`, plus `CTRL+0` for result 10, including off-screen results.
 - Compact Mode, section jumps, pop-to-root, and immediate-close shortcuts.
 
 ### Actions and settings
@@ -111,7 +111,7 @@ The product should remain:
 
 ## Quality contract
 
-The release check currently covers 172 Node tests, manifest validation, QML
+The release check currently covers 173 Node tests, manifest validation, QML
 linting, a clean install/remove smoke test, and whitespace validation.
 
 ```bash

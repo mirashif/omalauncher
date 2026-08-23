@@ -28,7 +28,7 @@ function resultIndex(ordinal, resultCount, maximumActivationResults, enabled, el
 function hintForIndex(index, resultCount, maximumActivationResults, enabled, eligible) {
   var ordinal = Math.floor(Number(index)) + 1
   if (resultIndex(ordinal, resultCount, maximumActivationResults, enabled, eligible) < 0) return ""
-  return "Ctrl+" + (ordinal === 10 ? 0 : ordinal)
+  return "CTRL+" + (ordinal === 10 ? 0 : ordinal)
 }
 
 if (typeof module !== "undefined") {

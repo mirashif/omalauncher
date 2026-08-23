@@ -9,6 +9,11 @@ function text(value) {
   return String(value || "")
 }
 
+/** @param {unknown} value @returns {string} */
+function shortcutText(value) {
+  return text(value).trim().replace(/\s*\+\s*/g, "+").toUpperCase()
+}
+
 /**
  * @param {string} id
  * @param {string} title
@@ -115,7 +120,7 @@ function actionsForResult(result, context, route) {
         "parent",
         "Open Parent Menu",
         text(row.breadcrumb) || "Root menu",
-        "Ctrl+Enter",
+        "CTRL+ENTER",
         "",
         ["parent", "back", "menu", "breadcrumb"],
         0,
@@ -176,7 +181,7 @@ function actionsForResult(result, context, route) {
 
   if (activeRoute === "configure") {
     var currentAlias = text(state.alias)
-    var currentShortcut = text(state.shortcut)
+    var currentShortcut = shortcutText(state.shortcut)
     if (state.canConfigureAlias === true) {
       actions.push(action(
         "set-alias",
@@ -369,7 +374,7 @@ function actionsForResult(result, context, route) {
     "favorite",
     favorite ? "Remove from Favorites" : "Add to Favorites",
     resultTitle,
-    "Ctrl+F",
+    "CTRL+F",
     "",
     ["favorite", "favourite", "star", "pin", favorite ? "remove" : "add"],
     actions.length,
@@ -383,7 +388,7 @@ function actionsForResult(result, context, route) {
       "favorite-up",
       "Move Favorite Up",
       resultTitle,
-      "Ctrl+Shift+Up",
+      "CTRL+SHIFT+UP",
       "",
       ["favorite", "move", "reorder", "up"],
       actions.length,
@@ -395,7 +400,7 @@ function actionsForResult(result, context, route) {
       "favorite-down",
       "Move Favorite Down",
       resultTitle,
-      "Ctrl+Shift+Down",
+      "CTRL+SHIFT+DOWN",
       "",
       ["favorite", "move", "reorder", "down"],
       actions.length,

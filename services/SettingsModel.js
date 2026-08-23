@@ -35,6 +35,11 @@ function text(value) {
   return String(value || "")
 }
 
+/** @param {unknown} value @returns {string} */
+function shortcutText(value) {
+  return text(value).trim().replace(/\s*\+\s*/g, "+").toUpperCase()
+}
+
 /**
  * @param {string} id
  * @param {string} kind
@@ -102,7 +107,7 @@ function settingsRecords(preferences, context) {
   var values = preferences || {}
   var status = context || {}
   var scopes = Array.isArray(values.fileSearchScopes) ? values.fileSearchScopes : []
-  var launcherHotkey = text(status.launcherHotkey || status.onboardingHotkey)
+  var launcherHotkey = shortcutText(status.launcherHotkey || status.onboardingHotkey)
   var fileSearchStatus = values.fileSearchEnabled === true ? "On" : "Off"
   if (scopes.length > 0) fileSearchStatus += " · " + countLabel(scopes.length, "folder")
   var calculatorDescription = "Show instant results for = expressions"
@@ -134,7 +139,7 @@ function settingsRecords(preferences, context) {
         checked: values.compactMode === true
     }),
     record("omalauncher:setting-quick-activation", "settings-toggle", "Numbered Quick Activation",
-      "Open the first eight results with Ctrl+1–8", "󰎠", 2, "General",
+      "Open the first eight results with CTRL+1–8", "󰎠", 2, "General",
       "quickActivationEnabled", "", {
         controlType: "toggle",
         checked: values.quickActivationEnabled === true
@@ -262,7 +267,7 @@ function dependencyRecords(context) {
  */
 function shortcutRecords(context) {
   var status = context || {}
-  var launcherHotkey = text(status.launcherHotkey || status.onboardingHotkey)
+  var launcherHotkey = shortcutText(status.launcherHotkey || status.onboardingHotkey)
   /** @type {SettingRecord[]} */
   var records = [
     record("omalauncher:setting-launcher-hotkey", "settings-open-launcher-hotkey",

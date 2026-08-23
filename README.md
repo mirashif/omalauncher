@@ -7,7 +7,7 @@ features, and the CLI catalog into one keyboard-first search. Type what you
 mean—such as `plugins`, `clipboard`, or `browser default`—without remembering
 where it lives.
 
-**Built for Omarchy 4 · Current release: v1.2.0**
+**Built for Omarchy 4 · Current release: v1.2.1**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
@@ -50,7 +50,7 @@ when they can be used on the current system.
 - **Make stable actions instant.** Assign, change, or remove global shortcuts
   for applications, shell features, Omarchy menu entries, safe direct CLI
   commands, and launcher or plugin navigation.
-- **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
+- **Act without breaking focus.** Press `CTRL+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
 - **See shortcuts before you act.** Results with an active Omarchy shortcut or
   an OmaLauncher-managed global shortcut show that chord in the list; numbered
@@ -94,7 +94,7 @@ first while keeping the related setup and CLI routes one shortcut away.
 
 ### Control running applications
 
-Press `Ctrl+K` to search an application's actions. Running applications expose
+Press `CTRL+K` to search an application's actions. Running applications expose
 quit and restart controls, while supported desktop applications can be
 uninstalled after confirmation.
 
@@ -123,6 +123,13 @@ shortcuts remain inherited and read-only. Transient file and calculator
 results, status rows, privileged or argument-taking CLI commands, and
 destructive plugin lifecycle actions intentionally cannot own a shortcut.
 
+### Search with your own language
+
+Aliases stay visible as quiet parenthesized annotations, such as `(browser)`,
+without competing with result titles or keyboard cues.
+
+![Brave matched with its parenthesized browser alias](assets/alias-search.png)
+
 ### Find local files without searching everywhere
 
 File search stays inside folders you explicitly choose. The Action Panel can
@@ -141,7 +148,7 @@ Expressions beginning with `=` return a result that can be copied immediately.
 An empty search puts favorites first, followed by recently used applications
 and commands. Number badges make the first ten results directly accessible
 from the keyboard. When a result already has a global shortcut—such as
-Clipboard's `SUPER + CTRL + V`—that assigned chord replaces its number badge.
+Clipboard's `SUPER+CTRL+V`—that assigned chord replaces its number badge.
 
 ![OmaLauncher's home showing recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
 
@@ -191,7 +198,7 @@ the provider retry action reloads them on demand.
 ### Calculator
 
 Enter an expression such as `= 12 * 8` or `= 10 km to mi`. The answer appears
-as a result and `Enter` copies it. Calculator support uses the optional `qalc`
+as a result and `ENTER` copies it. Calculator support uses the optional `qalc`
 command from `libqalculate`; the rest of OmaLauncher keeps working when it is
 not installed. Welcome setup and **Settings › Optional Features** can install
 it for you in a visible terminal.
@@ -235,7 +242,7 @@ omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 ### 2. Complete welcome setup
 
 Click the OmaLauncher search icon on the right side of the bar. Welcome setup
-suggests `SUPER + SPACE`, lets you record another chord, checks current
+suggests `SUPER+SPACE`, lets you record another chord, checks current
 Hyprland bindings, and asks explicitly before replacing a conflict. It then
 checks the optional calculator and scoped file-search tools. You can install
 anything missing in a visible terminal, or skip that step and add it later from
@@ -243,7 +250,7 @@ anything missing in a visible terminal, or skip that step and add it later from
 OmaLauncher with the shortcut so the setup is verified.
 
 The recommended choice replaces the stock Omarchy Menu shortcut atomically:
-OmaLauncher takes `SUPER + SPACE` and Omarchy Menu moves to `SUPER + R`. Setup
+OmaLauncher takes `SUPER+SPACE` and Omarchy Menu moves to `SUPER+R`. Setup
 checks that both chords are safe before changing either one, so the stock menu
 is never left without a shortcut. If you choose another available chord,
 existing Omarchy shortcuts stay where they are.
@@ -253,8 +260,8 @@ Shortcut changes are written to OmaLauncher's marked block in
 reloaded and checked for configuration errors, and a failed change is rolled
 back automatically.
 
-After the recommended swap, Omarchy Menu remains available on `SUPER + R` and
-the stock application launcher remains on `SUPER + ALT + SPACE`.
+After the recommended swap, Omarchy Menu remains available on `SUPER+R` and
+the stock application launcher remains on `SUPER+ALT+SPACE`.
 
 Optional tools can also be installed manually. This command is safe to rerun;
 Omarchy installs only packages that are missing:
@@ -265,8 +272,8 @@ omarchy pkg add libqalculate fd
 
 ### 3. Start searching
 
-Press your chosen shortcut, type an application or command, and press `Enter`. Use
-`Ctrl+K` whenever you want to see more actions for the selected result.
+Press your chosen shortcut, type an application or command, and press `ENTER`. Use
+`CTRL+K` whenever you want to see more actions for the selected result.
 
 ## How it works
 
@@ -275,7 +282,7 @@ Press your chosen shortcut, type an application or command, and press `Enter`. U
    searched together.
 3. The closest textual match wins; recent use helps order equally strong
    matches.
-4. Press `Enter` for the primary action, or `Ctrl+K` for everything else.
+4. Press `ENTER` for the primary action, or `CTRL+K` for everything else.
 
 Static Omarchy submenus and installed applications open inside OmaLauncher.
 Summonable panels and overlays open through Omarchy Shell. Dynamic providers
@@ -288,38 +295,38 @@ These shortcuts cover the everyday search-and-run flow:
 
 | Shortcut | What it does |
 | --- | --- |
-| `Enter` | Open or run the selected result |
-| `Ctrl+K` | Open or close the selected result's Action Panel |
-| `Ctrl+Shift+K` | Open or close the OmaLauncher menu |
-| `Ctrl+,` | Open Settings |
-| `Ctrl+F` | Add or remove the selected favorite |
-| `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Open results 1–10, including off-screen results |
-| `Shift+Escape` | Return directly to Root Search |
-| `Ctrl+W` | Close OmaLauncher immediately |
-| `Escape` | Close the current layer, clear search, go back, or close |
+| `ENTER` | Open or run the selected result |
+| `CTRL+K` | Open or close the selected result's Action Panel |
+| `CTRL+SHIFT+K` | Open or close the OmaLauncher menu |
+| `CTRL+,` | Open Settings |
+| `CTRL+F` | Add or remove the selected favorite |
+| `CTRL+1`…`CTRL+9`, `CTRL+0` | Open results 1–10, including off-screen results |
+| `SHIFT+ESCAPE` | Return directly to Root Search |
+| `CTRL+W` | Close OmaLauncher immediately |
+| `ESCAPE` | Close the current layer, clear search, go back, or close |
 
 <details>
 <summary>All keyboard shortcuts</summary>
 
 | Shortcut | What it does |
 | --- | --- |
-| `Ctrl+O` | Run the selected result's primary action |
-| `Ctrl+Shift+O` | Reveal a selected file or application's desktop entry |
-| `Ctrl+C` | Copy the selected result's path, command, result, or app ID when search text is not selected |
-| `Ctrl+Shift+,` | Configure the selected result |
-| `Ctrl+Shift+D` | Hide or restore the selected result |
-| `Ctrl+Shift+/` | Open the User Guide |
-| `Ctrl+Enter` | Open the selected static menu command's parent inside OmaLauncher |
-| `Ctrl+Shift+Up/Down` | Reorder the selected favorite |
-| `Ctrl+Up/Down` | Jump between result or action sections |
-| `Ctrl+N/P` | Move to the next or previous result/action |
-| `Alt+Up/Down` | Move one page through results/actions |
-| `Up/Down` | Move through results, wrapping at either end |
-| `Shift+Tab` | Leave the current nested route |
-| `Ctrl+Shift+C` | Enable or disable Compact Mode |
-| `Backspace` or `Left` | Leave a submenu when its search is empty |
+| `CTRL+O` | Run the selected result's primary action |
+| `CTRL+SHIFT+O` | Reveal a selected file or application's desktop entry |
+| `CTRL+C` | Copy the selected result's path, command, result, or app ID when search text is not selected |
+| `CTRL+SHIFT+,` | Configure the selected result |
+| `CTRL+SHIFT+D` | Hide or restore the selected result |
+| `CTRL+SHIFT+/` | Open the User Guide |
+| `CTRL+ENTER` | Open the selected static menu command's parent inside OmaLauncher |
+| `CTRL+SHIFT+UP/DOWN` | Reorder the selected favorite |
+| `CTRL+UP/DOWN` | Jump between result or action sections |
+| `CTRL+N/P` | Move to the next or previous result/action |
+| `ALT+UP/DOWN` | Move one page through results/actions |
+| `UP/DOWN` | Move through results, wrapping at either end |
+| `SHIFT+TAB` | Leave the current nested route |
+| `CTRL+SHIFT+C` | Enable or disable Compact Mode |
+| `BACKSPACE` or `LEFT` | Leave a submenu when its search is empty |
 
-Right-clicking a result opens the same Action Panel as `Ctrl+K`.
+Right-clicking a result opens the same Action Panel as `CTRL+K`.
 Choose **Configure** to set, change, or remove its OmaLauncher-managed global
 shortcut when the result has a stable, repeatable action.
 
@@ -397,7 +404,7 @@ hyprctl configerrors
 ```
 
 If a warning icon appears in OmaLauncher, open it for provider-specific details.
-Press `Enter` or `Ctrl+R` in that panel to reload applications, menus, shell
+Press `ENTER` or `CTRL+R` in that panel to reload applications, menus, shell
 features, the CLI catalog, checks, and launcher state.
 
 For a stale instance or an unexplained provider failure, restart the shell and

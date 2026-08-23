@@ -34,8 +34,9 @@ test("footer provides a flat OmaLauncher menu and action controls", () => {
   const footer = /Rectangle \{\s*id: footer[\s\S]*?\n      Rectangle \{\s*id: aboutMenuPanel/.exec(launcher)
 
   assert.ok(footer)
-  assert.match(launcher, /readonly property string aboutMenuShortcut: "Ctrl\+Shift\+K"/)
-  assert.match(launcher, /function shortcutCue\(shortcut\)[\s\S]*?"\[" \+ value \+ "\]"/)
+  assert.match(launcher, /readonly property string aboutMenuShortcut: "CTRL\+SHIFT\+K"/)
+  assert.match(launcher, /function displayShortcut\(shortcut\)[\s\S]*?replace\(\/\\s\*\\\+\\s\*\/g, "\+"\)\.toUpperCase\(\)/)
+  assert.match(launcher, /function shortcutCue\(shortcut\)[\s\S]*?root\.displayShortcut\(shortcut\)[\s\S]*?"\[" \+ value \+ "\]"/)
   assert.match(footer[0], /Item \{\s*id: footerAboutButton[\s\S]*?root\.shortcutCue\(root\.aboutMenuShortcut\)/)
   assert.match(footer[0], /root\.shortcutCue\("↵"\)/)
   assert.match(footer[0], /root\.shortcutCue\(root\.secondaryFooterShortcut\(\)\)/)
@@ -45,4 +46,11 @@ test("footer provides a flat OmaLauncher menu and action controls", () => {
   assert.match(launcher, /id: aboutMenuPanel/)
   assert.match(launcher, /AboutMenuModel\.records/)
   assert.match(launcher, /Accessible\.name: "OmaLauncher menu"/)
+  assert.match(launcher, /id: aboutMenuShortcut[\s\S]*?text: root\.displayShortcut\(aboutMenuRow\.shortcut\)/)
+  assert.match(launcher, /id: actionShortcut[\s\S]*?text: root\.displayShortcut\(actionRow\.shortcut\)/)
+})
+
+test("aliases use parenthesized inline text instead of a pill", () => {
+  assert.match(launcher, /Text \{\s*id: aliasCue[\s\S]*?text: "\(" \+ resultRow\.userAlias \+ "\)"/)
+  assert.doesNotMatch(launcher, /id: aliasBadgeText|radius: height \/ 2[\s\S]{0,180}userAlias/)
 })

@@ -17,7 +17,7 @@ test("About Menu exposes launcher-owned routes, help, and a safe close action", 
   assert.ok(guide)
   assert.ok(report)
   assert.ok(close)
-  assert.equal(settings.shortcut, "Ctrl+,")
+  assert.equal(settings.shortcut, "CTRL+,")
   assert.equal(guide.target, "https://example.test/omalauncher#readme")
   assert.equal(report.target, "https://example.test/omalauncher/issues")
   assert.equal(close.title, "Close Launcher")
