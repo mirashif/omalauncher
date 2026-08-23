@@ -41,6 +41,7 @@ test("plugin submenu records join root search without eagerly loading the catalo
   assert.deepEqual(records.map(record => record.title), [
     "Omarchy Plugins", "Installed Plugins", "Discover Plugins", "Built-in Plugins"
   ])
+  assert.equal(records[0].description, "Search, discover, install, remove plugins.")
   assert.deepEqual(records.map(record => record.targetRoute), [
     "plugins", "plugins-installed", "plugins-available", "plugins-built-in"
   ])

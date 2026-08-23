@@ -459,7 +459,7 @@ function actionRecord(id, action, title, description, icon, order, section, trai
 function rootRecords(catalog, options) {
   var counts = catalog.counts
   var hero = record("plugin-catalog:hero", "plugin-status", "Omarchy Plugins",
-    "Discover community plugins and manage what is installed.", "󰀻", 0, "", "hero")
+    "Search, discover, install, remove plugins.", "󰀻", 0, "", "hero")
   hero.trailingText = countLabel(counts.installed, "installed") + " · "
     + countLabel(counts.available, "available")
   var installed = record("plugin-catalog:navigate:installed", "plugin-open-route", "Installed",
@@ -635,7 +635,7 @@ function detailRecords(plugin) {
  */
 function rootSearchRecords() {
   var browse = record("plugin-catalog:search:browse", "plugin-open-route",
-    "Omarchy Plugins", "Discover community plugins and manage what is installed.",
+    "Omarchy Plugins", "Search, discover, install, remove plugins.",
     "󰀻", -4, "Launcher", "navigation")
   browse.breadcrumb = "Omalauncher"
   browse.targetRoute = "plugins"

@@ -1,20 +1,22 @@
 # Omalauncher
 
-## Find every app and Omarchy feature from one place
+## Omarchy Plugins — search, discover, install, remove plugins
 
-Omalauncher turns Omarchy's apps, nested menus, shell features, and CLI catalog
-into fast, keyboard-first search. Type what you mean—such as `clipboard`,
-`toggle nightlight`, or `browser default`—without remembering where it lives.
+Omalauncher puts Omarchy Plugins first, then brings apps, nested menus, shell
+features, and the CLI catalog into one keyboard-first search. Type what you
+mean—such as `plugins`, `clipboard`, or `browser default`—without remembering
+where it lives.
 
-**Built for Omarchy 4 · Current build: v1.0.0**
+**Built for Omarchy 4 · Current release: v1.1.0**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
 
-![Omalauncher finding Clipboard, searching scoped files, and opening actions for a running application](assets/omalauncher-demo.gif)
+![Omalauncher touring plugin discovery, unified shell search, calculation, file actions, and application controls](assets/omalauncher-demo.gif)
 
-_Search across Omarchy, find local files, and control running applications
-without leaving the keyboard._
+_Search, discover, install, remove plugins—and search live Omarchy surfaces,
+calculate, work with files, and control applications without leaving the
+launcher._
 
 ## Why Omalauncher?
 
@@ -24,6 +26,7 @@ applications, commands, and summonable shell features together.
 
 | Type what you remember | Find what you need |
 | --- | --- |
+| `plugins` | Omarchy Plugins — search, discover, install, remove plugins |
 | `docker` | Docker app and Docker DB — Install › Development |
 | `install spotify` | Spotify — Install › Service |
 | `toggle nightlight` | Nightlight — Trigger › Toggle |
@@ -34,6 +37,9 @@ when they can be used on the current system.
 
 ## What you can do
 
+- **Omarchy Plugins — search, discover, install, remove plugins.** Type
+  `plugin` or `plugins` to put the feature first, then inspect installed,
+  built-in, and community plugins from the same keyboard-first interface.
 - **Search everything together.** Find installed applications, Omarchy menu
   commands, live shell features, CLI commands, and your own menu additions from
   one search field.
@@ -43,9 +49,6 @@ when they can be used on the current system.
   search aliases, hide distractions, and recover hidden results at any time.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
-- **Discover and manage plugins.** Search for **Omarchy Plugins** to
-  inspect installed, built-in, and installable community plugins without
-  leaving the launcher.
 - **See shortcuts before you act.** Results with an active Omarchy or
   application hotkey show that chord in the list; numbered activation hints
   remain on rows without an assigned global shortcut.
@@ -60,6 +63,25 @@ when they can be used on the current system.
 
 ## A closer look
 
+### Omarchy Plugins — search, discover, install, remove plugins
+
+Type `plugin` or `plugins` in Root Search and **Omarchy Plugins** stays ahead
+of related stock menu commands, even when usage history would otherwise change
+their order.
+
+From **Discover**, open
+[**Screen Time**](https://omarchyplugins.com/plugin.html?id=agx.screen-time) to
+inspect its marketplace preview, install action, source repository, registry
+verification, version, and author without leaving the launcher.
+
+![Screen Time's plugin detail with marketplace preview, install action, source, and registry metadata](assets/plugin-search.png)
+
+The catalog hub shows live installed, discoverable, and built-in totals. It
+also surfaces recently added community plugins and keeps management actions
+available when the remote registry is offline.
+
+![Omalauncher's integrated plugin catalog with installed, discoverable, and built-in libraries](assets/plugin-catalog.png)
+
 ### Installed applications come first
 
 In this live Omarchy session, searching `vscode` puts the installed application
@@ -73,7 +95,7 @@ Press `Ctrl+K` to search an application's actions. Running applications expose
 quit and restart controls, while supported desktop applications can be
 uninstalled after confirmation.
 
-![The Visual Studio Code Action Panel showing open, quit, restart, configure, and uninstall actions](preview.png)
+![The Brave Action Panel showing open, quit, restart, details, configuration, and favorite actions](assets/application-actions.png)
 
 ### Search the live shell, menu, and CLI together
 
@@ -103,14 +125,14 @@ and commands. Number badges make the first ten results directly accessible
 from the keyboard. When a result already has a global shortcut—such as
 Clipboard's `SUPER + CTRL + V`—that assigned chord replaces its number badge.
 
-![Omalauncher's personalized home showing favorites, recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
+![Omalauncher's home showing recent applications, recent commands, and numbered shortcuts](assets/personalized-home.png)
 
 ## More than app search
 
-### Plugin discovery and management
+### A plugin catalog designed for trust
 
-Search for **Omarchy Plugins** to open a lazy-loaded catalog backed by
-the independent [Omarchy Plugins community registry](https://omarchyplugins.com/).
+The catalog is lazy-loaded from the independent
+[Omarchy Plugins community registry](https://omarchyplugins.com/).
 Installed plugin controls remain available if the registry is offline. The
 catalog separates installed, discoverable, and built-in plugins; searches in
 **Discover** cover the complete remote catalog even though the initial browse

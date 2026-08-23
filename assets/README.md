@@ -1,27 +1,32 @@
 # Assets
 
-All product visuals are direct captures of the native Omalauncher surface on
-Omarchy 4 at 1.25× monitor scale. Framed captures include 48 logical pixels of
-padding on every side—60 rendered pixels at capture scale—so the wallpaper
-frames the launcher without including unrelated desktop content. They contain
-no bundled third-party artwork.
+All stills are direct captures of the native Omalauncher surface on Omarchy 4.
+Framed captures retain the surrounding Omarchy wallpaper while excluding
+unrelated desktop content. The hero loop composes five current captures with
+short crossfades. The asset set contains no bundled third-party artwork.
 
-- `omalauncher-demo.gif` is a 15 fps, 970×750 hero loop showing live Clipboard
-  discovery, scoped file search, and actions for a running application.
-- `preview.png` is the 970×755 marketplace preview. It shows open, quit,
-  restart, configure, and uninstall actions for a running Visual Studio Code
-  instance without executing the destructive action.
-- `real-world-vscode-search.png` is a 970×586 capture showing the installed
-  Visual Studio Code application ranked before the related menu and CLI routes.
-- `shell-feature-search.png` is a 970×586 capture showing Clipboard across the
-  live shell registry, Omarchy menu, and CLI catalog.
-- `file-actions.png` is a 970×525 capture showing a scoped Downloads result
-  with open, reveal, and copy-path actions.
-- `calculator.png` is a 970×478 capture showing an inline calculation and its
-  copy action.
-- `personalized-home.png` is a 970×1053 capture showing favorites, recent
-  applications, recent commands, and numbered activation shortcuts.
-
-The older `unified-search.png`, `command-context.png`, and
-`personalization.png` captures are retained for release history but are no
-longer used by the README.
+- `omalauncher-demo.gif` is an 8-second, 15 fps feature tour covering plugin
+  discovery, shell/menu/CLI search, calculation, scoped file actions, and
+  running-application controls.
+- `preview.png` is the marketplace preview for “Omarchy Plugins — search,
+  discover, install, remove plugins,” centered on its live catalog totals.
+- `plugin-search.png` shows Screen Time's marketplace detail with its preview,
+  install action, source, registry verification, version, and author.
+- `plugin-catalog.png` shows the catalog hub, live collection totals, refresh,
+  and marketplace navigation.
+- `application-actions.png` shows open, quit, restart, details, configuration,
+  and favorite actions for a running Brave instance.
+- `real-world-vscode-search.png` shows Visual Studio Code ranked before the
+  related menu and CLI routes.
+- `shell-feature-search.png` shows Clipboard across the live shell registry,
+  Omarchy menu, and CLI catalog.
+- `file-actions.png` shows a scoped video result with open, reveal, and
+  copy-path actions.
+- `calculator.png` shows an inline calculation and its copy action.
+- `personalized-home.png` shows recent applications, recent commands, and
+  numbered or globally assigned shortcuts.
+- `unified-search.png` shows Docker returned as both an installed application
+  and a related Omarchy command.
+- `command-context.png` shows Spotify across the Omarchy menu and CLI catalog.
+- `personalization.png` shows Action Panel search narrowed to application
+  configuration and alias management.
