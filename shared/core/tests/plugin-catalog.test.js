@@ -127,6 +127,9 @@ test("plugin submenus are first-class root search records", () => {
   assert.deepEqual(records.map(record => record.targetRoute), [
     "plugins", "plugins-installed", "plugins-available", "plugins-built-in"
   ])
+  assert.deepEqual(SearchEngine.search(records, "plugins").map(record => record.targetRoute), [
+    "plugins", "plugins-installed", "plugins-available", "plugins-built-in"
+  ])
   assert.equal(SearchEngine.search(records, "uninstall plugins")[0].targetRoute,
     "plugins-installed")
   assert.equal(SearchEngine.search(records, "available plugins")[0].targetRoute,

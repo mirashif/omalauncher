@@ -39,7 +39,7 @@ test("launcher exposes plugin browse and lifecycle routes without automatic conf
 test("plugin submenu records join root search without eagerly loading the catalog", () => {
   const records = PluginCatalogModel.rootSearchRecords()
   assert.deepEqual(records.map(record => record.title), [
-    "Browse Omarchy Plugins", "Installed Plugins", "Discover Plugins", "Built-in Plugins"
+    "Omarchy Plugins", "Installed Plugins", "Discover Plugins", "Built-in Plugins"
   ])
   assert.deepEqual(records.map(record => record.targetRoute), [
     "plugins", "plugins-installed", "plugins-available", "plugins-built-in"
@@ -71,8 +71,21 @@ test("plugin rows and details stay in the shared strict core", () => {
 
 test("plugin screenshots render only in the detail hero", () => {
   const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+  const previewProvider = fs.readFileSync(
+    path.join(projectRoot, "providers", "PluginPreviewProvider.qml"), "utf8")
   assert.match(launcher, /required property string previewImageUrl/)
   assert.match(launcher, /isHero && previewImageUrl\.length > 0/)
+  assert.match(launcher, /pluginPreviewProvider\.imageSource/)
+  assert.match(launcher, /previewHeroExtraHeight: Style\.space\(380\)/)
+  assert.match(launcher, /Math\.min\(Style\.space\(560\), parent\.width \* 0\.94\)/)
+  assert.match(launcher,
+    /id: pluginPreviewFrame[\s\S]*?id: pluginPreviewImage[\s\S]*?width: resultRow\.hasPreviewImage \? pluginPreviewFrame\.width : parent\.width/)
   assert.match(launcher, /fillMode: Image\.PreserveAspectFit/)
   assert.match(launcher, /asynchronous: true/)
+  assert.match(previewProvider, /XDG_CACHE_HOME/)
+  assert.match(previewProvider, /https:\\\/\\\/omarchyplugins\\\.com/)
+  assert.match(previewProvider, /cacheProcess\.command = \["test", "-s", root\.pngPath\]/)
+  assert.match(previewProvider, /"--max-filesize", "8388608"/)
+  assert.match(previewProvider, /"magick"[\s\S]*?"-thumbnail", "896x504>"/)
+  assert.match(previewProvider, /root\.sourcePath \+ "\[0\]"/)
 })

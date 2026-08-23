@@ -54,6 +54,8 @@ Item {
   property int selectedIndex: 0
   property int resultSectionCount: 0
   property int resultExtraHeight: 0
+  property string pluginPreviewId: ""
+  property string pluginPreviewUrl: ""
   property bool suppressSearchChange: false
   property bool compactExpanded: false
   property bool actionPanelOpen: false
@@ -252,7 +254,7 @@ Item {
   readonly property string aboutMenuShortcut: "Ctrl+Shift+K"
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
   readonly property int heroExtraHeight: Style.space(64)
-  readonly property int previewHeroExtraHeight: Style.space(108)
+  readonly property int previewHeroExtraHeight: Style.space(380)
   readonly property int sectionHeight: Style.space(28)
   readonly property int emptyStateHeight: Style.space(132)
   readonly property int maximumVisibleRows: 8
@@ -1132,6 +1134,8 @@ Item {
       }].concat(results)
     }
     var sections = {}
+    var nextPluginPreviewId = ""
+    var nextPluginPreviewUrl = ""
     root.resultExtraHeight = 0
     for (var i = 0; i < results.length; i++) {
       var result = results[i]
@@ -1142,6 +1146,10 @@ Item {
       if (controlType === "hero") {
         root.resultExtraHeight += previewImageUrl
           ? root.previewHeroExtraHeight : root.heroExtraHeight
+        if (previewImageUrl) {
+          nextPluginPreviewId = String(result.settingValue || "")
+          nextPluginPreviewUrl = previewImageUrl
+        }
       }
       resultsModel.append({
         resultId: String(result.id || ""),
@@ -1185,6 +1193,8 @@ Item {
         assignedShortcut: root.assignedShortcutForResult(result)
       })
     }
+    root.pluginPreviewId = nextPluginPreviewId
+    root.pluginPreviewUrl = nextPluginPreviewUrl
     root.resultSectionCount = Object.keys(sections).length
 
     if (resultsModel.count === 0) root.selectedIndex = 0
@@ -2974,6 +2984,12 @@ Item {
     onLoadingChanged: if (root.pluginCatalogRoute) root.rebuildResults()
   }
 
+  PluginPreviewProvider {
+    id: pluginPreviewProvider
+    pluginId: root.pluginPreviewId
+    sourceUrl: root.pluginPreviewUrl
+  }
+
   Process {
     id: pluginLifecycleProcess
     property string action: ""
@@ -3668,86 +3684,92 @@ Item {
             height: Math.max(1, parent.height - Style.space(24))
             visible: resultRow.isHero
 
-            Rectangle {
-              id: pluginPreviewFrame
-              visible: resultRow.hasPreviewImage
-              anchors.left: parent.left
-              anchors.verticalCenter: parent.verticalCenter
-              width: Math.min(Style.space(224), parent.width * 0.4)
-              height: Math.round(width * 9 / 16)
-              radius: Math.max(0, Style.cornerRadius - Style.space(4))
-              color: root.background
-              border.width: Math.max(1, Style.space(1))
-              border.color: resultRow.selected ? root.selectedText : root.borderColor
-              clip: true
-
-              Image {
-                id: pluginPreviewImage
-                anchors.fill: parent
-                anchors.margins: Style.space(1)
-                source: resultRow.hasPreviewImage ? resultRow.previewImageUrl : ""
-                sourceSize.width: Math.round(pluginPreviewFrame.width * Screen.devicePixelRatio)
-                sourceSize.height: Math.round(pluginPreviewFrame.height * Screen.devicePixelRatio)
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-              }
-
-              Text {
-                anchors.centerIn: parent
-                visible: pluginPreviewImage.status !== Image.Ready
-                text: resultRow.icon || "󰋼"
-                color: root.secondaryText
-                font.family: resultRow.iconFont || Style.font.menuFamily
-                font.pixelSize: Style.space(28)
-              }
-            }
-
             Column {
-              anchors.left: resultRow.hasPreviewImage ? pluginPreviewFrame.right : parent.left
-              anchors.leftMargin: resultRow.hasPreviewImage ? Style.space(18) : 0
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.space(5)
+              id: pluginHeroStack
+              anchors.centerIn: parent
+              width: parent.width
+              spacing: resultRow.hasPreviewImage ? Style.space(12) : Style.space(5)
 
-              Text {
-                width: parent.width
-                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
-                text: resultRow.icon || "󰋼"
-                color: root.selectedText
-                font.family: resultRow.iconFont || Style.font.menuFamily
-                font.pixelSize: resultRow.hasPreviewImage ? Style.space(24) : Style.space(34)
+              Rectangle {
+                id: pluginPreviewFrame
+                visible: resultRow.hasPreviewImage
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.min(Style.space(560), parent.width * 0.94)
+                height: visible ? Math.round(width * 9 / 16) : 0
+                radius: Math.max(0, Style.cornerRadius - Style.space(4))
+                color: root.background
+                border.width: Math.max(1, Style.space(1))
+                border.color: resultRow.selected ? root.selectedText : root.borderColor
+                clip: true
+
+                Image {
+                  id: pluginPreviewImage
+                  anchors.fill: parent
+                  anchors.margins: Style.space(1)
+                  source: resultRow.hasPreviewImage
+                    && pluginPreviewProvider.sourceUrl === resultRow.previewImageUrl
+                    ? pluginPreviewProvider.imageSource : ""
+                  sourceSize.width: Math.round(pluginPreviewFrame.width * Screen.devicePixelRatio)
+                  sourceSize.height: Math.round(pluginPreviewFrame.height * Screen.devicePixelRatio)
+                  fillMode: Image.PreserveAspectFit
+                  asynchronous: true
+                  cache: true
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  visible: pluginPreviewImage.status !== Image.Ready
+                  text: resultRow.icon || "󰋼"
+                  color: root.secondaryText
+                  font.family: resultRow.iconFont || Style.font.menuFamily
+                  font.pixelSize: Style.space(34)
+                }
               }
 
-              Text {
-                width: parent.width
-                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
-                text: resultRow.title
-                color: root.foreground
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.title
-                font.weight: Font.DemiBold
-                elide: Text.ElideRight
-              }
+              Column {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: resultRow.hasPreviewImage ? pluginPreviewFrame.width : parent.width
+                spacing: Style.space(5)
 
-              Text {
-                width: parent.width
-                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
-                text: resultRow.description
-                color: root.secondaryText
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.bodySmall
-                elide: Text.ElideRight
-              }
+                Text {
+                  width: parent.width
+                  horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                  text: resultRow.icon || "󰋼"
+                  color: root.selectedText
+                  font.family: resultRow.iconFont || Style.font.menuFamily
+                  font.pixelSize: resultRow.hasPreviewImage ? Style.space(24) : Style.space(34)
+                }
 
-              Text {
-                width: parent.width
-                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
-                text: resultRow.trailingText
-                color: root.secondaryText
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-                elide: Text.ElideRight
+                Text {
+                  width: parent.width
+                  horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                  text: resultRow.title
+                  color: root.foreground
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.title
+                  font.weight: Font.DemiBold
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  width: parent.width
+                  horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                  text: resultRow.description
+                  color: root.secondaryText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.bodySmall
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  width: parent.width
+                  horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                  text: resultRow.trailingText
+                  color: root.secondaryText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.caption
+                  elide: Text.ElideRight
+                }
               }
             }
           }

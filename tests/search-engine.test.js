@@ -40,6 +40,29 @@ test("exact aliases beat exact titles", () => {
   assert.equal(SearchEngine.search([title, alias], "shutdown")[0].id, "alias")
 })
 
+test("direct intents outrank aliases and frecency", () => {
+  const launcher = record({
+    id: "launcher-plugins",
+    title: "Omarchy Plugins",
+    intentQueries: ["plugin", "plugins"],
+    searchText: "browse omarchy plugins"
+  })
+  const stock = record({
+    id: "stock-plugins",
+    title: "Plugins",
+    aliases: ["plugin", "plugins"],
+    searchText: "plugins plugin"
+  })
+  const now = Date.now()
+  const usage = { "stock-plugins": { count: 10000, lastUsed: now } }
+
+  for (const query of ["plugin", "plugins"]) {
+    const result = SearchEngine.search([stock, launcher], query, { usage, now })[0]
+    assert.equal(result.id, "launcher-plugins", query)
+    assert.equal(result.semanticTier, 0, query)
+  }
+})
+
 test("compact fuzzy terms match individual words", () => {
   const firefox = record({
     id: "firefox",

@@ -106,8 +106,10 @@ function everyTermFuzzyMatches(queryTerms, words) {
 
 /** @param {SearchableRecord} record @returns {SearchableRecord} */
 function prepareRecord(record) {
+  var intentQueries = Array.isArray(record.intentQueries) ? record.intentQueries : []
   var aliases = Array.isArray(record.aliases) ? record.aliases : []
   var exactKeywords = Array.isArray(record.exactKeywords) ? record.exactKeywords : []
+  record._searchIntentQueries = intentQueries.map(function(query) { return normalize(query) })
   record._searchTitle = normalize(record.title)
   record._searchAliases = aliases.map(function(alias) { return normalize(alias) })
   record._searchExactKeywords = exactKeywords.map(function(keyword) { return normalize(keyword) })
@@ -131,6 +133,12 @@ function prepareRecord(record) {
  */
 function semanticScorePrepared(record, needle, queryTerms) {
   if (!needle) return null
+  var intentQueries = Array.isArray(record.intentQueries) ? record.intentQueries : []
+  var normalizedIntentQueries = Array.isArray(record._searchIntentQueries)
+    ? record._searchIntentQueries : intentQueries.map(function(query) { return normalize(query) })
+  for (var intentIndex = 0; intentIndex < normalizedIntentQueries.length; intentIndex++) {
+    if (normalizedIntentQueries[intentIndex] === needle) return { tier: 0, quality: 0 }
+  }
   var title = record._searchTitle === undefined ? normalize(record.title) : record._searchTitle
   var aliases = Array.isArray(record.aliases) ? record.aliases : []
   var normalizedAliases = Array.isArray(record._searchAliases)
@@ -191,6 +199,7 @@ function usageScore(record, usage, now) {
 /** @param {SearchableRecord} record @returns {SearchableRecord} */
 function copyRecord(record) {
   var copy = Object.assign({}, record)
+  delete copy._searchIntentQueries
   delete copy._searchTitle
   delete copy._searchAliases
   delete copy._searchExactKeywords

@@ -20,6 +20,7 @@ export interface SearchableRecord {
   appIcon?: string;
   appId?: string;
   startupClass?: string;
+  intentQueries?: string[];
   aliases?: string[];
   exactKeywords?: string[];
   keywords?: string[];
@@ -60,6 +61,7 @@ export interface SearchableRecord {
   destructive?: boolean;
   semanticTier?: number;
   semanticQuality?: number;
+  _searchIntentQueries?: string[];
   _searchTitle?: string;
   _searchAliases?: string[];
   _searchExactKeywords?: string[];

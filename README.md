@@ -43,7 +43,7 @@ when they can be used on the current system.
   search aliases, hide distractions, and recover hidden results at any time.
 - **Act without breaking focus.** Press `Ctrl+K` or right-click a result to
   search its actions, open its parent menu, or manage personalization.
-- **Discover and manage plugins.** Search for **Browse Omarchy Plugins** to
+- **Discover and manage plugins.** Search for **Omarchy Plugins** to
   inspect installed, built-in, and installable community plugins without
   leaving the launcher.
 - **See shortcuts before you act.** Results with an active Omarchy or
@@ -109,12 +109,17 @@ Clipboard's `SUPER + CTRL + V`—that assigned chord replaces its number badge.
 
 ### Plugin discovery and management
 
-Search for **Browse Omarchy Plugins** to open a lazy-loaded catalog backed by
+Search for **Omarchy Plugins** to open a lazy-loaded catalog backed by
 the independent [Omarchy Plugins community registry](https://omarchyplugins.com/).
 Installed plugin controls remain available if the registry is offline. The
 catalog separates installed, discoverable, and built-in plugins; searches in
 **Discover** cover the complete remote catalog even though the initial browse
-view is deliberately bounded.
+view is deliberately bounded. **Installed Plugins**, **Discover Plugins**, and
+**Built-in Plugins** are also first-class Root Search results.
+
+When a marketplace listing provides a screenshot, its detail hero shows a
+cached, aspect-preserving preview. Omalauncher fetches that image only after a
+detail route opens; a failed or missing preview falls back to the plugin icon.
 
 Plugin details expose the source repository, author, version, license, and the
 registry's verification state. “Registry verified” means that the registry

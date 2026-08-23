@@ -12,8 +12,9 @@ the final plugin repository self-contained.
 - `src/SearchEngine.js` provides fuzzy semantic search with deterministic
   provider and usage tie-breaking.
 - `src/PluginCatalogModel.js` reconciles marketplace listings with installed
-  Omarchy plugins, builds discovery/detail routes, and derives validated
-  lifecycle intents without performing I/O.
+  Omarchy plugins, builds root-search navigation plus discovery/detail routes,
+  carries validated preview metadata, and derives lifecycle intents without
+  performing I/O.
 
 The plugin catalog module accepts unknown remote payloads at its interface and
 narrows them into strict records. It does not trust catalog command strings;

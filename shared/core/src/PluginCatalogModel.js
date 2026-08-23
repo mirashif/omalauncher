@@ -558,6 +558,7 @@ function listRecords(catalog, route, options) {
 function detailRecords(plugin) {
   var hero = record("plugin-catalog:detail-hero:" + plugin.id, "plugin-status", plugin.name,
     plugin.description, plugin.firstParty ? "󰏖" : "󰀻", 0, "", "hero")
+  hero.settingValue = plugin.id
   hero.previewImageUrl = plugin.previewUrl
   hero.trailingText = [pluginStateLabel(plugin), plugin.author, plugin.version ? "v" + plugin.version : ""]
     .filter(function(value) { return value.length > 0 }).join(" · ")
@@ -634,13 +635,15 @@ function detailRecords(plugin) {
  */
 function rootSearchRecords() {
   var browse = record("plugin-catalog:search:browse", "plugin-open-route",
-    "Browse Omarchy Plugins", "Discover community plugins and manage what is installed.",
+    "Omarchy Plugins", "Discover community plugins and manage what is installed.",
     "󰀻", -4, "Launcher", "navigation")
   browse.breadcrumb = "Omalauncher"
   browse.targetRoute = "plugins"
   browse.route = "plugins"
   browse.parentRoute = "root"
+  browse.intentQueries = ["plugin", "plugins"]
   browse.aliases = ["plugin marketplace"]
+  browse.exactKeywords = ["plugins"]
   browse.keywords = ["plugins", "marketplace", "catalog", "browse"]
   browse.searchText = "browse omarchy plugins marketplace catalog"
 
@@ -650,6 +653,7 @@ function rootSearchRecords() {
   installed.breadcrumb = "Omalauncher › Plugins"
   installed.targetRoute = "plugins-installed"
   installed.route = "plugins-installed"
+  installed.exactKeywords = ["plugins"]
   installed.keywords = ["installed", "enabled", "disabled", "update", "remove", "uninstall"]
   installed.searchText = "installed enabled disabled update remove uninstall manage omarchy plugins"
 
@@ -660,6 +664,7 @@ function rootSearchRecords() {
   discover.targetRoute = "plugins-available"
   discover.route = "plugins-available"
   discover.aliases = ["plugin marketplace", "available plugins"]
+  discover.exactKeywords = ["plugins"]
   discover.keywords = ["discover", "available", "community", "marketplace", "install"]
   discover.searchText = "discover available community marketplace install browse omarchy plugins"
 
@@ -670,6 +675,7 @@ function rootSearchRecords() {
   builtIn.targetRoute = "plugins-built-in"
   builtIn.route = "plugins-built-in"
   builtIn.aliases = ["builtin plugins", "first-party plugins"]
+  builtIn.exactKeywords = ["plugins"]
   builtIn.keywords = ["built-in", "builtin", "first-party", "included", "official"]
   builtIn.searchText = "built-in builtin first-party included official omarchy plugins"
   return [browse, installed, discover, builtIn]
