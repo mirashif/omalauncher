@@ -1,11 +1,11 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const AppIndex = require("../providers/AppIndex.js")
+const AppIndex = require("../shared/core/src/AppIndex.js")
 const CommandCatalogModel = require("../providers/CommandCatalogModel.js")
 const MenuIndex = require("../providers/MenuIndex.js")
 const ShellPluginModel = require("../providers/ShellPluginModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 test("fully tied search results follow provider priority and expose their sections", () => {
   const application = AppIndex.buildApplicationRecords([

@@ -1,23 +1,18 @@
-// Converts Quickshell DesktopEntry objects (or plain test fixtures) into the
-// provider-neutral records consumed by services/SearchEngine.js.
+// @ts-check
+
+// Converts desktop-entry objects into records shared by launcher frontends.
 
 /** @typedef {import("../types/models").DesktopEntryInput} DesktopEntryInput */
 /** @typedef {import("../types/models").ApplicationBuildOptions} ApplicationBuildOptions */
 /** @typedef {import("../types/models").ApplicationRecord} ApplicationRecord */
 
-/**
- * @param {unknown} value
- * @returns {value is ArrayLike<unknown>}
- */
+/** @param {unknown} value @returns {value is ArrayLike<unknown>} */
 function isArrayLike(value) {
   if (value === null || typeof value !== "object") return false
   return "length" in value && typeof value.length === "number"
 }
 
-/**
- * @param {unknown} value
- * @returns {string[]}
- */
+/** @param {unknown} value @returns {string[]} */
 function stringList(value) {
   /** @type {string[]} */
   var out = []
@@ -30,7 +25,6 @@ function stringList(value) {
     }
     return out
   }
-
   if (isArrayLike(value)) {
     for (var i = 0; i < value.length; i++) {
       var entry = String(value[i] || "").trim()
@@ -40,22 +34,18 @@ function stringList(value) {
   return out
 }
 
-/**
- * @param {unknown} value
- * @returns {string}
- */
+/** @param {unknown} value @returns {string} */
 function normalizeDesktopId(value) {
   var id = String(value || "").trim()
   return id.slice(-8) === ".desktop" ? id.slice(0, -8) : id
 }
 
-/**
- * @param {unknown} value
- * @returns {string}
- */
+/** @param {unknown} value @returns {string} */
 function normalizeSearchText(value) {
   var text = String(value || "")
-  try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "") } catch (error) { }
+  try {
+    text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+  } catch (error) { }
   return text
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase()

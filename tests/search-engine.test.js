@@ -1,7 +1,7 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 /**
  * @param {Partial<import("../types/models").SearchableRecord>} overrides

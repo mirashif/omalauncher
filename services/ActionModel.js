@@ -69,8 +69,9 @@ function actionsForResult(result, context, route) {
   var menu = !application && (resultKind === "menu" || resultKind === "link")
   var hiddenManager = resultKind === "manage-hidden"
   var compactToggle = resultKind === "toggle-compact"
+  var pluginCatalog = text(row.resultType || row.type) === "plugin-catalog"
   var settingsCommand = resultKind === "open-settings" || resultKind === "open-files"
-    || resultKind === "open-calculator"
+    || resultKind === "open-calculator" || resultKind === "open-plugins" || pluginCatalog
     || resultKind.indexOf("settings-") === 0 || resultKind.indexOf("about-") === 0
   var calculator = text(row.resultType || row.type) === "calculator"
   var file = text(row.resultType || row.type) === "file"

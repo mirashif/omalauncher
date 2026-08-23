@@ -1,7 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import "AppIndex.js" as AppIndex
+import "../shared/core/src/AppIndex.js" as AppIndex
 import "AppActionModel.js" as AppActionModel
 
 // Adapter around Omarchy's shared AppLibrary. All internal API usage lives in

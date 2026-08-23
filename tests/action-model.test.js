@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 
 const ActionModel = require("../services/ActionModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 test("application actions expose open and favorites without an Omarchy parent", () => {
   const actions = ActionModel.actionsForResult({
@@ -279,6 +279,17 @@ test("calculator results expose copy actions without launcher personalization", 
   assert.deepEqual(actions.map(action => action.id), ["primary", "copy-expression"])
   assert.equal(actions[0].title, "Copy Result")
   assert.equal(actions[1].description, "2 + 2")
+})
+
+test("plugin catalog records expose only their primary contextual action", () => {
+  const actions = ActionModel.actionsForResult({
+    resultId: "plugin-catalog:entry:example.panel",
+    resultType: "plugin-catalog",
+    resultKind: "plugin-open-details",
+    title: "Example Panel"
+  }, {})
+
+  assert.deepEqual(actions.map(action => action.id), ["primary"])
 })
 
 test("file results expose literal open, reveal, and copy-path actions", () => {

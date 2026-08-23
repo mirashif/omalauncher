@@ -12,6 +12,7 @@ import "providers/MenuIndex.js" as MenuIndex
 import "providers/FileSearchModel.js" as FileSearchModel
 import "providers/SourceMergeModel.js" as SourceMergeModel
 import "services/ActionModel.js" as ActionModel
+import "services/AboutMenuModel.js" as AboutMenuModel
 import "services/DependencyModel.js" as DependencyModel
 import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
@@ -20,7 +21,8 @@ import "services/NavigationModel.js" as NavigationModel
 import "services/QuickActivationModel.js" as QuickActivationModel
 import "services/SettingsModel.js" as SettingsModel
 import "services/StatusModel.js" as StatusModel
-import "services/SearchEngine.js" as SearchEngine
+import "shared/core/src/PluginCatalogModel.js" as PluginCatalogModel
+import "shared/core/src/SearchEngine.js" as SearchEngine
 
 Item {
   id: root
@@ -55,6 +57,9 @@ Item {
   property bool suppressSearchChange: false
   property bool compactExpanded: false
   property bool actionPanelOpen: false
+  property bool aboutMenuOpen: false
+  property int aboutMenuSelectedIndex: 0
+  property int aboutMenuSectionCount: 0
   property var actionTarget: ({})
   property int actionSelectedIndex: 0
   property string actionRoute: "root"
@@ -109,6 +114,10 @@ Item {
   readonly property string shellFeaturesError: shellPluginProvider.error
   readonly property bool cliCatalogReady: commandCatalogProvider.ready
   readonly property string cliCatalogError: commandCatalogProvider.error
+  readonly property bool pluginCatalogRoute: PluginCatalogModel.isRoute(activeRoute)
+  readonly property bool pluginCatalogReady: pluginCatalogProvider.ready
+  readonly property bool pluginCatalogLoading: pluginCatalogProvider.loading
+  readonly property string pluginCatalogError: pluginCatalogProvider.error
   readonly property string activeMenuTitle: root.menuTitle(root.activeRoute)
   readonly property bool commandIndexSettled: defaultSourceSettled
     && (!defaultSourceLoaded || guardEvaluationSettled || guardResultsAvailable)
@@ -120,11 +129,13 @@ Item {
   readonly property bool settingsRoute: SettingsModel.isRoute(activeRoute)
   readonly property bool settingsLocationHeader: settingsRoute
     && !SettingsModel.isInputRoute(activeRoute)
+  readonly property bool locationHeader: root.settingsLocationHeader || root.pluginCatalogRoute
   readonly property bool compactCollapsed: compactMode
     && !compactExpanded
     && !searchInput.text
     && activeRoute === "root"
     && !actionPanelOpen
+    && !aboutMenuOpen
     && !warningPanelOpen
   readonly property string providerWarning: StatusModel.warningText([
     stateStore.error,
@@ -134,7 +145,8 @@ Item {
     appProviderError,
     appHotkeyProvider.error,
     shellFeaturesError,
-    cliCatalogError
+    cliCatalogError,
+    pluginCatalogError
   ])
   readonly property var providerDiagnostics: StatusModel.providerDiagnostics([
     {
@@ -176,6 +188,13 @@ Item {
       provider: "CLI catalog",
       error: cliCatalogError,
       detail: cliCatalogError ? "Retry reloads omarchy commands --json; last valid results remain available." : ""
+    },
+    {
+      provider: "Plugin catalog",
+      error: pluginCatalogError,
+      detail: pluginCatalogError
+        ? "Installed plugins remain manageable; retry reloads omarchyplugins.com."
+        : ""
     }
   ])
   readonly property var emptyStatus: StatusModel.emptyStatus({
@@ -191,7 +210,8 @@ Item {
       guardError,
       appProviderError,
       shellFeaturesError,
-      cliCatalogError
+      cliCatalogError,
+      pluginCatalogError
     ]
   })
 
@@ -227,9 +247,12 @@ Item {
   readonly property int dividerHeight: Math.max(1, Style.space(1))
   readonly property int resultsTopOffset: cardPadding + dividerHeight
   readonly property int footerHeight: Style.space(38)
-  readonly property bool footerVisible: !compactCollapsed && resultsModel.count > 0
+  readonly property bool footerVisible: !compactCollapsed
   readonly property int effectiveFooterHeight: footerVisible ? footerHeight : 0
+  readonly property string aboutMenuShortcut: "Ctrl+Shift+K"
   readonly property int rowHeight: Math.max(Style.space(58), Style.font.body + Style.font.caption + Style.space(22))
+  readonly property int heroExtraHeight: Style.space(64)
+  readonly property int previewHeroExtraHeight: Style.space(108)
   readonly property int sectionHeight: Style.space(28)
   readonly property int emptyStateHeight: Style.space(132)
   readonly property int maximumVisibleRows: 8
@@ -242,6 +265,11 @@ Item {
     Math.min(5, Math.max(1, actionResultsModel.count)) * actionRowHeight
       + actionSectionCount * sectionHeight)
   readonly property int actionPanelHeight: Style.space(48) + Style.space(46) + actionListHeight + Style.space(28)
+  readonly property int aboutMenuRowHeight: Math.max(Style.space(48),
+    Style.font.body + Style.font.caption + Style.space(18))
+  readonly property int aboutMenuHeight: Style.space(48)
+    + aboutMenuModel.count * aboutMenuRowHeight
+    + aboutMenuSectionCount * sectionHeight + Style.space(20)
   readonly property int warningPanelHeight: Style.space(76)
     + Math.max(1, providerDiagnostics.length) * Style.space(76)
     + Style.space(58)
@@ -448,11 +476,14 @@ Item {
     var targetScreen = root.focusedScreen()
     if (targetScreen) panel.screen = targetScreen
     root.resetActionPanel()
+    root.aboutMenuOpen = false
     root.warningPanelOpen = false
     root.compactExpanded = false
     var requestedRoute = String(payload.route || "")
-    root.activeRoute = requestedRoute === "settings" ? "settings" : "root"
-    root.navigationStack = requestedRoute === "settings" ? ["root"] : []
+    var initialRoute = requestedRoute === "settings" ? "settings"
+      : (PluginCatalogModel.isRoute(requestedRoute) ? requestedRoute : "root")
+    root.activeRoute = initialRoute
+    root.navigationStack = initialRoute === "root" ? [] : ["root"]
     root.opened = true
     root.setSearchTextSilently(String(payload.query || ""))
     root.selectedIndex = 0
@@ -462,8 +493,10 @@ Item {
     }
     root.evaluateGuards()
     appProvider.refreshIcons()
+    shortcutBindingProvider.refresh()
     shellPluginProvider.refresh()
     commandCatalogProvider.refreshIfStale()
+    if (root.pluginCatalogRoute) pluginCatalogProvider.ensureLoaded()
     Qt.callLater(function() {
       root.syncOnboardingForOpen()
       if (!root.onboardingOpen) searchInput.forceActiveFocus()
@@ -475,6 +508,7 @@ Item {
 
   function close() {
     root.resetActionPanel()
+    root.aboutMenuOpen = false
     root.warningPanelOpen = false
     root.compactExpanded = false
     root.opened = false
@@ -498,8 +532,11 @@ Item {
     defaultMenuFile.reload()
     userMenuFile.reload()
     appProvider.refresh()
+    shortcutBindingProvider.refresh()
     shellPluginProvider.refresh()
     commandCatalogProvider.refresh()
+    if (pluginCatalogProvider.ready || pluginCatalogProvider.loading)
+      pluginCatalogProvider.refresh()
     return "ok"
   }
 
@@ -515,6 +552,7 @@ Item {
   function openWarningPanel() {
     if (root.providerDiagnostics.length === 0) return
     root.resetActionPanel()
+    root.aboutMenuOpen = false
     root.warningPanelOpen = true
     Qt.callLater(function() { warningPanel.forceActiveFocus() })
   }
@@ -546,6 +584,8 @@ Item {
       healthy: !root.providerWarning,
       warning: root.providerWarning,
       launcherOpen: root.opened,
+      activeRoute: root.activeRoute,
+      visibleResults: resultsModel.count,
       sharedAppLibrary: appProvider.usingSharedLibrary,
       favorites: stateStore.favorites.length,
       usageEntries: Object.keys(stateStore.usage).length,
@@ -555,6 +595,15 @@ Item {
       calculatorBackendAvailable: calculatorProvider.backendAvailable,
       fileSearchBackendAvailable: fileSearchProvider.backendAvailable,
       fileSearchScopes: stateStore.preferences.fileSearchScopes.length,
+      pluginCatalog: {
+        ready: pluginCatalogProvider.ready,
+        loading: pluginCatalogProvider.loading,
+        error: pluginCatalogProvider.error,
+        total: Number(pluginCatalogProvider.catalog.counts.total || 0),
+        installed: Number(pluginCatalogProvider.catalog.counts.installed || 0),
+        available: Number(pluginCatalogProvider.catalog.counts.available || 0),
+        builtIn: Number(pluginCatalogProvider.catalog.counts.builtin || 0)
+      },
       onboarding: {
         visible: root.onboardingOpen && onboardingView.visible,
         stage: root.onboardingStage,
@@ -646,7 +695,9 @@ Item {
   }
 
   function debugSearch(query) {
-    var rows = SearchEngine.search(root.allRecords, String(query || ""), {
+    var records = root.rootSearchRecords.concat(
+      root.personalizedRecords(root.managementRecords()))
+    var rows = SearchEngine.search(records, String(query || ""), {
       limit: 5,
       usage: stateStore.usage
     })
@@ -900,6 +951,7 @@ Item {
       order: 1,
       section: "Launcher"
     }]
+    records = records.concat(PluginCatalogModel.rootSearchRecords())
     records.push(FileSearchModel.managementRecord(
       preferences.fileSearchEnabled === true,
       fileScopes.length))
@@ -968,6 +1020,18 @@ Item {
     return output
   }
 
+  function assignedShortcutForResult(result) {
+    var row = result || ({})
+    var managedHotkey = String(row.type || "") === "application"
+      ? appHotkeyProvider.hotkeyFor(String(row.appId || "")) : ""
+    return shortcutBindingProvider.shortcutFor({
+      title: String(row.title || ""),
+      route: String(row.route || ""),
+      targetRoute: String(row.targetRoute || ""),
+      sourcePluginId: String(row.sourcePluginId || "")
+    }, managedHotkey)
+  }
+
   function rebuildResults() {
     if (root.rebuildingResults) {
       root.rebuildRequested = true
@@ -986,6 +1050,7 @@ Item {
     if (root.activeRoute !== "root" && root.activeRoute !== "apps"
         && root.activeRoute !== "hidden" && root.activeRoute !== "files"
         && !SettingsModel.isRoute(root.activeRoute)
+        && !PluginCatalogModel.isRoute(root.activeRoute)
         && !root.menuItems[root.activeRoute]) {
       root.activeRoute = "root"
       root.navigationStack = []
@@ -1008,6 +1073,12 @@ Item {
         query,
         root.settingsInputError,
         root.settingsInputBusy)
+    } else if (PluginCatalogModel.isRoute(root.activeRoute)) {
+      pluginCatalogProvider.ensureLoaded()
+      scopedRecords = PluginCatalogModel.recordsForRoute(
+        pluginCatalogProvider.catalog,
+        root.activeRoute,
+        { query: query, limit: 120, loading: root.pluginCatalogLoading })
     } else if (root.activeRoute !== "root") {
       scopedRecords = root.visibleRecords(MenuIndex.recordsForRoute(root.commandRecords, root.activeRoute, !!query))
     }
@@ -1067,7 +1138,11 @@ Item {
       var section = String(result.section || "")
       if (section) sections[section] = true
       var controlType = String(result.controlType || "")
-      if (controlType === "hero") root.resultExtraHeight += Style.space(64)
+      var previewImageUrl = String(result.previewImageUrl || "")
+      if (controlType === "hero") {
+        root.resultExtraHeight += previewImageUrl
+          ? root.previewHeroExtraHeight : root.heroExtraHeight
+      }
       resultsModel.append({
         resultId: String(result.id || ""),
         resultType: String(result.type || ""),
@@ -1094,6 +1169,7 @@ Item {
         calculatorResult: String(result.calculatorResult || ""),
         filePath: String(result.filePath || ""),
         fileScope: String(result.fileScope || ""),
+        previewImageUrl: previewImageUrl,
         executionKind: String(result.executionKind || ""),
         commandArgvJson: String(result.commandArgvJson || ""),
         commandBinary: String(result.commandBinary || ""),
@@ -1104,9 +1180,9 @@ Item {
         isChecked: controlType === "toggle" ? false : !!result.checked,
         semanticTier: Number(result.semanticTier || 0),
         section: section,
-        favorite: stateStore.isFavorite(result.id),
         personalizable: root.canPersonalizeResult(result),
-        userAlias: String(result.userAlias || "")
+        userAlias: String(result.userAlias || ""),
+        assignedShortcut: root.assignedShortcutForResult(result)
       })
     }
     root.resultSectionCount = Object.keys(sections).length
@@ -1160,6 +1236,8 @@ Item {
 
   function popToRoot() {
     root.resetActionPanel()
+    root.aboutMenuOpen = false
+    root.warningPanelOpen = false
     root.activeRoute = "root"
     root.navigationStack = []
     root.setSearchTextSilently("")
@@ -1266,6 +1344,9 @@ Item {
     if (route === "files") return "Files"
     if (route === "hidden") return "Hidden Results"
     if (SettingsModel.isRoute(route)) return SettingsModel.routeTitle(route)
+    if (PluginCatalogModel.isRoute(route)) {
+      return PluginCatalogModel.routeTitle(pluginCatalogProvider.catalog, route)
+    }
     var entry = root.menuItems[route]
     return entry ? String(entry.title || entry.label || route) : String(route || "Omalauncher")
   }
@@ -1273,7 +1354,8 @@ Item {
   function setActiveRoute(route, pushHistory) {
     var nextRoute = String(route || "root")
     if (nextRoute !== "root" && nextRoute !== "hidden" && nextRoute !== "files"
-        && !SettingsModel.isRoute(nextRoute)) {
+        && !SettingsModel.isRoute(nextRoute)
+        && !PluginCatalogModel.isRoute(nextRoute)) {
       var nextEntry = root.menuItems[nextRoute]
       if (!nextEntry || (nextEntry.kind !== "menu" && nextEntry.kind !== "link")) return false
       if (nextEntry.kind === "link" && nextEntry.target) {
@@ -1287,6 +1369,8 @@ Item {
       root.navigationStack = root.navigationStack.concat([root.activeRoute])
     }
     root.resetActionPanel()
+    root.aboutMenuOpen = false
+    root.warningPanelOpen = false
     root.settingsInputError = ""
     if (root.settingsInputBusy && nextRoute !== root.activeRoute) {
       if (scopeRealpathProc.running) scopeRealpathProc.signal(15)
@@ -1295,6 +1379,7 @@ Item {
       root.settingsScopeSuggested = false
     }
     root.activeRoute = nextRoute
+    if (PluginCatalogModel.isRoute(nextRoute)) pluginCatalogProvider.ensureLoaded()
     root.setSearchTextSilently("")
     root.selectedIndex = 0
     root.rebuildResults()
@@ -1313,6 +1398,164 @@ Item {
       previousRoute = current && current.parent ? String(current.parent) : "root"
     }
     return root.setActiveRoute(previousRoute, false)
+  }
+
+  function rebuildAboutMenu() {
+    aboutMenuModel.clear()
+    var records = AboutMenuModel.records({ repositoryUrl: root.repositoryUrl })
+    var sections = ({})
+    for (var i = 0; i < records.length; i++) {
+      var record = records[i]
+      var section = String(record.section || "")
+      if (section) sections[section] = true
+      aboutMenuModel.append({
+        menuId: String(record.id || ""),
+        title: String(record.title || ""),
+        description: String(record.description || ""),
+        icon: String(record.icon || ""),
+        shortcut: String(record.shortcut || ""),
+        section: section,
+        actionKind: String(record.kind || ""),
+        target: String(record.target || "")
+      })
+    }
+    root.aboutMenuSectionCount = Object.keys(sections).length
+    root.aboutMenuSelectedIndex = Math.max(0,
+      Math.min(root.aboutMenuSelectedIndex, Math.max(0, aboutMenuModel.count - 1)))
+  }
+
+  function toggleAboutMenu() {
+    if (root.aboutMenuOpen) {
+      root.closeAboutMenu()
+      return
+    }
+    root.resetActionPanel()
+    root.warningPanelOpen = false
+    root.rebuildAboutMenu()
+    root.aboutMenuSelectedIndex = 0
+    root.aboutMenuOpen = true
+    Qt.callLater(function() { aboutMenuList.forceActiveFocus() })
+  }
+
+  function closeAboutMenu() {
+    if (!root.aboutMenuOpen) return
+    root.aboutMenuOpen = false
+    if (root.opened) Qt.callLater(function() { searchInput.forceActiveFocus() })
+  }
+
+  function moveAboutMenuSelection(delta) {
+    if (aboutMenuModel.count === 0) return
+    root.aboutMenuSelectedIndex = (root.aboutMenuSelectedIndex + delta
+      + aboutMenuModel.count) % aboutMenuModel.count
+    aboutMenuList.positionViewAtIndex(root.aboutMenuSelectedIndex, ListView.Contain)
+  }
+
+  function performAboutMenuAction(index) {
+    var targetIndex = index === undefined ? root.aboutMenuSelectedIndex : Number(index)
+    if (targetIndex < 0 || targetIndex >= aboutMenuModel.count) return
+    var row = aboutMenuModel.get(targetIndex)
+    var kind = String(row.actionKind || "")
+    var target = String(row.target || "")
+    if (kind === "route") {
+      root.aboutMenuOpen = false
+      root.setActiveRoute(target, true)
+    } else if (kind === "url") {
+      root.openExternalUrl(target)
+    } else if (kind === "close") {
+      root.dismiss()
+    }
+  }
+
+  function keyboardModifiers(event) {
+    return Number(event.modifiers || 0)
+      & (Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier | Qt.MetaModifier)
+  }
+
+  function exactModifiers(event, modifiers) {
+    return root.keyboardModifiers(event) === modifiers
+  }
+
+  function handleGlobalShortcut(event) {
+    if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+        && event.key === Qt.Key_K) {
+      root.toggleAboutMenu()
+      return true
+    }
+    if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+        && (event.key === Qt.Key_Slash || event.key === Qt.Key_Question)) {
+      root.openExternalUrl(root.repositoryUrl + "#readme")
+      return true
+    }
+    if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_Comma) {
+      root.aboutMenuOpen = false
+      root.setActiveRoute("settings", true)
+      return true
+    }
+    if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_W) {
+      root.dismiss()
+      return true
+    }
+    if (root.exactModifiers(event, Qt.ShiftModifier) && event.key === Qt.Key_Escape) {
+      root.aboutMenuOpen = false
+      root.popToRoot()
+      return true
+    }
+    return false
+  }
+
+  function configureSelectedResult() {
+    var target = root.selectedResultSnapshot()
+    if (!target.resultId || !root.canPersonalizeResult(target)) return false
+    root.openActionPanel()
+    if (!root.actionPanelOpen) return false
+    root.openActionRoute("configure", "Configure")
+    return true
+  }
+
+  function toggleSelectedHidden() {
+    var target = root.selectedResultSnapshot()
+    if (!target.resultId || !root.canPersonalizeResult(target)) return false
+    var hiddenNow = stateStore.setHidden(target.resultId, !stateStore.isHidden(target.resultId))
+    root.showOsd(hiddenNow ? "" : "",
+      hiddenNow ? "Hidden " + target.title : "Restored " + target.title)
+    if (!hiddenNow && root.activeRoute === "hidden" && root.hiddenRecords().length === 0)
+      root.goBack()
+    return true
+  }
+
+  function revealSelectedResult() {
+    var target = root.selectedResultSnapshot()
+    if (target.resultType === "file" && target.filePath) {
+      root.revealFile(target.filePath)
+      return true
+    }
+    if (target.resultType === "application" && target.appId) {
+      if (!appProvider.resolveDesktopEntry(target.appId, "reveal"))
+        root.showOsd("", "Desktop entry is unavailable")
+      return true
+    }
+    return false
+  }
+
+  function copySelectedResult() {
+    var target = root.selectedResultSnapshot()
+    if (target.resultKind === "calculator" && target.calculatorResult) {
+      root.copyText(target.calculatorResult, "Copied calculator result")
+      return true
+    }
+    if (target.resultType === "file" && target.filePath) {
+      root.copyText(target.filePath, "Copied file path")
+      return true
+    }
+    if (target.commandRoute) {
+      root.copyText(target.commandRoute, "Copied Omarchy command")
+      return true
+    }
+    if (target.resultType === "application" && target.appId) {
+      root.copyText(target.appId, "Copied application ID")
+      return true
+    }
+    return false
   }
 
   function openMenu(row) {
@@ -1352,6 +1595,7 @@ Item {
     var target = root.selectedResultSnapshot()
     if (!target.resultId) return
     root.warningPanelOpen = false
+    root.aboutMenuOpen = false
     root.actionTarget = target
     root.actionSelectedIndex = 0
     root.actionRoute = "root"
@@ -1887,6 +2131,63 @@ Item {
     Quickshell.execDetached(argv)
   }
 
+  function validatedPluginArgv(intent) {
+    var argv = intent && Array.isArray(intent.argv) ? intent.argv : []
+    if (argv.length < 4 || argv.length > 5
+        || argv[0] !== "omarchy" || argv[1] !== "plugin"
+        || ["add", "enable", "disable", "update", "remove"].indexOf(argv[2]) < 0
+        || argv.indexOf("--yes") >= 0 || argv.indexOf("-y") >= 0) return []
+    for (var i = 0; i < argv.length; i++) {
+      if (typeof argv[i] !== "string" || !argv[i] || argv[i].length > 512
+          || argv[i].indexOf("\0") >= 0) return []
+    }
+    if (argv[2] === "add") {
+      if (argv.length !== 5 || !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.git$/.test(argv[3])
+          || argv[4] !== "--enable") return []
+    } else if (argv.length !== 4
+        || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(argv[3])
+        || argv[3].indexOf("..") >= 0) return []
+    return argv
+  }
+
+  function runPluginIntent(intent) {
+    var kind = String((intent && intent.kind) || "none")
+    if (kind === "url") {
+      root.openExternalUrl(String(intent.url || ""))
+      return
+    }
+    if (kind === "copy") {
+      root.copyText(String(intent.value || ""), String(intent.message || "Copied"), true)
+      return
+    }
+    var argv = root.validatedPluginArgv(intent)
+    if (argv.length === 0) {
+      root.showOsd("", String((intent && intent.message) || "Plugin action is no longer available"))
+      return
+    }
+    if (kind === "terminal") {
+      root.showOsd("󰏗", String(intent.message || "Continue in the terminal"))
+      root.dismiss()
+      Quickshell.execDetached(
+        ["xdg-terminal-exec", "--app-id=org.omarchy.terminal"].concat(argv))
+      return
+    }
+    if (kind !== "direct") {
+      root.showOsd("", "Plugin action is no longer available")
+      return
+    }
+    if (pluginLifecycleProcess.running) {
+      root.showOsd("󰀻", "Another plugin change is already running")
+      return
+    }
+    pluginLifecycleProcess.action = String(intent.action || "")
+    pluginLifecycleProcess.pluginId = String(intent.pluginId || "")
+    pluginLifecycleProcess.message = String(intent.message || "Updating plugin")
+    pluginLifecycleProcess.command = argv
+    pluginLifecycleProcess.running = true
+    root.showOsd("󰀻", pluginLifecycleProcess.message)
+  }
+
   function runResult(row, useParent) {
     if (!row || !row.resultId) return
     if (row.resultKind === "onboarding-coach") {
@@ -1901,6 +2202,25 @@ Item {
       root.setActiveRoute("settings", true)
       return
     }
+    if (row.resultKind === "open-plugins") {
+      root.setActiveRoute("plugins", true)
+      return
+    }
+    if (row.resultKind === "plugin-open-route" || row.resultKind === "plugin-open-details") {
+      root.setActiveRoute(row.targetRoute || row.route || "plugins", true)
+      return
+    }
+    if (row.resultKind === "plugin-action") {
+      if (row.settingKey === "refresh") {
+        pluginCatalogProvider.refresh()
+        root.showOsd("󰑐", "Refreshing plugin catalog")
+      } else {
+        root.runPluginIntent(PluginCatalogModel.lifecycleIntent(
+          pluginCatalogProvider.catalog, row.settingValue, row.settingKey))
+      }
+      return
+    }
+    if (row.resultKind === "plugin-status") return
     if (row.resultKind === "settings-open-shortcut") {
       root.setActiveRoute("settings-shortcut", true)
       return
@@ -2189,10 +2509,20 @@ Item {
 
   function canPersonalizeResult(row) {
     var kind = String((row && (row.resultKind || row.kind)) || "")
-    return kind !== "open-settings"
+    var type = String((row && (row.resultType || row.type)) || "")
+    return type !== "calculator"
+      && type !== "file"
+      && type !== "file-status"
+      && type !== "plugin-catalog"
+      && kind !== "open-settings"
+      && kind !== "open-files"
+      && kind !== "open-calculator"
+      && kind !== "manage-hidden"
       && kind !== "toggle-compact"
+      && kind !== "onboarding-coach"
       && kind.indexOf("settings-") !== 0
       && kind.indexOf("about-") !== 0
+      && kind.indexOf("calculator-") !== 0
   }
 
   function toggleSelectedFavorite() {
@@ -2243,6 +2573,20 @@ Item {
     if (row.resultKind === "toggle-compact") return "Toggle"
     if (row.resultKind === "manage-hidden") return "Manage"
     if (row.resultKind === "open-settings") return "Open Settings"
+    if (row.resultKind === "open-plugins") return "Browse Plugins"
+    if (row.resultKind === "plugin-open-route") return "Open"
+    if (row.resultKind === "plugin-open-details") return "View Details"
+    if (row.resultKind === "plugin-status") return ""
+    if (row.resultKind === "plugin-action") {
+      if (row.settingKey === "install") return "Install"
+      if (row.settingKey === "enable") return "Enable"
+      if (row.settingKey === "disable") return "Disable"
+      if (row.settingKey === "update") return "Check for Updates"
+      if (row.settingKey === "remove") return "Remove"
+      if (String(row.settingKey || "").indexOf("copy-") === 0) return "Copy"
+      if (String(row.settingKey || "").indexOf("open-") === 0) return "Open Link"
+      if (row.settingKey === "refresh") return "Refresh"
+    }
     if (row.resultKind === "settings-open-shortcut") return "Open"
     if (row.resultKind === "settings-open-dependencies") return "Open"
     if (row.resultKind === "settings-open-file-search") return "Open"
@@ -2297,9 +2641,34 @@ Item {
     return root.primaryActionLabel()
   }
 
+  function shortcutCue(shortcut) {
+    var value = String(shortcut || "")
+    return value ? "[" + value + "]" : ""
+  }
+
   function secondaryFooterLabel() {
-    if (root.settingsRoute) return "Esc  Back"
-    return "Ctrl+K / right-click  Actions"
+    if (root.settingsRoute || root.pluginCatalogRoute) return "Back"
+    if (root.actionPanelOpen) return "Close Actions"
+    return "Actions"
+  }
+
+  function secondaryFooterShortcut() {
+    if (root.settingsRoute || root.pluginCatalogRoute) return "Esc"
+    return "Ctrl+K"
+  }
+
+  function triggerFooterPrimary() {
+    if (root.aliasEditorOpen) root.saveAliasEditor()
+    else if (root.hotkeyEditorOpen) root.saveHotkeyEditor()
+    else if (root.actionPanelOpen) root.performAction("")
+    else root.runSelected(false)
+  }
+
+  function triggerFooterSecondary() {
+    root.aboutMenuOpen = false
+    if (root.settingsRoute || root.pluginCatalogRoute) root.goBack()
+    else if (root.actionPanelOpen) root.closeActionPanel()
+    else root.openActionPanel()
   }
 
   function evaluateGuards() {
@@ -2390,6 +2759,7 @@ Item {
 
   ListModel { id: resultsModel }
   ListModel { id: actionResultsModel }
+  ListModel { id: aboutMenuModel }
 
   StateStore {
     id: stateStore
@@ -2438,7 +2808,10 @@ Item {
 
   AppHotkeyProvider {
     id: appHotkeyProvider
-    onEntriesChanged: if (root.actionPanelOpen) root.rebuildActions()
+    onEntriesChanged: {
+      if (root.opened) root.rebuildResults()
+      if (root.actionPanelOpen) root.rebuildActions()
+    }
     onLauncherHotkeyChanged: if (root.settingsRoute || root.activeRoute === "root")
       root.rebuildResults()
     onConflictDetected: function(appId, title, hotkey, existingDescription) {
@@ -2453,10 +2826,14 @@ Item {
     onHotkeyApplied: function(appId, hotkey, replacedDescription) {
       root.closeHotkeyEditor()
       root.showOsd("󰌌", "Hotkey set: " + hotkey)
+      shortcutBindingProvider.refresh()
+      root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
     }
     onHotkeyRemoved: function(appId) {
       root.showOsd("󰌌", "Application hotkey removed")
+      shortcutBindingProvider.refresh()
+      root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
     }
     onLauncherHotkeyInspected: function(hotkey, existingDescription, namedLauncher,
@@ -2548,6 +2925,11 @@ Item {
     }
   }
 
+  ShortcutBindingProvider {
+    id: shortcutBindingProvider
+    onBindingsChanged: if (root.opened) root.rebuildResults()
+  }
+
   ShortcutInhibitor {
     id: shortcutInhibitor
     enabled: root.hotkeyEditorOpen || root.onboardingRecording
@@ -2582,6 +2964,46 @@ Item {
     onRecordsChanged: {
       root.shellPluginRecords = shellPluginProvider.records
       root.rebuildUnifiedRecords()
+    }
+  }
+
+  PluginCatalogProvider {
+    id: pluginCatalogProvider
+    pluginRegistry: root.pluginRegistry
+    onCatalogChanged: if (root.pluginCatalogRoute) root.rebuildResults()
+    onLoadingChanged: if (root.pluginCatalogRoute) root.rebuildResults()
+  }
+
+  Process {
+    id: pluginLifecycleProcess
+    property string action: ""
+    property string pluginId: ""
+    property string message: ""
+    stdout: StdioCollector {
+      id: pluginLifecycleStdout
+      waitForEnd: true
+    }
+    stderr: StdioCollector {
+      id: pluginLifecycleStderr
+      waitForEnd: true
+    }
+    onExited: function(exitCode, exitStatus) {
+      var succeeded = exitCode === 0 && exitStatus === 0
+      var output = String(succeeded ? pluginLifecycleStdout.text : pluginLifecycleStderr.text)
+        .trim().replace(/\s+/g, " ")
+      if (succeeded) {
+        var verb = pluginLifecycleProcess.action === "enable" ? "Enabled"
+          : (pluginLifecycleProcess.action === "disable" ? "Disabled" : "Updated")
+        root.showOsd("󰀻", output || verb + " " + pluginLifecycleProcess.pluginId)
+      } else {
+        root.showOsd("", output.slice(0, 180) || "Plugin change did not finish")
+      }
+      pluginCatalogProvider.refreshInstalled()
+      shellPluginProvider.refresh()
+      root.rebuildResults()
+      pluginLifecycleProcess.action = ""
+      pluginLifecycleProcess.pluginId = ""
+      pluginLifecycleProcess.message = ""
     }
   }
 
@@ -2771,7 +3193,9 @@ Item {
                 root.resultsTopOffset,
                 root.effectiveFooterHeight),
           root.actionPanelOpen ? root.actionPanelHeight + Style.space(24) : 0),
-        root.warningPanelOpen ? root.warningPanelHeight + Style.space(24) : 0)
+        Math.max(
+          root.warningPanelOpen ? root.warningPanelHeight + Style.space(24) : 0,
+          root.aboutMenuOpen ? root.aboutMenuHeight + root.footerHeight + Style.space(24) : 0))
       readonly property var responsiveGeometry: LayoutModel.cardGeometry(
         panel.width,
         panel.height,
@@ -2795,6 +3219,7 @@ Item {
         onClicked: {
           if (root.actionPanelOpen) root.closeActionPanel()
           else if (root.warningPanelOpen) root.closeWarningPanel()
+          else if (root.aboutMenuOpen) root.closeAboutMenu()
           else searchInput.forceActiveFocus()
         }
       }
@@ -2839,7 +3264,7 @@ Item {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
-          anchors.rightMargin: root.settingsLocationHeader
+          anchors.rightMargin: root.locationHeader
             && !SettingsModel.isConfirmationRoute(root.activeRoute)
             && root.activeRoute !== "settings-about"
               ? Style.space(132)
@@ -2849,16 +3274,16 @@ Item {
           text: !stateStore.loaded
             ? "Loading launcher state…"
             : (root.indexSettled
-                ? (root.settingsLocationHeader
+                ? (root.locationHeader
                     ? root.activeMenuTitle
                     : (root.activeRoute === "root"
                         ? "Search apps, shell features, and Omarchy commands…"
                         : "Search " + root.activeMenuTitle + "…"))
                 : "Building unified index…")
-          color: root.settingsLocationHeader ? root.selectedText : root.secondaryText
+          color: root.locationHeader ? root.selectedText : root.secondaryText
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
-          font.weight: root.settingsLocationHeader ? Font.DemiBold : Font.Normal
+          font.weight: root.locationHeader ? Font.DemiBold : Font.Normal
           elide: Text.ElideRight
         }
 
@@ -2866,7 +3291,7 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: root.providerWarning ? Style.space(44) : Style.space(16)
           anchors.verticalCenter: parent.verticalCenter
-          visible: root.settingsLocationHeader
+          visible: root.locationHeader
             && !SettingsModel.isConfirmationRoute(root.activeRoute)
             && root.activeRoute !== "settings-about"
             && !searchInput.text
@@ -2878,8 +3303,9 @@ Item {
 
         TextInput {
           id: searchInput
-          enabled: !root.actionPanelOpen && !root.warningPanelOpen && stateStore.loaded
-          cursorVisible: !root.settingsLocationHeader || text.length > 0
+          enabled: !root.actionPanelOpen && !root.warningPanelOpen
+            && !root.aboutMenuOpen && stateStore.loaded
+          cursorVisible: !root.locationHeader || text.length > 0
           anchors.left: parent.left
           anchors.leftMargin: Style.space(48)
           anchors.right: parent.right
@@ -2908,45 +3334,78 @@ Item {
 
           Keys.priority: Keys.BeforeItem
           Keys.onPressed: function(event) {
-            if (root.activateQuickResult(event)) {
+            if (root.handleGlobalShortcut(event)) {
               event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                       && event.key === Qt.Key_Comma) {
+              if (root.configureSelectedResult()) event.accepted = true
             } else if (!root.settingsRoute
-                       && (event.modifiers & Qt.ControlModifier) !== 0
-                       && event.key === Qt.Key_K) {
-              root.openActionPanel()
+                       && root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                       && event.key === Qt.Key_D) {
+              if (root.toggleSelectedHidden()) event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                       && event.key === Qt.Key_O) {
+              if (root.revealSelectedResult()) event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_O) {
+              root.runSelected(false)
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0
-                       && (event.modifiers & Qt.ShiftModifier) !== 0
+            } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                        && event.key === Qt.Key_C) {
               root.toggleCompactMode()
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
-              root.dismiss()
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_C && searchInput.selectedText.length === 0
+                       && root.copySelectedResult()) {
               event.accepted = true
-            } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
-              root.popToRoot()
+            } else if (root.exactModifiers(event, Qt.AltModifier)
+                       && event.key === Qt.Key_Up) {
+              root.moveSelection(-root.maximumVisibleRows)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.AltModifier)
+                       && event.key === Qt.Key_Down) {
+              root.moveSelection(root.maximumVisibleRows)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_N) {
+              root.moveSelection(1)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_P) {
+              root.moveSelection(-1)
+              event.accepted = true
+            } else if (root.activeRoute !== "root"
+                       && (event.key === Qt.Key_Backtab
+                         || (event.key === Qt.Key_Tab
+                           && root.exactModifiers(event, Qt.ShiftModifier)))) {
+              root.goBack()
+              event.accepted = true
+            } else if (root.activateQuickResult(event)) {
               event.accepted = true
             } else if (!root.settingsRoute
-                       && (event.modifiers & Qt.ControlModifier) !== 0
-                       && (event.modifiers & Qt.ShiftModifier) !== 0
+                       && root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_K) {
+              root.openActionPanel()
+              event.accepted = true
+            } else if (!root.settingsRoute
+                       && root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                        && event.key === Qt.Key_Up) {
               root.moveSelectedFavorite(-1)
               event.accepted = true
             } else if (!root.settingsRoute
-                       && (event.modifiers & Qt.ControlModifier) !== 0
-                       && (event.modifiers & Qt.ShiftModifier) !== 0
+                       && root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                        && event.key === Qt.Key_Down) {
               root.moveSelectedFavorite(1)
               event.accepted = true
             } else if (!root.settingsRoute
-                       && (event.modifiers & Qt.ControlModifier) !== 0
+                       && root.exactModifiers(event, Qt.ControlModifier)
                        && event.key === Qt.Key_F) {
               root.toggleSelectedFavorite()
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Up) {
+            } else if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_Up) {
               root.moveResultSection(-1)
               event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Down) {
+            } else if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_Down) {
               root.moveResultSection(1)
               event.accepted = true
             } else if (event.key === Qt.Key_Escape) {
@@ -3030,7 +3489,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.effectiveFooterHeight
         model: resultsModel
-        enabled: !root.actionPanelOpen
+        enabled: !root.actionPanelOpen && !root.aboutMenuOpen
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         section.property: "section"
@@ -3072,23 +3531,28 @@ Item {
           required property string targetRoute
           required property string provider
           required property string resultKind
-          required property bool favorite
           required property bool personalizable
           required property bool isChecked
           required property string userAlias
+          required property string assignedShortcut
           required property string controlType
           required property bool settingChecked
           required property string trailingText
           required property bool destructive
+          required property string previewImageUrl
 
           readonly property bool selected: index === root.selectedIndex
           readonly property bool isApplication: resultType === "application"
-          readonly property bool isSettingsRow: root.settingsRoute && controlType.length > 0
+          readonly property bool isSettingsRow: (root.settingsRoute || root.pluginCatalogRoute)
+            && controlType.length > 0
           readonly property bool isHero: isSettingsRow && controlType === "hero"
+          readonly property bool hasPreviewImage: isHero && previewImageUrl.length > 0
           readonly property string supportingText: breadcrumb || description
           readonly property bool highlightSupportingText: !isSettingsRow && !!breadcrumb
           width: ListView.view.width
-          height: root.rowHeight + (isHero ? Style.space(64) : 0)
+          height: root.rowHeight + (isHero
+            ? (hasPreviewImage ? root.previewHeroExtraHeight : root.heroExtraHeight)
+            : 0)
           radius: Math.max(0, Style.cornerRadius - Style.space(3))
           color: selected ? root.selectedBackground : "transparent"
           Accessible.role: resultRow.controlType === "toggle"
@@ -3098,6 +3562,7 @@ Item {
             + (resultRow.controlType === "toggle"
               ? (resultRow.settingChecked ? ", on" : ", off")
               : (resultRow.trailingText ? ", " + resultRow.trailingText : ""))
+            + (resultRow.assignedShortcut ? ", shortcut " + resultRow.assignedShortcut : "")
           Accessible.description: resultRow.breadcrumb || resultRow.description
           Accessible.checked: resultRow.controlType === "toggle" && resultRow.settingChecked
           Accessible.focusable: true
@@ -3196,50 +3661,94 @@ Item {
             }
           }
 
-          Column {
+          Item {
+            id: heroContent
             anchors.centerIn: parent
             width: Math.max(1, parent.width - Style.space(56))
-            spacing: Style.space(5)
+            height: Math.max(1, parent.height - Style.space(24))
             visible: resultRow.isHero
 
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: resultRow.icon || "󰋼"
-              color: root.selectedText
-              font.family: resultRow.iconFont || Style.font.menuFamily
-              font.pixelSize: Style.space(34)
+            Rectangle {
+              id: pluginPreviewFrame
+              visible: resultRow.hasPreviewImage
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              width: Math.min(Style.space(224), parent.width * 0.4)
+              height: Math.round(width * 9 / 16)
+              radius: Math.max(0, Style.cornerRadius - Style.space(4))
+              color: root.background
+              border.width: Math.max(1, Style.space(1))
+              border.color: resultRow.selected ? root.selectedText : root.borderColor
+              clip: true
+
+              Image {
+                id: pluginPreviewImage
+                anchors.fill: parent
+                anchors.margins: Style.space(1)
+                source: resultRow.hasPreviewImage ? resultRow.previewImageUrl : ""
+                sourceSize.width: Math.round(pluginPreviewFrame.width * Screen.devicePixelRatio)
+                sourceSize.height: Math.round(pluginPreviewFrame.height * Screen.devicePixelRatio)
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+              }
+
+              Text {
+                anchors.centerIn: parent
+                visible: pluginPreviewImage.status !== Image.Ready
+                text: resultRow.icon || "󰋼"
+                color: root.secondaryText
+                font.family: resultRow.iconFont || Style.font.menuFamily
+                font.pixelSize: Style.space(28)
+              }
             }
 
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: resultRow.title
-              color: root.foreground
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.title
-              font.weight: Font.DemiBold
-              elide: Text.ElideRight
-            }
+            Column {
+              anchors.left: resultRow.hasPreviewImage ? pluginPreviewFrame.right : parent.left
+              anchors.leftMargin: resultRow.hasPreviewImage ? Style.space(18) : 0
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(5)
 
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: resultRow.description
-              color: root.secondaryText
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
-            }
+              Text {
+                width: parent.width
+                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                text: resultRow.icon || "󰋼"
+                color: root.selectedText
+                font.family: resultRow.iconFont || Style.font.menuFamily
+                font.pixelSize: resultRow.hasPreviewImage ? Style.space(24) : Style.space(34)
+              }
 
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: resultRow.trailingText
-              color: root.secondaryText
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.caption
-              elide: Text.ElideRight
+              Text {
+                width: parent.width
+                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                text: resultRow.title
+                color: root.foreground
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.title
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                text: resultRow.description
+                color: root.secondaryText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                horizontalAlignment: resultRow.hasPreviewImage ? Text.AlignLeft : Text.AlignHCenter
+                text: resultRow.trailingText
+                color: root.secondaryText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
             }
           }
 
@@ -3268,34 +3777,24 @@ Item {
             }
 
             Text {
-              visible: !resultRow.isSettingsRow
-                && resultRow.personalizable
-                && resultRow.favorite
-              text: "★"
+              id: assignedShortcutCue
+              visible: !resultRow.isSettingsRow && resultRow.assignedShortcut.length > 0
+              text: root.shortcutCue(resultRow.assignedShortcut)
               color: resultRow.selected ? root.selectedText : root.secondaryText
               font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
             }
 
-            Rectangle {
+            Text {
+              id: quickActivationCue
               visible: !resultRow.isSettingsRow
                 && root.quickActivationHint(resultRow.index).length > 0
-              width: Math.max(Style.space(46), quickActivationText.implicitWidth + Style.space(10))
-              height: Math.max(Style.space(22), quickActivationText.implicitHeight + Style.space(6))
-              radius: height / 2
-              color: resultRow.selected ? root.foreground : "transparent"
-              border.width: Math.max(1, Style.space(1))
-              border.color: resultRow.selected ? root.foreground : root.secondaryText
-
-              Text {
-                id: quickActivationText
-                anchors.centerIn: parent
-                text: root.quickActivationHint(resultRow.index)
-                color: resultRow.selected ? root.background : root.secondaryText
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-                font.weight: Font.DemiBold
-              }
+              text: root.shortcutCue(root.quickActivationHint(resultRow.index))
+              color: resultRow.selected ? root.selectedText : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
             }
 
             Text {
@@ -3428,30 +3927,372 @@ Item {
           opacity: 0.45
         }
 
-        Text {
-          id: footerPrimaryAction
+        Item {
+          id: footerAboutButton
           anchors.left: parent.left
           anchors.leftMargin: Style.space(18)
           anchors.verticalCenter: parent.verticalCenter
-          width: root.actionPanelOpen
-            ? Math.max(1, actionPanel.x - Style.space(26))
-            : parent.width / 2
-          text: root.footerActionLabel() ? "↵  " + root.footerActionLabel() : ""
-          color: root.secondaryText
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
-          elide: Text.ElideRight
+          width: footerAboutContent.implicitWidth
+          height: parent.height
+          Accessible.role: Accessible.Button
+          Accessible.name: root.aboutMenuOpen ? "Close Omalauncher menu" : "Open Omalauncher menu"
+          Accessible.description: "Press Control Shift K"
+          Accessible.onPressAction: root.toggleAboutMenu()
+
+          Row {
+            id: footerAboutContent
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(7)
+
+            Text {
+              text: ""
+              color: root.aboutMenuOpen || footerAboutMouse.containsMouse
+                ? root.foreground : root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+
+            Text {
+              text: root.shortcutCue(root.aboutMenuShortcut)
+              color: root.secondaryText
+              opacity: root.aboutMenuOpen || footerAboutMouse.containsMouse ? 1 : 0.75
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+
+          MouseArea {
+            id: footerAboutMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleAboutMenu()
+          }
         }
 
-        Text {
+        Item {
+          id: footerControl
+          visible: root.footerActionLabel().length > 0
           anchors.right: parent.right
           anchors.rightMargin: Style.space(18)
           anchors.verticalCenter: parent.verticalCenter
-          visible: !root.actionPanelOpen && root.secondaryFooterLabel().length > 0
-          text: root.secondaryFooterLabel()
-          color: root.secondaryText
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
+          width: footerControlRow.implicitWidth
+          height: parent.height
+
+          Row {
+            id: footerControlRow
+            height: parent.height
+            spacing: Style.space(12)
+
+            Item {
+              id: footerPrimarySegment
+              visible: root.footerActionLabel().length > 0
+              width: Math.min(Style.space(260),
+                footerEnterKey.implicitWidth + footerPrimaryLabel.implicitWidth + Style.space(7))
+              height: parent.height
+              Accessible.role: Accessible.Button
+              Accessible.name: root.footerActionLabel()
+              Accessible.description: "Press Enter"
+              Accessible.onPressAction: root.triggerFooterPrimary()
+
+              Row {
+                id: footerPrimaryContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(7)
+
+                Text {
+                  id: footerEnterKey
+                  text: root.shortcutCue("↵")
+                  color: footerPrimaryMouse.containsMouse ? root.foreground : root.secondaryText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.DemiBold
+                }
+
+                Text {
+                  id: footerPrimaryLabel
+                  width: Math.max(1,
+                    footerPrimarySegment.width - footerEnterKey.implicitWidth - parent.spacing)
+                  text: root.footerActionLabel()
+                  color: footerPrimaryMouse.containsMouse ? root.foreground : root.secondaryText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.Medium
+                  elide: Text.ElideRight
+                }
+              }
+
+              MouseArea {
+                id: footerPrimaryMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.triggerFooterPrimary()
+              }
+            }
+
+            Item {
+              visible: footerPrimarySegment.visible
+              width: root.dividerHeight
+              height: parent.height
+
+              Rectangle {
+                anchors.centerIn: parent
+                width: root.dividerHeight
+                height: Style.space(16)
+                color: root.borderColor
+                opacity: 0.7
+              }
+            }
+
+            Item {
+              id: footerSecondarySegment
+              width: footerSecondaryContent.implicitWidth
+              height: parent.height
+              Accessible.role: Accessible.Button
+              Accessible.name: root.settingsRoute || root.pluginCatalogRoute ? "Back" : "Actions"
+              Accessible.description: root.settingsRoute || root.pluginCatalogRoute
+                ? "Press Escape" : "Press Control K"
+              Accessible.onPressAction: root.triggerFooterSecondary()
+
+              Row {
+                id: footerSecondaryContent
+                anchors.centerIn: parent
+                spacing: Style.space(7)
+
+                Text {
+                  id: footerSecondaryLabel
+                  text: root.secondaryFooterLabel()
+                  color: footerSecondaryMouse.containsMouse ? root.foreground : root.secondaryText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.caption
+                  font.weight: Font.Medium
+                }
+
+                Text {
+                  text: root.shortcutCue(root.secondaryFooterShortcut())
+                  color: root.secondaryText
+                  opacity: footerSecondaryMouse.containsMouse ? 1 : 0.75
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Style.font.caption
+                }
+              }
+
+              MouseArea {
+                id: footerSecondaryMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.triggerFooterSecondary()
+              }
+            }
+          }
+        }
+      }
+
+      Rectangle {
+        id: aboutMenuPanel
+        visible: root.aboutMenuOpen
+        z: 30
+        width: Math.max(1, Math.min(Style.space(380), card.width - Style.space(24)))
+        height: Math.max(1, Math.min(root.aboutMenuHeight,
+          card.height - root.footerHeight - Style.space(24)))
+        anchors.left: parent.left
+        anchors.bottom: footer.top
+        anchors.margins: Style.space(12)
+        radius: Math.max(0, Style.cornerRadius - Style.space(2))
+        color: root.background
+        border.width: Math.max(1, Style.space(1))
+        border.color: root.borderColor
+        Accessible.role: Accessible.PopupMenu
+        Accessible.name: "Omalauncher menu"
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: aboutMenuList.forceActiveFocus()
+        }
+
+        Item {
+          id: aboutMenuHeader
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: Style.space(48)
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Omalauncher"
+            color: root.foreground
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.title
+            font.weight: Font.DemiBold
+          }
+
+          Text {
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.productVersion ? "v" + root.productVersion : ""
+            color: root.secondaryText
+            font.family: Style.font.menuFamily
+            font.pixelSize: Style.font.caption
+          }
+        }
+
+        ListView {
+          id: aboutMenuList
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: aboutMenuHeader.bottom
+          anchors.bottom: parent.bottom
+          anchors.margins: Style.space(8)
+          model: aboutMenuModel
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          section.property: "section"
+          section.criteria: ViewSection.FullString
+          focus: root.aboutMenuOpen
+          Accessible.role: Accessible.List
+          Accessible.name: "Omalauncher commands"
+
+          Keys.priority: Keys.BeforeItem
+          Keys.onPressed: function(event) {
+            if (root.handleGlobalShortcut(event)) {
+              event.accepted = true
+            } else if (event.key === Qt.Key_Escape) {
+              root.closeAboutMenu()
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_N) {
+              root.moveAboutMenuSelection(1)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.ControlModifier)
+                       && event.key === Qt.Key_P) {
+              root.moveAboutMenuSelection(-1)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.AltModifier)
+                       && event.key === Qt.Key_Up) {
+              root.moveAboutMenuSelection(-5)
+              event.accepted = true
+            } else if (root.exactModifiers(event, Qt.AltModifier)
+                       && event.key === Qt.Key_Down) {
+              root.moveAboutMenuSelection(5)
+              event.accepted = true
+            } else if (event.key === Qt.Key_Up) {
+              root.moveAboutMenuSelection(-1)
+              event.accepted = true
+            } else if (event.key === Qt.Key_Down) {
+              root.moveAboutMenuSelection(1)
+              event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+              root.performAboutMenuAction()
+              event.accepted = true
+            }
+          }
+
+          section.delegate: Rectangle {
+            required property string section
+            width: aboutMenuList.width
+            height: section ? root.sectionHeight : 0
+            color: "transparent"
+
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(10)
+              anchors.bottom: parent.bottom
+              anchors.bottomMargin: Style.space(4)
+              text: parent.section
+              color: root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
+            }
+          }
+
+          delegate: Rectangle {
+            id: aboutMenuRow
+            required property int index
+            required property string title
+            required property string description
+            required property string icon
+            required property string shortcut
+            readonly property bool selected: index === root.aboutMenuSelectedIndex
+            width: ListView.view.width
+            height: root.aboutMenuRowHeight
+            radius: Math.max(0, Style.cornerRadius - Style.space(4))
+            color: selected ? root.selectedBackground : "transparent"
+            Accessible.role: Accessible.MenuItem
+            Accessible.name: title + (shortcut ? ", " + shortcut : "")
+            Accessible.description: description
+            Accessible.focusable: true
+            Accessible.focused: selected
+            Accessible.onPressAction: root.performAboutMenuAction(index)
+
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(28)
+              horizontalAlignment: Text.AlignHCenter
+              text: aboutMenuRow.icon
+              color: aboutMenuRow.selected ? root.selectedText : root.foreground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.body
+            }
+
+            Column {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(48)
+              anchors.right: aboutMenuShortcut.left
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(2)
+
+              Text {
+                width: parent.width
+                text: aboutMenuRow.title
+                color: root.foreground
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.body
+                font.weight: Font.Medium
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: aboutMenuRow.description
+                color: root.secondaryText
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+            }
+
+            Text {
+              id: aboutMenuShortcut
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              width: implicitWidth
+              text: aboutMenuRow.shortcut
+              color: root.secondaryText
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onPositionChanged: root.aboutMenuSelectedIndex = aboutMenuRow.index
+              onClicked: root.performAboutMenuAction(aboutMenuRow.index)
+            }
+          }
         }
       }
 
@@ -3571,40 +4412,71 @@ Item {
             Keys.onPressed: function(event) {
               if (root.actionConfirmationOpen && actionConfirmationDialog.handleKey(event)) {
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
-                root.dismiss()
+              } else if (root.handleGlobalShortcut(event)) {
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0
-                         && (event.modifiers & Qt.ShiftModifier) !== 0
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                         && event.key === Qt.Key_Comma) {
+                if (root.configureSelectedResult()) event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                         && event.key === Qt.Key_D) {
+                if (root.toggleSelectedHidden()) event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
+                         && event.key === Qt.Key_O) {
+                if (root.revealSelectedResult()) event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier)
+                         && event.key === Qt.Key_O) {
+                root.runSelected(false)
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                          && event.key === Qt.Key_C) {
                 root.toggleCompactMode()
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
-                root.popToRoot()
+              } else if (root.exactModifiers(event, Qt.ControlModifier)
+                         && event.key === Qt.Key_C && actionSearchInput.selectedText.length === 0
+                         && root.copySelectedResult()) {
                 event.accepted = true
               } else if (event.key === Qt.Key_Escape
-                  || ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_K)) {
+                  || (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_K)) {
                 if (event.key === Qt.Key_Escape && root.goBackActionRoute()) { }
                 else root.closeActionPanel()
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0
-                         && (event.modifiers & Qt.ShiftModifier) !== 0
+              } else if (event.key === Qt.Key_Backtab
+                         || (event.key === Qt.Key_Tab
+                           && root.exactModifiers(event, Qt.ShiftModifier))) {
+                if (!root.goBackActionRoute()) root.closeActionPanel()
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                          && event.key === Qt.Key_Up) {
                 root.moveFavoriteForId(root.actionTarget.resultId, -1)
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0
-                         && (event.modifiers & Qt.ShiftModifier) !== 0
+              } else if (root.exactModifiers(event, Qt.ControlModifier | Qt.ShiftModifier)
                          && event.key === Qt.Key_Down) {
                 root.moveFavoriteForId(root.actionTarget.resultId, 1)
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_F) {
+              } else if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_F) {
                 root.performAction("favorite")
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Up) {
+              } else if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_Up) {
                 root.moveActionSection(-1)
                 event.accepted = true
-              } else if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_Down) {
+              } else if (root.exactModifiers(event, Qt.ControlModifier) && event.key === Qt.Key_Down) {
                 root.moveActionSection(1)
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.AltModifier)
+                         && event.key === Qt.Key_Up) {
+                root.moveActionSelection(-5)
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.AltModifier)
+                         && event.key === Qt.Key_Down) {
+                root.moveActionSelection(5)
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier)
+                         && event.key === Qt.Key_N) {
+                root.moveActionSelection(1)
+                event.accepted = true
+              } else if (root.exactModifiers(event, Qt.ControlModifier)
+                         && event.key === Qt.Key_P) {
+                root.moveActionSelection(-1)
                 event.accepted = true
               } else if (event.key === Qt.Key_Up) {
                 root.moveActionSelection(-1)
@@ -3851,11 +4723,7 @@ Item {
 
                 Keys.priority: Keys.BeforeItem
                 Keys.onPressed: function(event) {
-                  if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
-                    root.dismiss()
-                    event.accepted = true
-                  } else if ((event.modifiers & Qt.ShiftModifier) !== 0 && event.key === Qt.Key_Escape) {
-                    root.popToRoot()
+                  if (root.handleGlobalShortcut(event)) {
                     event.accepted = true
                   } else if (event.key === Qt.Key_Escape) {
                     root.closeAliasEditor()
@@ -3992,8 +4860,7 @@ Item {
         }
 
         Keys.onPressed: function(event) {
-          if ((event.modifiers & Qt.ControlModifier) !== 0 && event.key === Qt.Key_W) {
-            root.dismiss()
+          if (root.handleGlobalShortcut(event)) {
             event.accepted = true
           } else if (event.key === Qt.Key_Escape) {
             root.closeWarningPanel()

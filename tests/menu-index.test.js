@@ -4,7 +4,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const MenuIndex = require("../providers/MenuIndex.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 
 const fixtures = path.join(__dirname, "fixtures")
 

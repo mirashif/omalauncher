@@ -80,7 +80,8 @@ test("settings use location-first headers and route-aware footer guidance", () =
 
   assert.match(launcher, /root\.settingsLocationHeader[\s\S]*?root\.activeMenuTitle/)
   assert.match(launcher, /text: "Type to filter"/)
-  assert.match(launcher, /function secondaryFooterLabel\(\)[\s\S]*?root\.settingsRoute[\s\S]*?"Esc  Back"/)
+  assert.match(launcher, /function secondaryFooterLabel\(\)[\s\S]*?root\.settingsRoute[\s\S]*?return "Back"/)
+  assert.match(launcher, /function secondaryFooterShortcut\(\)[\s\S]*?root\.settingsRoute[\s\S]*?return "Esc"/)
 })
 
 test("settings and About cannot be personalized through global shortcuts", () => {
@@ -90,4 +91,10 @@ test("settings and About cannot be personalized through global shortcuts", () =>
   assert.match(launcher, /kind\.indexOf\("settings-"\) !== 0/)
   assert.match(launcher, /kind\.indexOf\("about-"\) !== 0/)
   assert.match(launcher, /!root\.settingsRoute[\s\S]*?event\.key === Qt\.Key_F/)
+})
+
+test("result rows do not render a favorite icon", () => {
+  const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
+
+  assert.doesNotMatch(launcher, /text: "★"/)
 })

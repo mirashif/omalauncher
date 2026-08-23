@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 
 const SettingsModel = require("../services/SettingsModel.js")
-const SearchEngine = require("../services/SearchEngine.js")
+const SearchEngine = require("../shared/core/src/SearchEngine.js")
 const StateModel = require("../services/StateModel.js")
 
 function configuredState() {

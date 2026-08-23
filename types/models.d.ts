@@ -95,6 +95,7 @@ export interface SearchableRecord {
   calculatorResult?: string;
   filePath?: string;
   fileScope?: string;
+  previewImageUrl?: string;
   semanticTier?: number;
   semanticQuality?: number;
   _searchTitle?: string;
@@ -173,6 +174,31 @@ export interface AppHotkeyEntry {
   appId: string;
   title: string;
   hotkey: string;
+}
+
+export interface ShortcutBinding {
+  hotkey: string;
+  description: string;
+  descriptionKey: string;
+}
+
+export interface ShortcutResultInput {
+  type?: string;
+  title?: string;
+  route?: string;
+  targetRoute?: string;
+  sourcePluginId?: string;
+}
+
+export interface AboutMenuRecord {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  shortcut: string;
+  section: string;
+  kind: string;
+  target: string;
 }
 
 export type AppHotkeyMap = Record<string, AppHotkeyEntry>;
