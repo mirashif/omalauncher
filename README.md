@@ -1,11 +1,11 @@
 # OmaLauncher
 
-## Omarchy Plugins — search, discover, install, remove plugins
+## Keyboard-first command palette for Omarchy
 
-OmaLauncher puts Omarchy Plugins first, then brings apps, nested menus, shell
-features, and the CLI catalog into one keyboard-first search. Type what you
-mean—such as `plugins`, `clipboard`, or `browser default`—without remembering
-where it lives.
+Find applications, menus, shell features, CLI commands, and plugins using the
+words you remember—such as `plugins`, `clipboard`, or `browser default`. Launch
+apps, run actions, assign global shortcuts, and discover, install, or remove
+plugins without memorizing where anything lives.
 
 **Built for Omarchy 4 · Current release: v1.2.1**
 
