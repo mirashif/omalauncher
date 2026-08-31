@@ -13,7 +13,6 @@ import "providers/FileSearchModel.js" as FileSearchModel
 import "providers/SourceMergeModel.js" as SourceMergeModel
 import "services/ActionModel.js" as ActionModel
 import "services/AboutMenuModel.js" as AboutMenuModel
-import "services/DependencyModel.js" as DependencyModel
 import "services/GenerationModel.js" as GenerationModel
 import "services/HighlightModel.js" as HighlightModel
 import "services/LayoutModel.js" as LayoutModel
@@ -227,7 +226,7 @@ Item {
     && (root.forceOnboarding || String(stateStore.onboarding.status || "pending") !== "complete")
   readonly property string onboardingStage: {
     var status = String(stateStore.onboarding.status || "pending")
-    return status === "dependencies" || status === "verify" ? status : "pending"
+    return status === "verify" ? status : "pending"
   }
   readonly property bool onboardingCanSkip: {
     var revision = root.pluginRegistry ? Number(root.pluginRegistry.registryRevision || 0) : 0
@@ -308,12 +307,6 @@ Item {
     root.onboardingReplacesMenu = false
     root.onboardingReplacementBlocked = false
     root.onboardingStatusIsError = false
-    if (root.onboardingStage === "dependencies") {
-      root.onboardingInspectionPending = false
-      root.onboardingStatusText = ""
-      Qt.callLater(function() { onboardingView.forceActiveFocus() })
-      return
-    }
     if (root.onboardingStage === "verify") {
       root.onboardingInspectionPending = false
       root.onboardingStatusText = "Shortcut saved. The final step verifies it from the desktop."
@@ -414,26 +407,15 @@ Item {
   }
 
   function finishOnboardingShortcutSetup() {
-    stateStore.setOnboarding("dependencies", root.onboardingHotkey, false)
+    stateStore.setOnboarding("verify", root.onboardingHotkey, false)
     root.onboardingRecording = false
     root.onboardingInspectionPending = false
     root.onboardingReplacementPending = false
     root.onboardingReplacesMenu = false
     root.onboardingReplacementBlocked = false
     root.onboardingStatusIsError = false
-    root.onboardingStatusText = ""
-    Qt.callLater(function() { onboardingView.forceActiveFocus() })
-  }
-
-  function continueOnboardingDependencies() {
-    stateStore.setOnboarding("verify", root.onboardingHotkey, false)
-    root.onboardingStatusIsError = false
     root.onboardingStatusText = "Shortcut saved. The final step verifies it from the desktop."
     Qt.callLater(function() { onboardingView.forceActiveFocus() })
-  }
-
-  function installOnboardingDependencies() {
-    root.requestDependencyInstallation("all")
   }
 
   function tryOnboardingShortcut() {
@@ -596,8 +578,8 @@ Item {
       stateReady: stateStore.loaded,
       warmOpenMs: root.lastWarmOpenMs,
       maxSearchUpdateMs: root.maxSearchUpdateMs,
-      calculatorBackendAvailable: calculatorProvider.backendAvailable,
-      fileSearchBackendAvailable: fileSearchProvider.backendAvailable,
+      calculatorBuiltIn: true,
+      fileSearchBuiltIn: true,
       fileSearchScopes: stateStore.preferences.fileSearchScopes.length,
       pluginCatalog: {
         ready: pluginCatalogProvider.ready,
@@ -619,9 +601,6 @@ Item {
         replacesMenu: root.onboardingReplacesMenu,
         replacementPending: root.onboardingReplacementPending,
         replacementBlocked: root.onboardingReplacementBlocked,
-        calculatorAvailable: calculatorProvider.backendAvailable,
-        fileSearchAvailable: fileSearchProvider.backendAvailable,
-        dependencyInstallRunning: dependencyInstallProcess.running,
         primaryAction: onboardingView.primaryActionText
       }
     })
@@ -829,11 +808,6 @@ Item {
 
   function settingsContext() {
     return {
-      calculatorSettled: calculatorProvider.backendSettled,
-      calculatorAvailable: calculatorProvider.backendAvailable,
-      fileSearchSettled: fileSearchProvider.backendSettled,
-      fileSearchAvailable: fileSearchProvider.backendAvailable,
-      dependencyInstallRunning: dependencyInstallProcess.running,
       commonScopes: fileSearchProvider.commonScopes,
       launcherHotkey: globalShortcutProvider.launcherHotkey,
       onboardingHotkey: stateStore.onboarding.hotkey,
@@ -843,31 +817,9 @@ Item {
     }
   }
 
-  function refreshOptionalDependencies() {
-    var calculatorStarted = calculatorProvider.refreshBackend()
-    var fileSearchStarted = fileSearchProvider.refreshBackend()
-    if (root.settingsRoute) root.rebuildResults()
-    return calculatorStarted || fileSearchStarted
-  }
-
-  function requestDependencyInstallation(request) {
-    if (dependencyInstallProcess.running) {
-      root.showOsd("󰏗", "Optional tool installation is already open")
-      return false
-    }
-    var packages = DependencyModel.requestedPackages(request, root.settingsContext())
-    var command = DependencyModel.terminalCommand(packages)
-    if (command.length === 0) {
-      root.refreshOptionalDependencies()
-      root.showOsd("󰏗", "Optional tools are already installed")
-      return false
-    }
-    dependencyInstallProcess.packages = packages
-    dependencyInstallProcess.command = command
-    root.showOsd("󰏗", "Continue installation in the terminal")
-    dependencyInstallProcess.running = true
-    root.dismiss()
-    return true
+  function initializeDefaultFileSearch() {
+    if (!stateStore.loaded || fileSearchProvider.commonScopes.length === 0) return false
+    return stateStore.initializeFileSearchDefaults(fileSearchProvider.commonScopes)
   }
 
   function managementRecords() {
@@ -900,8 +852,8 @@ Item {
       title: "Calculate",
       breadcrumb: "",
       description: preferences.calculatorEnabled === true
-        ? "Start with = · Example: = 12 * 8"
-        : "Enable in Settings · Syntax: = 12 * 8",
+        ? "Type math directly · Example: 12 * 8"
+        : "Enable in Settings · Example: 12 * 8",
       icon: "",
       iconFont: "",
       appIcon: "",
@@ -2235,10 +2187,6 @@ Item {
       root.setActiveRoute("settings-shortcut", true)
       return
     }
-    if (row.resultKind === "settings-open-dependencies") {
-      root.setActiveRoute("settings-dependencies", true)
-      return
-    }
     if (row.resultKind === "settings-open-file-search") {
       root.setActiveRoute("settings-file-search", true)
       return
@@ -2248,7 +2196,7 @@ Item {
       return
     }
     if (row.resultKind === "open-calculator") {
-      root.setSearchTextSilently("= ")
+      root.setSearchTextSilently("12 * 8")
       root.selectedIndex = 0
       root.rebuildResults()
       Qt.callLater(function() {
@@ -2280,21 +2228,6 @@ Item {
         root.showOsd("", row.title + " " + (nextSettingValue ? "enabled" : "disabled"))
         root.rebuildResults()
       }
-      return
-    }
-    if (row.resultKind === "settings-install-dependencies"
-        || row.resultKind === "settings-install-dependency") {
-      root.requestDependencyInstallation(row.settingValue || "all")
-      return
-    }
-    if (row.resultKind === "settings-recheck-dependencies") {
-      root.refreshOptionalDependencies()
-      root.showOsd("󰑐", "Checking optional tools")
-      return
-    }
-    if (row.resultKind === "settings-dependency-status") {
-      root.refreshOptionalDependencies()
-      root.showOsd("󰏗", "Checking optional tools")
       return
     }
     if (row.resultKind === "settings-open-launcher-hotkey"
@@ -2376,7 +2309,7 @@ Item {
       return
     }
     if (row.resultKind === "calculator-unavailable") {
-      root.setActiveRoute("settings-dependencies", true)
+      root.setActiveRoute("settings", true)
       return
     }
     if (row.resultKind === "calculator-ready"
@@ -2598,7 +2531,6 @@ Item {
       if (row.settingKey === "refresh") return "Refresh"
     }
     if (row.resultKind === "settings-open-shortcut") return "Open"
-    if (row.resultKind === "settings-open-dependencies") return "Open"
     if (row.resultKind === "settings-open-file-search") return "Open"
     if (row.resultKind === "settings-open-reset") return "Open"
     if (row.resultKind === "open-calculator") return "Start Calculating"
@@ -2611,10 +2543,6 @@ Item {
     }
     if (row.resultKind === "settings-open-launcher-hotkey") return "Configure"
     if (row.resultKind === "settings-run-onboarding") return "Open Setup"
-    if (row.resultKind === "settings-install-dependencies"
-        || row.resultKind === "settings-install-dependency") return "Install"
-    if (row.resultKind === "settings-recheck-dependencies") return "Refresh"
-    if (row.resultKind === "settings-dependency-status") return "Check"
     if (row.resultKind === "settings-open-remove-launcher-hotkey") return "Review"
     if (row.resultKind === "settings-open-scope") return "Add Folder"
     if (row.resultKind === "settings-add-suggested-scope") return "Add Folder"
@@ -2631,7 +2559,7 @@ Item {
     if (row.resultKind === "settings-cancel") return "Cancel"
     if (row.resultKind === "calculator") return "Copy Result"
     if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
-    if (row.resultType === "file") return "Open File"
+    if (row.resultType === "file") return row.resultKind === "folder" ? "Open Folder" : "Open File"
     if (row.resultType === "file-status") return SettingsModel.isRoute(row.route) ? "Open Settings" : ""
     if (row.resultType === "application") return "Open Application"
     if (row.executionKind === "shell-plugin" || row.executionKind === "shell-ipc") return "Open Shell Feature"
@@ -2777,12 +2705,16 @@ Item {
 
   StateStore {
     id: stateStore
-    onLoadedChanged: root.syncOnboardingForOpen()
+    onLoadedChanged: {
+      Qt.callLater(root.syncOnboardingForOpen)
+      if (loaded) Qt.callLater(root.initializeDefaultFileSearch)
+    }
     onSnapshotChanged: {
       root.rebuildCachedRecords()
       root.rebuildResults()
       if (root.actionPanelOpen) root.rebuildActions()
       Qt.callLater(root.syncOnboardingForOpen)
+      Qt.callLater(root.initializeDefaultFileSearch)
     }
   }
 
@@ -3044,7 +2976,6 @@ Item {
     providerEnabled: !!stateStore.preferences
       && stateStore.preferences.calculatorEnabled === true
     onRecordsChanged: root.rebuildResults()
-    onBackendSettledChanged: if (root.settingsRoute) root.rebuildResults()
   }
 
   FileSearchProvider {
@@ -3052,24 +2983,9 @@ Item {
     providerEnabled: !!stateStore.preferences
       && stateStore.preferences.fileSearchEnabled === true
     onRecordsChanged: root.rebuildResults()
-    onBackendSettledChanged: if (root.settingsRoute) root.rebuildResults()
-    onCommonScopesChanged: if (root.settingsRoute) root.rebuildResults()
-  }
-
-  Process {
-    id: dependencyInstallProcess
-    property var packages: []
-    onRunningChanged: if (root.settingsRoute) root.rebuildResults()
-    onExited: function(exitCode, exitStatus) {
-      var installed = exitCode === 0 && exitStatus === 0
-      var installedPackages = dependencyInstallProcess.packages
-      dependencyInstallProcess.packages = []
-      root.refreshOptionalDependencies()
-      root.showOsd(installed ? "󰏗" : "", installed
-        ? "Optional tools installed"
-        : "Optional tool installation did not finish")
-      if (installed) console.info("OmaLauncher: optional tool command completed: "
-        + DependencyModel.commandText(installedPackages))
+    onCommonScopesChanged: {
+      root.initializeDefaultFileSearch()
+      root.rebuildResults()
     }
   }
 
@@ -3182,22 +3098,15 @@ Item {
       recording: root.onboardingRecording
       captureActive: shortcutInhibitor.active
       busy: globalShortcutProvider.busy || root.onboardingInspectionPending
-        || dependencyInstallProcess.running
       canSkip: root.onboardingCanSkip
       existingLauncherBinding: root.onboardingExistingLauncherBinding
       replacementPending: root.onboardingReplacementPending
       replacesMenu: root.onboardingReplacesMenu
       replacementBlocked: root.onboardingReplacementBlocked
-      calculatorSettled: calculatorProvider.backendSettled
-      calculatorAvailable: calculatorProvider.backendAvailable
-      fileSearchSettled: fileSearchProvider.backendSettled
-      fileSearchAvailable: fileSearchProvider.backendAvailable
       onRecordRequested: root.beginOnboardingRecording()
       onApplyRequested: root.applyOnboardingHotkey()
       onTryRequested: root.tryOnboardingShortcut()
       onContinueRequested: root.continueOnboardingWithoutVerification()
-      onInstallDependenciesRequested: root.installOnboardingDependencies()
-      onDependenciesContinueRequested: root.continueOnboardingDependencies()
       onSkipRequested: root.skipOnboarding()
       onKeyPressed: function(event) { root.recordOnboardingHotkey(event) }
     }

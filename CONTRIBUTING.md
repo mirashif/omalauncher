@@ -189,5 +189,5 @@ contracts. In particular:
 - Treat late asynchronous responses as stale and discard them.
 - Never build shell command strings from calculator expressions, paths, or
   search queries.
-- Restrict file search to explicit, canonical user-approved roots.
+- Restrict file search to canonical standard user folders and user-added roots.
 - Preserve the stock Omarchy launchers as a fallback.

@@ -345,6 +345,15 @@ test("file results expose literal open, reveal, and copy-path actions", () => {
   assert.deepEqual(actions.map(action => action.id), ["primary", "reveal-file", "copy-path"])
   assert.equal(actions[0].title, "Open File")
   assert.equal(actions[1].description, "/home/test/Documents/report.md")
+
+  const folderActions = ActionModel.actionsForResult({
+    resultId: "file:/home/test/Documents:Reports",
+    resultType: "file",
+    resultKind: "folder",
+    title: "Reports",
+    filePath: "/home/test/Documents/Reports"
+  }, {})
+  assert.equal(folderActions[0].title, "Open Folder")
 })
 
 test("file-search management and status rows expose only their primary action", () => {

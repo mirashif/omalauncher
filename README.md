@@ -130,16 +130,19 @@ without competing with result titles or keyboard cues.
 
 ![Brave matched with its parenthesized browser alias](assets/alias-search.png)
 
-### Find local files without searching everywhere
+### Find local files and folders without searching everywhere
 
-File search stays inside folders you explicitly choose. The Action Panel can
-open the selected file, reveal it in the file manager, or copy its full path.
+File search starts with your standard user folders and stays inside those plus
+any folders you explicitly add. It skips hidden, dependency, cache, and build
+trees by default. The Action Panel can open a selected file or folder, reveal
+it in the file manager, or copy its full path.
 
 ![A scoped file-search result with actions to open the file, reveal it in the file manager, or copy its path](assets/file-actions.png)
 
 ### Calculate without opening another app
 
-Expressions beginning with `=` return a result that can be copied immediately.
+Type math such as `12 * 8` or a conversion such as `10 km to mi`. The built-in
+answer appears above other matching results and can be copied immediately.
 
 ![OmaLauncher calculating 12 times 8 and returning 96](assets/calculator.png)
 
@@ -197,29 +200,31 @@ the provider retry action reloads them on demand.
 
 ### Calculator
 
-Enter an expression such as `= 12 * 8` or `= 10 km to mi`. The answer appears
-as a result and `ENTER` copies it. Calculator support uses the optional `qalc`
-command from `libqalculate`; the rest of OmaLauncher keeps working when it is
-not installed. Welcome setup and **Settings › Optional Features** can install
-it for you in a visible terminal.
+Enter an expression such as `12 * 8` or `10 km to mi`. The answer appears first
+while other launcher matches remain below it, and `ENTER` copies the result.
+The calculator is built in and supports arithmetic, common functions,
+percentages, and common length, mass, time, temperature, volume, speed, area,
+data-size, and angle conversions. A leading `=` remains accepted but is not
+required.
 
 ### Scoped file search
 
-Search for files inside only the folders you choose. Enable the provider in
-`OmaLauncher Settings`, add one or more folders, then open **Search Files** or
-type a query such as `f report.pdf` from Root Search.
+Search for regular files and folders by opening **Search Files** or typing a
+query such as `f report.pdf` from Root Search. File search is on by default and
+starts with the standard folders that exist in your home directory, including
+Documents, Downloads, Desktop, Projects, Code, Music, Pictures, and Videos.
 
-File search is off by default, never accepts `/` as a scope, and uses the
-optional `fd` command. From a file's Action Panel you can open it, reveal its
-folder, or copy its full path. Welcome setup and **Settings › Optional
-Features** can install `fd` when it is missing.
+Search never accepts `/` as a scope. Hidden paths plus common dependency,
+cache, and build folders are pruned automatically; additional glob ignores and
+scopes remain configurable. Results are capped, timed out, canonicalized, and
+kept inside their configured scope. File search uses the standard system
+`find` and `realpath` utilities already present in Omarchy.
 
 ### Settings inside the launcher
 
 Search for **OmaLauncher Settings** to change the launcher shortcut, rerun
 welcome setup, configure Compact Mode, numbered result shortcuts, calculator
-and file search, install or recheck optional feature tools, configure folder
-scopes and ignore patterns. Settings and
+and file search, and configure folder scopes and extra ignore patterns. Settings and
 personalization resets require confirmation.
 
 ## Install
@@ -229,9 +234,8 @@ OmaLauncher is tested with **Omarchy 4.0** and **Quickshell 0.3**.
 The required runtime is the standard Omarchy desktop stack: `omarchy`,
 `omarchy-shell`, Quickshell, Hyprland (`hyprctl`), `xdg-open`,
 `xdg-terminal-exec`, `wl-copy`, and standard shell/core utilities. A supported
-Omarchy installation already provides these. The only feature-specific
-packages are optional: `libqalculate` supplies calculator results and `fd`
-supplies scoped file search.
+Omarchy installation already provides these. Calculator and file search add no
+feature-specific runtime packages.
 
 ### 1. Add the plugin
 
@@ -244,10 +248,7 @@ omarchy plugin add https://github.com/mirashif/omalauncher.git --enable --yes
 Click the OmaLauncher search icon on the right side of the bar. Welcome setup
 suggests `SUPER+SPACE`, lets you record another chord, checks current
 Hyprland bindings, and asks explicitly before replacing a conflict. It then
-checks the optional calculator and scoped file-search tools. You can install
-anything missing in a visible terminal, or skip that step and add it later from
-**Settings › Optional Features**. The final step has you close and reopen
-OmaLauncher with the shortcut so the setup is verified.
+has you close and reopen OmaLauncher with the shortcut so the setup is verified.
 
 The recommended choice replaces the stock Omarchy Menu shortcut atomically:
 OmaLauncher takes `SUPER+SPACE` and Omarchy Menu moves to `SUPER+R`. Setup
@@ -262,13 +263,6 @@ back automatically.
 
 After the recommended swap, Omarchy Menu remains available on `SUPER+R` and
 the stock application launcher remains on `SUPER+ALT+SPACE`.
-
-Optional tools can also be installed manually. This command is safe to rerun;
-Omarchy installs only packages that are missing:
-
-```bash
-omarchy pkg add libqalculate fd
-```
 
 ### 3. Start searching
 

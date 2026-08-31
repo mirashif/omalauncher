@@ -18,17 +18,19 @@ test("file mode is explicit at root and implicit inside the Files route", () => 
   })
 })
 
-test("fd command construction keeps queries and scopes as literal arguments", () => {
-  const command = FileSearchModel.commandArguments("/usr/bin/fd", "-e sh; touch /tmp/nope", [
+test("find command construction keeps queries and scopes as literal arguments", () => {
+  const command = FileSearchModel.commandArguments("/usr/bin/find", "-e sh; touch /tmp/nope", [
     "/home/test/Documents",
     "/",
     "relative"
   ], ["node_modules", "*.tmp"], 100)
 
-  assert.equal(command[0], "/usr/bin/fd")
-  assert.equal(command.includes("--fixed-strings"), true)
-  assert.deepEqual(command.slice(-2), ["--", "-e sh; touch /tmp/nope"])
-  assert.equal(command.filter(value => value === "--search-path").length, 1)
+  assert.equal(command[0], "/usr/bin/find")
+  assert.equal(command[1], "/home/test/Documents")
+  assert.equal(command.includes("*-e sh; touch /tmp/nope*"), true)
+  assert.equal(command.includes("node_modules"), true)
+  assert.equal(command.includes(".*"), true)
+  assert.equal(command.includes("-printf"), true)
   assert.equal(command.includes("/"), false)
 
   const canonical = FileSearchModel.canonicalizeArguments("/usr/bin/realpath", [
@@ -39,6 +41,18 @@ test("fd command construction keeps queries and scopes as literal arguments", ()
     "/usr/bin/realpath", "-e", "-z", "--",
     "/home/test/Documents/My File.md", "/home/test/Documents/-literal"
   ])
+})
+
+test("find output retains whether a result is a regular folder", () => {
+  assert.deepEqual(FileSearchModel.searchEntry("f:/home/test/Documents/report.md"), {
+    path: "/home/test/Documents/report.md",
+    isDirectory: false
+  })
+  assert.deepEqual(FileSearchModel.searchEntry("d:/home/test/Documents/Reports"), {
+    path: "/home/test/Documents/Reports",
+    isDirectory: true
+  })
+  assert.equal(FileSearchModel.searchEntry("l:/home/test/Documents/link"), null)
 })
 
 test("file results cannot cross configured scope boundaries", () => {
@@ -65,6 +79,18 @@ test("file records deduplicate, rank basenames first, and reject outside paths",
   assert.equal(rows[2].breadcrumb, "Documents › work")
 })
 
+test("file records include ordinary folders with folder affordances", () => {
+  const rows = FileSearchModel.recordsForPaths([
+    { path: "/home/test/Documents/Reports", isDirectory: true },
+    { path: "/home/test/Documents/report.md", isDirectory: false }
+  ], "report", ["/home/test/Documents"], 10)
+
+  assert.deepEqual(rows.map(row => row.kind).sort(), ["file", "folder"])
+  const folder = rows.find(row => row.kind === "folder")
+  assert.ok(folder)
+  assert.equal(folder.icon, "󰉋")
+})
+
 test("file helpers preserve unusual names and derive safe parent paths", () => {
   const path = "/home/test/Documents/My File [final].md"
   assert.equal(FileSearchModel.basename(path), "My File [final].md")
@@ -74,10 +100,10 @@ test("file helpers preserve unusual names and derive safe parent paths", () => {
 })
 
 test("file search exposes bounded provider status and management records", () => {
-  const unavailable = FileSearchModel.statusRecord(
-    "unavailable", "File Search Unavailable", "Install fd", "settings")
-  assert.equal(unavailable.route, "settings")
-  assert.equal(unavailable.breadcrumb, "")
+  const disabled = FileSearchModel.statusRecord(
+    "disabled", "File Search Disabled", "Enable in Settings", "settings")
+  assert.equal(disabled.route, "settings")
+  assert.equal(disabled.breadcrumb, "")
   assert.equal(FileSearchModel.statusRecord(
     "error", "File Search Timed Out", "Timed out", "").kind, "file-search-error")
   assert.equal(FileSearchModel.managementRecord(false, 0).description,

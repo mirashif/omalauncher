@@ -8,10 +8,7 @@ Item {
   id: root
   visible: false
 
-  property bool providerEnabled: false
-  property bool backendSettled: false
-  property bool backendAvailable: false
-  property string backendPath: ""
+  property bool providerEnabled: true
   property var records: []
   property bool loading: false
   property string error: ""
@@ -34,9 +31,7 @@ Item {
       active === true,
       nextQuery,
       nextScopes,
-      nextIgnores,
-      root.backendSettled,
-      root.backendAvailable
+      nextIgnores
     ])
     if (nextKey === root.requestKey) return
     root.requestKey = nextKey
@@ -65,16 +60,6 @@ Item {
         "unconfigured", "No File Search Scopes", "Add a directory in OmaLauncher Settings", "settings-file-search")]
       return
     }
-    if (!root.backendSettled) {
-      root.loading = true
-      root.records = [FileSearchModel.statusRecord("loading", "Checking File Search…", "Looking for fd", "")]
-      return
-    }
-    if (!root.backendAvailable) {
-      root.records = [FileSearchModel.statusRecord(
-        "unavailable", "File Search Unavailable", "Install fd to enable scoped search", "settings-dependencies")]
-      return
-    }
     if (!root.query) {
       root.records = [FileSearchModel.statusRecord(
         "ready", "Type to Search Files",
@@ -92,38 +77,12 @@ Item {
     root.request(root.query, root.scopes, root.ignores, root.activeRequest)
   }
 
-  function refreshBackend() {
-    if (availabilityProc.running) return false
-    root.backendSettled = false
-    root.backendAvailable = false
-    root.backendPath = ""
-    availabilityProc.output = ""
-    root.retryCurrentRequest()
-    availabilityProc.running = true
-    return true
-  }
-
-  Process {
-    id: availabilityProc
-    property string output: ""
-    command: ["which", "fd"]
-    stdout: SplitParser {
-      onRead: function(data) { availabilityProc.output += data }
-    }
-    onExited: function(exitCode, exitStatus) {
-      root.backendPath = String(availabilityProc.output || "").trim()
-      root.backendAvailable = exitCode === 0 && exitStatus === 0 && root.backendPath.length > 0
-      root.backendSettled = true
-      root.retryCurrentRequest()
-    }
-  }
-
   Timer {
     id: debounce
     interval: 120
     repeat: false
     onTriggered: {
-      if (!root.activeRequest || !root.providerEnabled || !root.backendAvailable || !root.query) return
+      if (!root.activeRequest || !root.providerEnabled || !root.query) return
       if (searchProc.running) {
         searchProc.signal(15)
         debounce.restart()
@@ -134,11 +93,11 @@ Item {
         debounce.restart()
         return
       }
-      searchProc.paths = []
+      searchProc.entries = []
       searchProc.errorOutput = ""
       searchProc.generation = root.generation
       searchProc.command = FileSearchModel.commandArguments(
-        root.backendPath, root.query, root.scopes, root.ignores, root.resultLimit)
+        "find", root.query, root.scopes, root.ignores, root.resultLimit)
       searchProc.running = true
       timeout.restart()
     }
@@ -157,10 +116,10 @@ Item {
     }
   }
 
-  function finishSearch(paths, exitCode, exitStatus, errorOutput, didTimeOut) {
+  function finishSearch(entries, exitCode, exitStatus, errorOutput, didTimeOut) {
     root.loading = false
     var fileRecords = FileSearchModel.recordsForPaths(
-      paths, root.query, root.scopes, root.resultLimit)
+      entries, root.query, root.scopes, root.resultLimit)
     if (fileRecords.length > 0) {
       root.records = fileRecords
       root.error = didTimeOut ? "File search timed out; showing partial results" : ""
@@ -174,20 +133,22 @@ Item {
       root.records = [FileSearchModel.statusRecord("error", "File Search Failed", root.error, "")]
     } else {
       root.error = ""
-      root.records = [FileSearchModel.statusRecord("empty", "No Matching Files", root.query, "")]
+      root.records = [FileSearchModel.statusRecord("empty", "No Matching Files or Folders", root.query, "")]
     }
   }
 
   Process {
     id: searchProc
     property int generation: 0
-    property var paths: []
+    property var entries: []
     property string errorOutput: ""
     stdout: SplitParser {
       splitMarker: "\0"
       onRead: function(data) {
-        if (searchProc.paths.length < root.resultLimit) {
-          searchProc.paths = searchProc.paths.concat([String(data || "")])
+        var entry = FileSearchModel.searchEntry(data)
+        if (entry && searchProc.entries.length < root.resultLimit) {
+          searchProc.entries = searchProc.entries.concat([entry])
+          if (searchProc.entries.length >= root.resultLimit && searchProc.running) searchProc.signal(15)
         }
       }
     }
@@ -197,16 +158,17 @@ Item {
     onExited: function(exitCode, exitStatus) {
       timeout.stop()
       if (searchProc.generation !== root.generation) return
-      if (searchProc.paths.length > 0) {
+      if (searchProc.entries.length > 0) {
         canonicalizeProc.generation = searchProc.generation
         canonicalizeProc.sourceExitCode = exitCode
         canonicalizeProc.sourceExitStatus = exitStatus
         canonicalizeProc.sourceError = searchProc.errorOutput
         canonicalizeProc.sourceTimedOut = root.timedOut
+        canonicalizeProc.sourceEntries = searchProc.entries
         canonicalizeProc.paths = []
         canonicalizeProc.errorOutput = ""
         canonicalizeProc.command = FileSearchModel.canonicalizeArguments(
-          "realpath", searchProc.paths, root.resultLimit)
+          "realpath", searchProc.entries.map(function(entry) { return entry.path }), root.resultLimit)
         canonicalizeProc.running = true
         timeout.restart()
         return
@@ -221,6 +183,7 @@ Item {
     property int sourceExitCode: 0
     property int sourceExitStatus: 0
     property bool sourceTimedOut: false
+    property var sourceEntries: []
     property var paths: []
     property string sourceError: ""
     property string errorOutput: ""
@@ -242,7 +205,7 @@ Item {
       var failed = canonicalizeProc.sourceExitCode !== 0 || canonicalizeProc.sourceExitStatus !== 0
         || (canonicalizeProc.paths.length === 0 && (exitCode !== 0 || exitStatus !== 0))
       root.finishSearch(
-        canonicalizeProc.paths,
+        FileSearchModel.canonicalEntries(canonicalizeProc.paths, canonicalizeProc.sourceEntries),
         failed ? 1 : 0,
         failed ? 1 : 0,
         errorMessage,
@@ -274,7 +237,6 @@ Item {
 
   onProviderEnabledChanged: root.retryCurrentRequest()
   Component.onCompleted: {
-    root.refreshBackend()
     commonScopeProc.running = true
   }
 }

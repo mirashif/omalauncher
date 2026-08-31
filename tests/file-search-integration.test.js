@@ -7,6 +7,17 @@ const { spawnSync } = require("node:child_process")
 
 const FileSearchModel = require("../providers/FileSearchModel.js")
 
+/** @param {string[]} values @returns {import("../types/models").FileCandidate[]} */
+function searchEntries(values) {
+  /** @type {import("../types/models").FileCandidate[]} */
+  const entries = []
+  for (const value of values) {
+    const entry = FileSearchModel.searchEntry(value)
+    if (entry) entries.push(entry)
+  }
+  return entries
+}
+
 /** @param {string} name @returns {string} */
 function executable(name) {
   const result = spawnSync("which", [name], { encoding: "utf8" })
@@ -23,17 +34,20 @@ function runNul(command) {
   return String(result.stdout || "").split("\0").filter(Boolean)
 }
 
-const fdPath = executable("fd")
+const findPath = executable("find")
 const realpathPath = executable("realpath")
+const findVersion = findPath ? spawnSync(findPath, ["--version"], { encoding: "utf8" }) : null
+const gnuFind = !!findVersion && findVersion.status === 0 && /GNU findutils/.test(String(findVersion.stdout || ""))
 
-test("fd integration respects hidden files, ignores, caps, unusual names, and canonical scopes", {
-  skip: !fdPath || !realpathPath
+test("find integration returns files and folders while respecting defaults, caps, and scopes", {
+  skip: !gnuFind || !realpathPath
 }, () => {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "omalauncher-files-"))
   const scope = path.join(fixture, "scope")
   const outside = path.join(fixture, "outside")
   try {
     fs.mkdirSync(path.join(scope, "docs"), { recursive: true })
+    fs.mkdirSync(path.join(scope, "report-folder"), { recursive: true })
     fs.mkdirSync(path.join(scope, "node_modules"), { recursive: true })
     fs.mkdirSync(outside, { recursive: true })
     fs.writeFileSync(path.join(scope, "docs", "report.txt"), "visible")
@@ -48,30 +62,34 @@ test("fd integration respects hidden files, ignores, caps, unusual names, and ca
     fs.symlinkSync(outside, path.join(scope, "escape"))
 
     const canonicalScope = fs.realpathSync(scope)
-    const command = FileSearchModel.commandArguments(fdPath, "report", [canonicalScope], ["node_modules"], 2)
-    const raw = runNul(command)
+    const command = FileSearchModel.commandArguments(findPath, "report", [canonicalScope], ["node_modules"], 2)
+    const raw = searchEntries(runNul(command)).slice(0, 2)
     assert.equal(raw.length <= 2, true)
-    assert.equal(raw.some(value => value.includes("node_modules")), false)
-    assert.equal(raw.some(value => value.includes(".secret-report")), false)
+    assert.equal(raw.some(value => value.path.includes("node_modules")), false)
+    assert.equal(raw.some(value => value.path.includes(".secret-report")), false)
 
     const candidates = raw.concat([
-      path.join(scope, "outside-link.txt"),
-      path.join(scope, "escape", "outside-report.txt")
+      { path: path.join(scope, "outside-link.txt"), isDirectory: false },
+      { path: path.join(scope, "escape", "outside-report.txt"), isDirectory: false }
     ])
-    const canonical = runNul(FileSearchModel.canonicalizeArguments(realpathPath, candidates, 100))
-    const records = FileSearchModel.recordsForPaths(canonical, "report", [canonicalScope], 100)
+    const canonical = runNul(FileSearchModel.canonicalizeArguments(
+      realpathPath, candidates.map(entry => entry.path), 100))
+    const records = FileSearchModel.recordsForPaths(
+      FileSearchModel.canonicalEntries(canonical, candidates), "report", [canonicalScope], 100)
     assert.equal(records.length > 0, true)
     assert.equal(records.every(record => record.filePath.indexOf(canonicalScope + path.sep) === 0), true)
     assert.equal(records.some(record => record.filePath.includes("outside-report")), false)
 
     const unusual = runNul(FileSearchModel.commandArguments(
-      fdPath, "final", [canonicalScope], ["node_modules"], 100))
-    assert.equal(unusual.some(value => value.endsWith("My File [final].md")), true)
-    assert.equal(unusual.some(value => value.endsWith("Trailing final.txt ")), true)
+      findPath, "final", [canonicalScope], ["node_modules"], 100))
+    const unusualEntries = searchEntries(unusual)
+    assert.equal(unusualEntries.some(value => value.path.endsWith("My File [final].md")), true)
+    assert.equal(unusualEntries.some(value => value.path.endsWith("Trailing final.txt ")), true)
     const unusualCanonical = runNul(FileSearchModel.canonicalizeArguments(
-      realpathPath, unusual, 100))
+      realpathPath, unusualEntries.map(entry => entry.path), 100))
     assert.equal(FileSearchModel.recordsForPaths(
-      unusualCanonical, "final", [canonicalScope], 100).some(record => record.title === "Trailing final.txt "), true)
+      FileSearchModel.canonicalEntries(unusualCanonical, unusualEntries),
+      "final", [canonicalScope], 100).some(record => record.title === "Trailing final.txt "), true)
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true })
   }

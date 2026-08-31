@@ -71,10 +71,11 @@ The product should remain:
   with command-directory watching, last-valid fallback, and stale refresh.
 - Source-aware deduplication across static menu actions, shell features, and
   canonical CLI routes.
-- Optional asynchronous calculator backed by `qalc`, with explicit `=` queries,
-  safe argument passing, Copy Result, and Copy Expression.
-- Opt-in file-name search backed by `fd`, limited to canonical user-approved
-  scopes with ignore patterns, result caps, timeouts, and symlink containment.
+- Built-in safe arithmetic and common unit conversion without a required
+  prefix, with the answer kept above ordinary launcher matches.
+- Default-on file and folder search backed by standard `find`, initialized from
+  regular user folders with automatic hidden, dependency, cache, and build
+  exclusions, result caps, timeouts, and symlink containment.
 - File actions for Open, Reveal in File Manager, and Copy Path.
 - Provider-specific loading, unavailable, empty, and error states.
 
@@ -96,10 +97,12 @@ The product should remain:
   Argument-taking, privileged, and unknown routes open `--help` in a terminal.
 - CLI catalog and shell registry changes refresh without restarting the
   launcher; invalid refreshes preserve the last valid index.
-- Calculator expressions, file queries, and paths are passed as literal process
-  arguments. They are never evaluated through a shell.
-- File search is disabled and unconfigured by default. It never scans `/`, all
-  of `$HOME`, file contents, or every root-search keystroke implicitly.
+- Calculator expressions are parsed by the built-in restricted evaluator. File
+  queries and paths are passed as literal process arguments. Neither is ever
+  evaluated through a shell.
+- File search never scans `/`, all of `$HOME`, file contents, or every
+  root-search keystroke implicitly. Fresh state adopts only existing standard
+  user folders as scopes.
 - Calculator and file results remain ephemeral and outside learned ranking.
 - OmaLauncher edits only its marked Hyprland hotkey block, using backup,
   reload, validation, rollback, and race protection. Other configuration is

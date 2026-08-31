@@ -13,6 +13,7 @@ export interface Preferences {
   compactMode: boolean;
   calculatorEnabled: boolean;
   fileSearchEnabled: boolean;
+  fileSearchDefaultsApplied: boolean;
   quickActivationEnabled: boolean;
   fileSearchScopes: string[];
   fileSearchIgnores: string[];
@@ -20,7 +21,7 @@ export interface Preferences {
 
 export interface OnboardingState {
   version: number;
-  status: "pending" | "dependencies" | "verify" | "complete";
+  status: "pending" | "verify" | "complete";
   hotkey: string;
   showCoach: boolean;
 }
@@ -378,11 +379,17 @@ export interface FileRank {
   scope: string;
   tier: number;
   relative: string;
+  isDirectory: boolean;
+}
+
+export interface FileCandidate {
+  path: string;
+  isDirectory: boolean;
 }
 
 export interface FileRecord extends SearchableRecord {
   type: "file";
-  kind: "file";
+  kind: "file" | "folder";
   filePath: string;
   fileScope: string;
   title: string;
@@ -405,6 +412,12 @@ export interface CalculatorRequest {
   expression: string;
   explicit: boolean;
   key: string;
+}
+
+export interface CalculatorEvaluation {
+  ok: boolean;
+  result: string;
+  error: string;
 }
 
 export interface ActionInput {
@@ -513,11 +526,6 @@ export interface EmptyStatus {
 }
 
 export interface SettingsContext {
-  calculatorSettled?: boolean;
-  calculatorAvailable?: boolean;
-  fileSearchSettled?: boolean;
-  fileSearchAvailable?: boolean;
-  dependencyInstallRunning?: boolean;
   commonScopes?: readonly string[];
   launcherHotkey?: string;
   onboardingHotkey?: string;

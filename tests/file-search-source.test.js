@@ -16,7 +16,9 @@ test("file scans are debounced, bounded, cancelled, and never shell-built", () =
   assert.match(provider, /interval: 120/)
   assert.match(provider, /interval: 1500/)
   assert.match(provider, /signal\(15\)/)
+  assert.match(provider, /FileSearchModel\.commandArguments\(\s*"find"/)
   assert.doesNotMatch(provider, /bash|sh -c/i)
+  assert.doesNotMatch(provider, /which.*fd|Install fd/i)
 })
 
 test("the empty Files route teaches the root search shortcut", () => {

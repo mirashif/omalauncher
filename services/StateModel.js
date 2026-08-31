@@ -32,7 +32,8 @@ function emptyPreferences() {
   return {
     compactMode: false,
     calculatorEnabled: true,
-    fileSearchEnabled: false,
+    fileSearchEnabled: true,
+    fileSearchDefaultsApplied: false,
     quickActivationEnabled: true,
     fileSearchScopes: [],
     fileSearchIgnores: []
@@ -201,7 +202,9 @@ function normalizeState(value) {
     compactMode: sourcePreferences["compactMode"] === true,
     calculatorEnabled: sourcePreferences["calculatorEnabled"] === undefined
       ? defaults.calculatorEnabled : sourcePreferences["calculatorEnabled"] === true,
-    fileSearchEnabled: sourcePreferences["fileSearchEnabled"] === true,
+    fileSearchEnabled: sourcePreferences["fileSearchEnabled"] === undefined
+      ? defaults.fileSearchEnabled : sourcePreferences["fileSearchEnabled"] === true,
+    fileSearchDefaultsApplied: sourcePreferences["fileSearchDefaultsApplied"] === true,
     quickActivationEnabled: sourcePreferences["quickActivationEnabled"] === undefined
       ? defaults.quickActivationEnabled : sourcePreferences["quickActivationEnabled"] === true,
     fileSearchScopes: uniqueList(sourcePreferences["fileSearchScopes"], normalizeScope, 32),
@@ -211,16 +214,16 @@ function normalizeState(value) {
   var sourceOnboardingValue = source["onboarding"]
   var sourceOnboarding = isRecord(sourceOnboardingValue) ? sourceOnboardingValue : {}
   var rawOnboardingStatus = validText(sourceOnboarding["status"])
-  /** @type {"pending" | "dependencies" | "verify" | "complete"} */
-  var onboardingStatus = rawOnboardingStatus === "dependencies"
-    || rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
+  /** @type {"pending" | "verify" | "complete"} */
+  var onboardingStatus = rawOnboardingStatus === "verify" || rawOnboardingStatus === "complete"
     ? rawOnboardingStatus : "pending"
   var onboardingHotkey = validText(sourceOnboarding["hotkey"])
   if (/[^A-Za-z0-9_ +]/.test(onboardingHotkey) || onboardingHotkey.length > 64) {
     onboardingHotkey = ""
   }
-  if ((onboardingStatus === "dependencies" || onboardingStatus === "verify")
-      && !onboardingHotkey) onboardingStatus = "pending"
+  // Migrate the removed optional-tools step directly to shortcut verification.
+  if (rawOnboardingStatus === "dependencies" && onboardingHotkey) onboardingStatus = "verify"
+  if (onboardingStatus === "verify" && !onboardingHotkey) onboardingStatus = "pending"
   /** @type {OnboardingState} */
   var onboarding = {
     version: 1,
@@ -442,6 +445,25 @@ function updatePreferenceList(state, key, value, add, normalizer, limit) {
   /** @type {Preferences} */
   var preferences = Object.assign({}, current.preferences)
   preferences[key] = values
+  if (key === "fileSearchScopes") preferences.fileSearchDefaultsApplied = true
+  return stateWith(current, { preferences: preferences })
+}
+
+/**
+ * Applies discovered standard user folders once, while preserving existing choices.
+ * @param {unknown} state
+ * @param {readonly unknown[] | null | undefined} scopes
+ * @returns {LauncherState}
+ */
+function initializeFileSearchDefaults(state, scopes) {
+  var current = normalizeState(state)
+  if (current.preferences.fileSearchDefaultsApplied) return current
+  var defaults = uniqueList(scopes, normalizeScope, 32)
+  if (defaults.length === 0) return current
+  /** @type {Preferences} */
+  var preferences = Object.assign({}, current.preferences)
+  if (preferences.fileSearchScopes.length === 0) preferences.fileSearchScopes = defaults
+  preferences.fileSearchDefaultsApplied = true
   return stateWith(current, { preferences: preferences })
 }
 
@@ -495,13 +517,12 @@ function resetPersonalization(state) {
 function setOnboarding(state, status, hotkey, showCoach) {
   var current = normalizeState(state)
   var nextStatus = validText(status)
-  if (nextStatus !== "pending" && nextStatus !== "dependencies"
-      && nextStatus !== "verify" && nextStatus !== "complete") {
+  if (nextStatus !== "pending" && nextStatus !== "verify" && nextStatus !== "complete") {
     return current
   }
   var chord = validText(hotkey)
   if (/[^A-Za-z0-9_ +]/.test(chord) || chord.length > 64) chord = ""
-  if ((nextStatus === "dependencies" || nextStatus === "verify") && !chord) return current
+  if (nextStatus === "verify" && !chord) return current
   return stateWith(current, {
     onboarding: {
       version: 1,
@@ -646,6 +667,7 @@ if (typeof module !== "undefined") {
     setPreference: setPreference,
     addFileScope: addFileScope,
     removeFileScope: removeFileScope,
+    initializeFileSearchDefaults: initializeFileSearchDefaults,
     addFileIgnore: addFileIgnore,
     removeFileIgnore: removeFileIgnore,
     resetProviderSettings: resetProviderSettings,

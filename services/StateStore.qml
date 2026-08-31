@@ -116,6 +116,14 @@ Item {
     root.scheduleSave()
   }
 
+  function initializeFileSearchDefaults(scopes) {
+    if (root.preferences.fileSearchDefaultsApplied === true
+        || !Array.isArray(scopes) || scopes.length === 0) return false
+    root.snapshot = StateModel.initializeFileSearchDefaults(root.snapshot, scopes)
+    root.scheduleSave()
+    return true
+  }
+
   function addFileIgnore(value) {
     root.snapshot = StateModel.addFileIgnore(root.snapshot, value)
     root.scheduleSave()

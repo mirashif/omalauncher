@@ -88,9 +88,11 @@ function actionsForResult(result, context, route) {
   var activeRoute = text(route || "root")
 
   if (file || fileStatus) {
-    actions.push(action("primary", file ? "Open File" : resultTitle,
+    var folder = file && resultKind === "folder"
+    actions.push(action("primary", file ? (folder ? "Open Folder" : "Open File") : resultTitle,
       file ? text(row.filePath || row.description) : text(row.description),
-      "Enter", file ? "󰁞" : "", ["file", "open", "primary"], 0, "File"))
+      "Enter", file ? (folder ? "󰉋" : "󰁞") : "",
+      ["file", "folder", "open", "primary"], 0, "File"))
     if (file) {
       actions.push(action("reveal-file", "Reveal in File Manager", text(row.filePath || row.description),
         "", "󰗃", ["file", "reveal", "folder", "manager"], 1, "File"))

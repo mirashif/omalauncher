@@ -32,6 +32,7 @@ test("state normalization repairs malformed and duplicate values", () => {
       compactMode: true,
       calculatorEnabled: false,
       fileSearchEnabled: true,
+      fileSearchDefaultsApplied: false,
       quickActivationEnabled: false,
       fileSearchScopes: ["/home/test/Documents/", "/", "relative", "/home/test/Documents"],
       fileSearchIgnores: ["node_modules", "", "node_modules", "*.tmp"]
@@ -47,6 +48,7 @@ test("state normalization repairs malformed and duplicate values", () => {
       compactMode: true,
       calculatorEnabled: false,
       fileSearchEnabled: true,
+      fileSearchDefaultsApplied: false,
       quickActivationEnabled: false,
       fileSearchScopes: ["/home/test/Documents"],
       fileSearchIgnores: ["node_modules", "*.tmp"]
@@ -70,17 +72,16 @@ test("fresh and partial state enter onboarding until setup completes", () => {
   assert.equal(StateModel.normalizeState({
     version: 1,
     onboarding: { status: "dependencies", hotkey: "SUPER + R" }
-  }).onboarding.status, "dependencies")
+  }).onboarding.status, "verify")
   assert.equal(StateModel.normalizeState({
     version: 1,
     onboarding: { status: "dependencies", hotkey: "" }
   }).onboarding.status, "pending")
 })
 
-test("onboarding persists optional features, verification, and one-time coaching", () => {
-  const dependencies = StateModel.setOnboarding(
-    StateModel.emptyState(), "dependencies", "SUPER + R", false)
-  const ready = StateModel.setOnboarding(dependencies, "verify", "SUPER + R", false)
+test("onboarding persists verification and one-time coaching", () => {
+  const ready = StateModel.setOnboarding(
+    StateModel.emptyState(), "verify", "SUPER + R", false)
   const complete = StateModel.setOnboarding(ready, "complete", "SUPER + R", true)
   const coached = StateModel.dismissOnboardingCoach(complete)
 
@@ -90,7 +91,8 @@ test("onboarding persists optional features, verification, and one-time coaching
     hotkey: "SUPER + R",
     showCoach: false
   })
-  assert.equal(dependencies.onboarding.status, "dependencies")
+  assert.equal(StateModel.setOnboarding(
+    StateModel.emptyState(), "dependencies", "SUPER + R", false).onboarding.status, "pending")
   assert.equal(complete.onboarding.showCoach, true)
   assert.equal(coached.onboarding.showCoach, false)
   assert.deepEqual(coached.favorites, ready.favorites)
@@ -142,6 +144,7 @@ test("interaction preferences update without losing unrelated state", () => {
   assert.deepEqual(state.favorites, ["application:firefox"])
   assert.equal(state.preferences.compactMode, true)
   assert.equal(state.preferences.calculatorEnabled, true)
+  assert.equal(state.preferences.fileSearchEnabled, true)
 
   state = StateModel.setAlias(state, "application:firefox", "")
   state = StateModel.setHidden(state, "omarchy:update", false)
@@ -164,12 +167,31 @@ test("provider preferences and scope lists update independently", () => {
 
   assert.equal(state.preferences.calculatorEnabled, false)
   assert.equal(state.preferences.fileSearchEnabled, true)
+  assert.equal(state.preferences.fileSearchDefaultsApplied, true)
   assert.equal(state.preferences.quickActivationEnabled, true)
   assert.deepEqual(state.preferences.fileSearchScopes, ["/home/test/Documents"])
   assert.deepEqual(state.preferences.fileSearchIgnores, ["*.tmp"])
 
   state = StateModel.removeFileScope(state, "/home/test/Documents/")
   assert.deepEqual(state.preferences.fileSearchScopes, [])
+})
+
+test("fresh file search adopts discovered standard folders once", () => {
+  const initial = StateModel.emptyState()
+  const configured = StateModel.initializeFileSearchDefaults(initial, [
+    "/home/test/Documents",
+    "/home/test/Downloads",
+    "/",
+    "relative"
+  ])
+  const removed = StateModel.removeFileScope(configured, "/home/test/Documents")
+  const unchanged = StateModel.initializeFileSearchDefaults(removed, ["/home/test/Documents"])
+
+  assert.equal(configured.preferences.fileSearchEnabled, true)
+  assert.equal(configured.preferences.fileSearchDefaultsApplied, true)
+  assert.deepEqual(configured.preferences.fileSearchScopes,
+    ["/home/test/Documents", "/home/test/Downloads"])
+  assert.deepEqual(unchanged.preferences.fileSearchScopes, ["/home/test/Downloads"])
 })
 
 test("provider and personalization resets preserve unrelated state", () => {
@@ -181,7 +203,8 @@ test("provider and personalization resets preserve unrelated state", () => {
   const providersReset = StateModel.resetProviderSettings(state)
   assert.deepEqual(providersReset.favorites, ["application:firefox"])
   assert.equal(providersReset.preferences.compactMode, true)
-  assert.equal(providersReset.preferences.fileSearchEnabled, false)
+  assert.equal(providersReset.preferences.fileSearchEnabled, true)
+  assert.equal(providersReset.preferences.fileSearchDefaultsApplied, false)
   assert.deepEqual(providersReset.preferences.fileSearchScopes, [])
 
   const personalizationReset = StateModel.resetPersonalization(state)

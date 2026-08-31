@@ -3,6 +3,7 @@
 /** @typedef {import("../types/models").QueryRequest} QueryRequest */
 /** @typedef {import("../types/models").FileRank} FileRank */
 /** @typedef {import("../types/models").FileRecord} FileRecord */
+/** @typedef {import("../types/models").FileCandidate} FileCandidate */
 /** @typedef {import("../types/models").SearchableRecord} SearchableRecord */
 /** @typedef {import("../types/models").DescribedRecord} DescribedRecord */
 
@@ -23,6 +24,13 @@ function normalizePath(value) {
   return path && path.charAt(0) === "/" ? path : ""
 }
 
+/** @param {unknown} value @returns {value is FileCandidate} */
+function isFileCandidate(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false
+  var candidate = /** @type {{ path?: unknown, isDirectory?: unknown }} */ (value)
+  return typeof candidate.path === "string" && typeof candidate.isDirectory === "boolean"
+}
+
 /**
  * @param {unknown} rawQuery
  * @param {unknown} routeActive
@@ -37,38 +45,104 @@ function queryRequest(rawQuery, routeActive) {
     : { active: false, query: "", explicit: false }
 }
 
+/** @type {readonly string[]} */
+var DEFAULT_IGNORES = Object.freeze([
+  ".*",
+  "node_modules",
+  "vendor",
+  "build",
+  "dist",
+  "target",
+  "__pycache__",
+  "venv"
+])
+
 /**
- * @param {unknown} fdPath
+ * @param {readonly unknown[] | null | undefined} ignores
+ * @returns {string[]}
+ */
+function combinedIgnores(ignores) {
+  var source = DEFAULT_IGNORES.concat(Array.isArray(ignores) ? ignores : [])
+  /** @type {Record<string, boolean>} */
+  var seen = {}
+  /** @type {string[]} */
+  var output = []
+  for (var index = 0; index < source.length; index++) {
+    var pattern = text(source[index])
+    if (!pattern || seen[pattern]) continue
+    seen[pattern] = true
+    output.push(pattern)
+  }
+  return output
+}
+
+/** @param {unknown} query @returns {string} */
+function findPattern(query) {
+  return "*" + String(query || "").replace(/([\\*?\[\]])/g, "\\$1") + "*"
+}
+
+/**
+ * @param {unknown} findPath
  * @param {unknown} query
  * @param {readonly unknown[] | null | undefined} scopes
  * @param {readonly unknown[] | null | undefined} ignores
  * @param {unknown} limit
  * @returns {string[]}
  */
-function commandArguments(fdPath, query, scopes, ignores, limit) {
-  var executable = text(fdPath) || "fd"
-  var maximum = Math.max(1, Math.min(500, Math.floor(Number(limit || 100))))
-  var args = [
-    executable,
-    "--type", "f",
-    "--color", "never",
-    "--absolute-path",
-    "--print0",
-    "--max-results", String(maximum),
-    "--fixed-strings"
-  ]
-  var ignoreValues = Array.isArray(ignores) ? ignores : []
-  for (var ignoreIndex = 0; ignoreIndex < ignoreValues.length; ignoreIndex++) {
-    var ignore = text(ignoreValues[ignoreIndex])
-    if (ignore) args.push("--exclude", ignore)
-  }
+function commandArguments(findPath, query, scopes, ignores, limit) {
+  var executable = text(findPath) || "find"
+  var args = [executable]
   var scopeValues = Array.isArray(scopes) ? scopes : []
   for (var scopeIndex = 0; scopeIndex < scopeValues.length; scopeIndex++) {
     var scope = normalizePath(scopeValues[scopeIndex])
-    if (scope && scope !== "/") args.push("--search-path", scope)
+    if (scope && scope !== "/") args.push(scope)
   }
-  args.push("--", String(query || ""))
+  var ignoreValues = combinedIgnores(ignores)
+  args.push("-xdev", "(", "-type", "d", "(")
+  for (var ignoreIndex = 0; ignoreIndex < ignoreValues.length; ignoreIndex++) {
+    if (ignoreIndex > 0) args.push("-o")
+    args.push("-name", ignoreValues[ignoreIndex] || "")
+  }
+  args.push(")", "-prune", ")", "-o", "(", "(", "-type", "f", "-o", "-type", "d", ")")
+  for (var resultIgnoreIndex = 0; resultIgnoreIndex < ignoreValues.length; resultIgnoreIndex++) {
+    args.push("!", "-name", ignoreValues[resultIgnoreIndex] || "")
+  }
+  args.push("-iname", findPattern(query), "-printf", "%y:%p\\0", ")")
+  void limit
   return args
+}
+
+/**
+ * @param {unknown} output
+ * @returns {FileCandidate | null}
+ */
+function searchEntry(output) {
+  var value = String(output === undefined || output === null ? "" : output)
+  if (value.length < 3 || value.charAt(1) !== ":") return null
+  var kind = value.charAt(0)
+  var path = normalizePath(value.slice(2))
+  if (!path || (kind !== "f" && kind !== "d")) return null
+  return { path: path, isDirectory: kind === "d" }
+}
+
+/**
+ * @param {readonly unknown[] | null | undefined} paths
+ * @param {readonly unknown[] | null | undefined} sourceEntries
+ * @returns {FileCandidate[]}
+ */
+function canonicalEntries(paths, sourceEntries) {
+  var canonicalPaths = Array.isArray(paths) ? paths : []
+  var entries = Array.isArray(sourceEntries) ? sourceEntries : []
+  /** @type {FileCandidate[]} */
+  var output = []
+  for (var index = 0; index < canonicalPaths.length; index++) {
+    var path = normalizePath(canonicalPaths[index])
+    if (!path) continue
+    var source = /** @type {unknown} */ (entries[index])
+    var isDirectory = isFileCandidate(source) && source.isDirectory
+    output.push({ path: path, isDirectory: isDirectory })
+  }
+  return output
 }
 
 /**
@@ -153,9 +227,11 @@ function breadcrumbForPath(pathValue, scopeValue) {
 
 /**
  * @param {unknown} pathValue
+ * @param {unknown} isDirectory
  * @returns {string}
  */
-function iconForPath(pathValue) {
+function iconForPath(pathValue, isDirectory) {
+  if (isDirectory === true) return "󰉋"
   var name = basename(pathValue).toLowerCase()
   if (/\.(png|jpe?g|gif|webp|svg|avif)$/.test(name)) return ""
   if (/\.(mp4|mkv|webm|mov|avi)$/.test(name)) return ""
@@ -198,7 +274,9 @@ function recordsForPaths(paths, query, scopes, limit) {
   /** @type {FileRank[]} */
   var ranked = []
   for (var index = 0; index < values.length; index++) {
-    var path = normalizePath(values[index])
+    var candidate = /** @type {unknown} */ (values[index])
+    var path = normalizePath(isFileCandidate(candidate) ? candidate.path : candidate)
+    var isDirectory = isFileCandidate(candidate) && candidate.isDirectory
     var scope = scopeForPath(path, scopes)
     if (!path || !scope || seen[path]) continue
     seen[path] = true
@@ -206,7 +284,8 @@ function recordsForPaths(paths, query, scopes, limit) {
       path: path,
       scope: scope,
       tier: matchTier(path, scope, query),
-      relative: relativePath(path, scope)
+      relative: relativePath(path, scope),
+      isDirectory: isDirectory
     })
   }
   ranked.sort(function(left, right) {
@@ -226,11 +305,11 @@ function recordsForPaths(paths, query, scopes, limit) {
     records.push({
       id: "file:" + result.scope + ":" + result.relative,
       type: "file",
-      kind: "file",
+      kind: result.isDirectory ? "folder" : "file",
       title: name,
       breadcrumb: breadcrumbForPath(result.path, result.scope),
       description: result.path,
-      icon: iconForPath(result.path),
+      icon: iconForPath(result.path, result.isDirectory),
       iconFont: "",
       appIcon: "",
       appId: "",
@@ -317,6 +396,10 @@ if (typeof module !== "undefined") {
     normalizePath: normalizePath,
     queryRequest: queryRequest,
     commandArguments: commandArguments,
+    combinedIgnores: combinedIgnores,
+    findPattern: findPattern,
+    searchEntry: searchEntry,
+    canonicalEntries: canonicalEntries,
     canonicalizeArguments: canonicalizeArguments,
     scopeForPath: scopeForPath,
     basename: basename,
