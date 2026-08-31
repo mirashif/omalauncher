@@ -7,7 +7,7 @@ words you remember—such as `plugins`, `clipboard`, or `browser default`. Launc
 apps, run actions, assign global shortcuts, and discover, install, or remove
 plugins without memorizing where anything lives.
 
-**Built for Omarchy 4 · Current release: v1.2.1**
+**Built for Omarchy 4 · Current release: v1.3.0**
 
 [Install](#install) · [See how it works](#how-it-works) ·
 [View shortcuts](#keyboard-shortcuts)
