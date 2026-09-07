@@ -97,6 +97,7 @@ export interface SearchableRecord {
   calculatorResult?: string;
   filePath?: string;
   fileScope?: string;
+  fileQuery?: string;
   previewImageUrl?: string;
   semanticTier?: number;
   semanticQuality?: number;

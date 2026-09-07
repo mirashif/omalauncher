@@ -852,8 +852,8 @@ Item {
       title: "Calculate",
       breadcrumb: "",
       description: preferences.calculatorEnabled === true
-        ? "Type math directly · Example: 12 * 8"
-        : "Enable in Settings · Example: 12 * 8",
+        ? "Try 12 * 8 or 10 km to mi"
+        : "Enable in Settings · Try 12 * 8 or 10 km to mi",
       icon: "",
       iconFont: "",
       appIcon: "",
@@ -2196,7 +2196,7 @@ Item {
       return
     }
     if (row.resultKind === "open-calculator") {
-      root.setSearchTextSilently("12 * 8")
+      root.setSearchTextSilently("= ")
       root.selectedIndex = 0
       root.rebuildResults()
       Qt.callLater(function() {
@@ -2312,6 +2312,16 @@ Item {
       root.setActiveRoute("settings", true)
       return
     }
+    if (row.resultKind === "calculator-example") {
+      root.setSearchTextSilently(row.calculatorExpression)
+      root.selectedIndex = 0
+      root.rebuildResults()
+      Qt.callLater(function() {
+        searchInput.forceActiveFocus()
+        searchInput.cursorPosition = searchInput.text.length
+      })
+      return
+    }
     if (row.resultKind === "calculator-ready"
         || row.resultKind === "calculator-loading" || row.resultKind === "calculator-error") return
     if (row.resultKind === "open-files") {
@@ -2320,6 +2330,16 @@ Item {
       return
     }
     if (row.resultType === "file-status") {
+      if (row.resultKind === "file-search-example") {
+        root.setSearchTextSilently(String(row.fileQuery || row.title || ""))
+        root.selectedIndex = 0
+        root.rebuildResults()
+        Qt.callLater(function() {
+          searchInput.forceActiveFocus()
+          searchInput.cursorPosition = searchInput.text.length
+        })
+        return
+      }
       if (SettingsModel.isRoute(row.route)) root.setActiveRoute(row.route, true)
       return
     }
@@ -2558,9 +2578,13 @@ Item {
     if (row.resultKind === "settings-confirm-remove-shortcut") return "Remove"
     if (row.resultKind === "settings-cancel") return "Cancel"
     if (row.resultKind === "calculator") return "Copy Result"
+    if (row.resultKind === "calculator-example") return "Try Example"
     if (String(row.resultKind || "").indexOf("calculator-") === 0) return ""
     if (row.resultType === "file") return row.resultKind === "folder" ? "Open Folder" : "Open File"
-    if (row.resultType === "file-status") return SettingsModel.isRoute(row.route) ? "Open Settings" : ""
+    if (row.resultType === "file-status") {
+      if (row.resultKind === "file-search-example") return "Try Example"
+      return SettingsModel.isRoute(row.route) ? "Open Settings" : ""
+    }
     if (row.resultType === "application") return "Open Application"
     if (row.executionKind === "shell-plugin" || row.executionKind === "shell-ipc") return "Open Shell Feature"
     if (row.executionKind === "cli-help") return "Show Command Help"

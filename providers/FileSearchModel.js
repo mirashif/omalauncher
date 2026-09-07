@@ -16,6 +16,33 @@ function text(value) {
 }
 
 /**
+ * @param {unknown} current
+ * @param {unknown} chunk
+ * @param {unknown} limit
+ * @returns {{ text: string, truncated: boolean }}
+ */
+function appendBoundedOutput(current, chunk, limit) {
+  var existing = String(current === undefined || current === null ? "" : current)
+  var incoming = String(chunk === undefined || chunk === null ? "" : chunk)
+  var maximum = Math.max(0, Math.floor(Number(limit || 0)))
+  if (existing.length >= maximum) {
+    return { text: existing.slice(0, maximum), truncated: incoming.length > 0 }
+  }
+  var remaining = maximum - existing.length
+  return {
+    text: existing + incoming.slice(0, remaining),
+    truncated: incoming.length > remaining
+  }
+}
+
+/** @param {unknown} output @param {unknown} truncated @returns {string} */
+function diagnosticOutput(output, truncated) {
+  var message = String(output === undefined || output === null ? "" : output).trim()
+  if (truncated === true) message += (message ? "\n" : "") + "[diagnostic output truncated]"
+  return message
+}
+
+/**
  * @param {unknown} value
  * @returns {string}
  */
@@ -360,6 +387,21 @@ function statusRecord(kind, title, description, route) {
   }
 }
 
+/** @param {string} query @param {string} description */
+function exampleRecord(query, description) {
+  var record = statusRecord("example", query, description, "")
+  record.fileQuery = query
+  record.icon = "󰈞"
+  return record
+}
+
+function exampleRecords() {
+  return [
+    exampleRecord("report.pdf", "Find a file · Press Enter to try"),
+    exampleRecord("screenshots", "Find a folder · Press Enter to try")
+  ]
+}
+
 /**
  * @param {unknown} enabled
  * @param {unknown} scopeCount
@@ -373,9 +415,9 @@ function managementRecord(enabled, scopeCount) {
     title: "Search Files",
     breadcrumb: "",
     description: enabled === true
-      ? (Number(scopeCount || 0) + " configured scope" + (Number(scopeCount || 0) === 1 ? "" : "s")
-        + " · Root shortcut: f report.pdf")
-      : "Enable in Settings · Root shortcut: f report.pdf",
+      ? "Try f report.pdf · " + Number(scopeCount || 0) + " configured scope"
+        + (Number(scopeCount || 0) === 1 ? "" : "s")
+      : "Enable in Settings · Then try f report.pdf",
     icon: "󰈞",
     iconFont: "",
     appIcon: "",
@@ -394,6 +436,8 @@ function managementRecord(enabled, scopeCount) {
 if (typeof module !== "undefined") {
   module.exports = {
     normalizePath: normalizePath,
+    appendBoundedOutput: appendBoundedOutput,
+    diagnosticOutput: diagnosticOutput,
     queryRequest: queryRequest,
     commandArguments: commandArguments,
     combinedIgnores: combinedIgnores,
@@ -408,6 +452,7 @@ if (typeof module !== "undefined") {
     breadcrumbForPath: breadcrumbForPath,
     recordsForPaths: recordsForPaths,
     statusRecord: statusRecord,
+    exampleRecords: exampleRecords,
     managementRecord: managementRecord
   }
 }

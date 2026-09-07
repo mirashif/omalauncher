@@ -21,6 +21,7 @@ Item {
   property bool activeRequest: false
   property bool timedOut: false
   readonly property int resultLimit: 100
+  readonly property int errorOutputLimit: 16384
 
   function request(queryValue, scopeValues, ignoreValues, active) {
     var nextQuery = String(queryValue || "").trim()
@@ -65,6 +66,7 @@ Item {
         "ready", "Type to Search Files",
         "Search here, or from Root Search type f report.pdf · "
           + root.scopes.length + " configured scope" + (root.scopes.length === 1 ? "" : "s"), "")]
+        .concat(FileSearchModel.exampleRecords())
       return
     }
     root.loading = true
@@ -95,6 +97,7 @@ Item {
       }
       searchProc.entries = []
       searchProc.errorOutput = ""
+      searchProc.errorOutputTruncated = false
       searchProc.generation = root.generation
       searchProc.command = FileSearchModel.commandArguments(
         "find", root.query, root.scopes, root.ignores, root.resultLimit)
@@ -116,7 +119,7 @@ Item {
     }
   }
 
-  function finishSearch(entries, exitCode, exitStatus, errorOutput, didTimeOut) {
+  function finishSearch(entries, exitCode, exitStatus, errorOutput, errorOutputTruncated, didTimeOut) {
     root.loading = false
     var fileRecords = FileSearchModel.recordsForPaths(
       entries, root.query, root.scopes, root.resultLimit)
@@ -129,7 +132,8 @@ Item {
       root.error = "File search timed out"
       root.records = [FileSearchModel.statusRecord("error", "File Search Timed Out", root.error, "")]
     } else if (exitCode !== 0 || exitStatus !== 0) {
-      root.error = String(errorOutput || "").trim() || "File search failed"
+      root.error = FileSearchModel.diagnosticOutput(errorOutput, errorOutputTruncated)
+        || "File search failed"
       root.records = [FileSearchModel.statusRecord("error", "File Search Failed", root.error, "")]
     } else {
       root.error = ""
@@ -142,6 +146,7 @@ Item {
     property int generation: 0
     property var entries: []
     property string errorOutput: ""
+    property bool errorOutputTruncated: false
     stdout: SplitParser {
       splitMarker: "\0"
       onRead: function(data) {
@@ -153,7 +158,12 @@ Item {
       }
     }
     stderr: SplitParser {
-      onRead: function(data) { searchProc.errorOutput += data + "\n" }
+      onRead: function(data) {
+        var appended = FileSearchModel.appendBoundedOutput(
+          searchProc.errorOutput, String(data || "") + "\n", root.errorOutputLimit)
+        searchProc.errorOutput = appended.text
+        searchProc.errorOutputTruncated = searchProc.errorOutputTruncated || appended.truncated
+      }
     }
     onExited: function(exitCode, exitStatus) {
       timeout.stop()
@@ -163,17 +173,20 @@ Item {
         canonicalizeProc.sourceExitCode = exitCode
         canonicalizeProc.sourceExitStatus = exitStatus
         canonicalizeProc.sourceError = searchProc.errorOutput
+        canonicalizeProc.sourceErrorTruncated = searchProc.errorOutputTruncated
         canonicalizeProc.sourceTimedOut = root.timedOut
         canonicalizeProc.sourceEntries = searchProc.entries
         canonicalizeProc.paths = []
         canonicalizeProc.errorOutput = ""
+        canonicalizeProc.errorOutputTruncated = false
         canonicalizeProc.command = FileSearchModel.canonicalizeArguments(
           "realpath", searchProc.entries.map(function(entry) { return entry.path }), root.resultLimit)
         canonicalizeProc.running = true
         timeout.restart()
         return
       }
-      root.finishSearch([], exitCode, exitStatus, searchProc.errorOutput, root.timedOut)
+      root.finishSearch([], exitCode, exitStatus, searchProc.errorOutput,
+        searchProc.errorOutputTruncated, root.timedOut)
     }
   }
 
@@ -186,7 +199,9 @@ Item {
     property var sourceEntries: []
     property var paths: []
     property string sourceError: ""
+    property bool sourceErrorTruncated: false
     property string errorOutput: ""
+    property bool errorOutputTruncated: false
     stdout: SplitParser {
       splitMarker: "\0"
       onRead: function(data) {
@@ -196,12 +211,19 @@ Item {
       }
     }
     stderr: SplitParser {
-      onRead: function(data) { canonicalizeProc.errorOutput += data + "\n" }
+      onRead: function(data) {
+        var appended = FileSearchModel.appendBoundedOutput(
+          canonicalizeProc.errorOutput, String(data || "") + "\n", root.errorOutputLimit)
+        canonicalizeProc.errorOutput = appended.text
+        canonicalizeProc.errorOutputTruncated = canonicalizeProc.errorOutputTruncated || appended.truncated
+      }
     }
     onExited: function(exitCode, exitStatus) {
       timeout.stop()
       if (canonicalizeProc.generation !== root.generation) return
       var errorMessage = canonicalizeProc.sourceError || canonicalizeProc.errorOutput
+      var errorTruncated = canonicalizeProc.sourceError
+        ? canonicalizeProc.sourceErrorTruncated : canonicalizeProc.errorOutputTruncated
       var failed = canonicalizeProc.sourceExitCode !== 0 || canonicalizeProc.sourceExitStatus !== 0
         || (canonicalizeProc.paths.length === 0 && (exitCode !== 0 || exitStatus !== 0))
       root.finishSearch(
@@ -209,6 +231,7 @@ Item {
         failed ? 1 : 0,
         failed ? 1 : 0,
         errorMessage,
+        errorTruncated,
         canonicalizeProc.sourceTimedOut || root.timedOut)
     }
   }

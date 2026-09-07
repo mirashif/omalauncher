@@ -65,6 +65,13 @@ test("calculator status rows teach prefix-free input", () => {
   assert.equal(CalculatorModel.disabledRecord().kind, "calculator-unavailable")
 })
 
+test("calculator examples teach arithmetic and conversions with runnable expressions", () => {
+  const examples = CalculatorModel.exampleRecords()
+  assert.deepEqual(examples.map(row => row.calculatorExpression),
+    ["12 * 8", "10 km to mi", "72 f to c"])
+  assert.equal(examples.every(row => row.kind === "calculator-example"), true)
+})
+
 test("calculator provider evaluates in process without an optional backend", () => {
   const provider = fs.readFileSync(path.join(__dirname, "..", "providers", "CalculatorProvider.qml"), "utf8")
   assert.match(provider, /CalculatorModel\.evaluate\(parsed\.expression\)/)

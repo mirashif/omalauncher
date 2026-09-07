@@ -107,10 +107,27 @@ test("file search exposes bounded provider status and management records", () =>
   assert.equal(FileSearchModel.statusRecord(
     "error", "File Search Timed Out", "Timed out", "").kind, "file-search-error")
   assert.equal(FileSearchModel.managementRecord(false, 0).description,
-    "Enable in Settings · Root shortcut: f report.pdf")
+    "Enable in Settings · Then try f report.pdf")
   assert.equal(FileSearchModel.managementRecord(true, 2).description,
-    "2 configured scopes · Root shortcut: f report.pdf")
+    "Try f report.pdf · 2 configured scopes")
   assert.equal(FileSearchModel.managementRecord(true, 2).breadcrumb, "")
+})
+
+test("streamed diagnostics retain a bounded prefix and report truncation", () => {
+  var first = FileSearchModel.appendBoundedOutput("", "first", 8)
+  assert.deepEqual(first, { text: "first", truncated: false })
+  var second = FileSearchModel.appendBoundedOutput(first.text, "-second", 8)
+  assert.deepEqual(second, { text: "first-se", truncated: true })
+  var full = FileSearchModel.appendBoundedOutput(second.text, "ignored", 8)
+  assert.deepEqual(full, { text: "first-se", truncated: true })
+  assert.equal(FileSearchModel.diagnosticOutput(full.text, true),
+    "first-se\n[diagnostic output truncated]")
+})
+
+test("file search examples expose runnable file and folder queries", () => {
+  const examples = FileSearchModel.exampleRecords()
+  assert.deepEqual(examples.map(row => row.fileQuery), ["report.pdf", "screenshots"])
+  assert.equal(examples.every(row => row.kind === "file-search-example"), true)
 })
 
 test("superseded file searches cannot apply their late output", () => {

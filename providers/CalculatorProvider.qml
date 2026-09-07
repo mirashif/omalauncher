@@ -37,7 +37,7 @@ Item {
       return
     }
     if (!parsed.expression) {
-      root.records = [CalculatorModel.readyRecord()]
+      root.records = [CalculatorModel.readyRecord()].concat(CalculatorModel.exampleRecords())
       return
     }
 

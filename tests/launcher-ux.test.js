@@ -40,9 +40,9 @@ test("new installations place the launcher widget on the right", () => {
 test("Calculate is discoverable without an equals prefix and results stay first", () => {
   const launcher = fs.readFileSync(path.join(projectRoot, "Launcher.qml"), "utf8")
 
-  assert.match(launcher, /kind: "open-calculator"[\s\S]*?"Type math directly · Example: 12 \* 8"/)
+  assert.match(launcher, /kind: "open-calculator"[\s\S]*?"Try 12 \* 8 or 10 km to mi"/)
   assert.match(launcher, /kind: "open-calculator"[\s\S]*?breadcrumb: ""/)
-  assert.match(launcher, /if \(row\.resultKind === "open-calculator"\) \{[\s\S]*?setSearchTextSilently\("12 \* 8"\)/)
+  assert.match(launcher, /if \(row\.resultKind === "open-calculator"\) \{[\s\S]*?setSearchTextSilently\("= "\)/)
   assert.match(launcher, /results = calculatorProvider\.records\.concat\(results\)\.slice\(0, 50\)/)
   assert.match(launcher, /if \(row\.resultKind === "open-calculator"\) return "Start Calculating"/)
   assert.match(launcher, /row\.resultKind === "calculator-ready"/)

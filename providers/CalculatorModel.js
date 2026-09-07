@@ -462,6 +462,19 @@ function readyRecord() {
   return statusRecord("", "calculator-ready", "Type a Calculation", "Example: 12 * 8 or 10 km to mi", "")
 }
 
+/** @param {string} expression @param {string} description @returns {CalculatorRecord} */
+function exampleRecord(expression, description) {
+  return statusRecord(expression, "calculator-example", expression, description, "")
+}
+
+function exampleRecords() {
+  return [
+    exampleRecord("12 * 8", "Arithmetic · Press Enter to try"),
+    exampleRecord("10 km to mi", "Unit conversion · Press Enter to try"),
+    exampleRecord("72 f to c", "Temperature conversion · Press Enter to try")
+  ]
+}
+
 /** @returns {CalculatorRecord} */
 function disabledRecord() {
   return statusRecord("", "calculator-unavailable", "Calculator Disabled",
@@ -479,6 +492,7 @@ if (typeof module !== "undefined") {
     evaluate: evaluate,
     resultRecord: resultRecord,
     readyRecord: readyRecord,
+    exampleRecords: exampleRecords,
     disabledRecord: disabledRecord,
     errorRecord: errorRecord,
     formatNumber: formatNumber
