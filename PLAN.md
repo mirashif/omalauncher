@@ -1,8 +1,8 @@
 # OmaLauncher Product Plan
 
-Status: v1.3.0 implemented and validated locally
+Status: v1.3.1 implemented and validated locally
 
-Last updated: 2026-08-24
+Last updated: 2026-09-07
 
 Target: Omarchy 4 / Quattro with Quickshell 0.3
 
@@ -21,7 +21,7 @@ The product should remain:
 4. Safe around commands, expressions, paths, and plugin updates.
 5. Additive: the stock Omarchy launchers remain available as fallbacks.
 
-## Current release: v1.3.0
+## Current release: v1.3.1
 
 ### First-run access
 
